@@ -4,6 +4,60 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:09:10 17:50
+
+**Resumen:** En Seguimiento en Vivo, "Viajes Activos" (o el detalle) ahora estira hasta el borde inferior de la barra de telemetría en vez de quedarse mas corto que la columna del mapa.
+
+**Cambios:**
+
+- `SeguimientoSection`: la fila raíz pasó a `flex min-h-0 flex-1 ... xl:flex-row` para heredar la altura completa que le da `<main>` (ver entrada de las 13:20). La columna izquierda (`xl:w-1/3`) sumó `min-h-0 xl:h-full` para estirarse a esa altura en vez de medir solo su contenido; la columna derecha pasó a `flex min-h-0 flex-1`. El mapa sigue siendo el que absorbe el espacio sobrante (`flex-1` con `min-h-56` de piso), no la telemetría, para que la barra quede al fondo con su alto natural.
+- `ViajesActivosCard` y `DetalleViajePlaceholderCard` sumaron `w-full`: sin él, el contenedor flex-row de la izquierda (`items-stretch` solo afecta el eje transversal, no el ancho) dejaba que la tarjeta se achicara a su contenido en vez de llenar el tercio de columna reservado — el hueco que se veia antes de llegar al mapa.
+- `routes/_private/seguimiento/index.tsx`: el wrapper de la página pasó a `flex min-h-0 flex-1 flex-col`, el mismo patrón que Panel de Control, para propagar la altura completa desde `<main>` hasta `SeguimientoSection`.
+- Se corrieron `pnpm typecheck`, `pnpm lint`, la suite unitaria de `tests/seguimiento/` (33/33) y las suites e2e de `e2e/seguimiento.spec.ts` y `e2e/panel.spec.ts` (19/19 combinadas): todo en verde. Dos fallas preexistentes en `tests/panel/formatEta.test.ts` y `tests/panel/NotificacionesCard.test.tsx` se confirmaron ajenas a este cambio reproduciéndolas con `git stash` antes de aplicar los cambios. Se usaron pruebas Playwright temporales (creadas y eliminadas en la misma sesión, sin comitear) para medir en el navegador que la tarjeta izquierda llena su columna y que su borde inferior queda a menos de 10px del de la telemetría a 1440×900.
+
+**Archivos modificados:**
+
+- `src/features/seguimiento/SeguimientoSection.tsx`
+- `src/features/seguimiento/ViajesActivosCard.tsx`
+- `src/features/seguimiento/DetalleViajePlaceholderCard.tsx`
+- `src/routes/_private/seguimiento/index.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 17:22
+
+**Resumen:** El Panel de Control ahora ocupa todo el alto disponible de la pantalla: la tabla y la columna del mapa/notificaciones estiran para llegar al borde inferior del viewport en vez de dejar un hueco vacío debajo.
+
+**Cambios:**
+
+- `AppShell`: el `<main>` pasó de un contenedor simple a `flex w-full flex-1 flex-col`, para que crezca dentro del alto que ya reservaba el shell (`min-h-dvh`) en lugar de medir solo su contenido.
+- `routes/_private/index.tsx` y `PanelSection`: sus wrappers pasaron a `flex min-h-0 flex-1 flex-col`, propagando el estiramiento desde `<main>` hasta el grid de contenido.
+- Dentro de `PanelSection`, la fila inferior (tabla + columna derecha) pasó a `grid min-h-0 flex-1`; ambas columnas ganaron `h-full`. En la columna derecha, el mapa quedó envuelto en `flex-1` (con `min-h-56` como piso) para que sea el mapa —y no las notificaciones— quien absorba el espacio vertical sobrante, igual que ya hacía la barra de telemetría en Seguimiento en Vivo.
+- Cambio acotado a Panel de Control: Seguimiento en Vivo, Historial de Viajes, Solicitar Servicio y Configuración no se tocaron en esta entrada (ver la de las 13:40 para el ajuste de altura de Seguimiento en Vivo).
+- Se corrieron `pnpm typecheck`, `pnpm lint` y la suite e2e de `e2e/panel.spec.ts` (11/11): todo en verde. Se usó una prueba Playwright temporal (creada y eliminada en la misma sesión, sin comitear) para confirmar en el navegador que `#contenido` supera los 850px de alto y que el mapa crece más allá de su antiguo `min-h-56` fijo a 1440×900.
+
+**Archivos modificados:**
+
+- `src/app/shell/AppShell.tsx`
+- `src/routes/_private/index.tsx`
+- `src/features/panel/PanelSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 16:54
+
+**Resumen:** El área de contenido de toda la app autenticada (a la derecha del sidebar) dejó de estar limitada a `max-w-6xl` y centrada: ahora ocupa el 100% del ancho disponible en cualquier tamaño de pantalla.
+
+**Cambios:**
+
+- `AppShell`: se quitaron `mx-auto` y `max-w-6xl` del `<main>`, dejando `w-full px-4 py-6`. El cambio vive en el shell compartido, así que aplica por igual a Panel de Control, Seguimiento en Vivo, Historial de Viajes, Solicitar Servicio y Configuración, sin tocar cada ruta por separado.
+- Sin tope superior a propósito: en monitores anchos el contenido sigue llenando el espacio junto al sidebar en vez de centrarse con un margen fijo.
+- El padding horizontal (`px-4`) y vertical (`py-6`) se mantuvieron sin cambios.
+- Se corrieron `pnpm typecheck`, `pnpm lint` y la suite e2e de `e2e/panel.spec.ts` (11/11): todo en verde. Se usó una prueba Playwright temporal (creada y eliminada en la misma sesión, sin comitear) para confirmar en el navegador que `#contenido` mide el ancho completo disponible junto al sidebar a 1920px, superando los 1152px del antiguo `max-w-6xl`.
+
+**Archivos modificados:**
+
+- `src/app/shell/AppShell.tsx`
+- `CHANGELOG.md`
+
 ## 2026:09:10 12:00
 
 **Resumen:** Se quitó el `min-h-56` de `DetalleViajePlaceholderCard` y se igualó su padding al de `ViajesActivosCard`, para que el espacio de detalle mida exactamente lo mismo que "Viajes Activos" al alternar entre los dos.

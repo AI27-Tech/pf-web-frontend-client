@@ -25,7 +25,7 @@ export function ViajesActivosCard({
   const enRuta = viajes.filter((viaje) => viaje.estado === 'EN_RUTA').length;
 
   return (
-    <Card className="flex h-full flex-col gap-3 p-4" ariaLabel="Viajes activos">
+    <Card className="flex h-full w-full flex-col gap-3 p-4" ariaLabel="Viajes activos">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-on-surface text-lg font-bold">Viajes Activos</h2>
         <span className="bg-surface-container-high text-on-surface-variant rounded-full px-2.5 py-1 text-xs font-semibold">

@@ -28,8 +28,8 @@ export function SeguimientoSection({ viajes }: { readonly viajes: readonly Viaje
   const viajeSeleccionado = viajes.find((viaje) => viaje.viajeId === viajeSeleccionadoId);
 
   return (
-    <div className="flex flex-col gap-4 lg:gap-6 xl:flex-row">
-      <div className="flex xl:w-1/3">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6 xl:flex-row">
+      <div className="flex min-h-0 xl:h-full xl:w-1/3">
         {mostrandoDetalle ? (
           <DetalleViajePlaceholderCard />
         ) : (
@@ -41,8 +41,8 @@ export function SeguimientoSection({ viajes }: { readonly viajes: readonly Viaje
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 lg:gap-6">
-        <div className="flex-1">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6">
+        <div className="min-h-56 flex-1">
           <MapPlaceholderCard />
         </div>
         <TelemetriaExtraCard

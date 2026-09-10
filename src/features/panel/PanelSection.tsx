@@ -30,7 +30,7 @@ export function PanelSection({ panel }: { readonly panel: PanelDeControl }) {
   const hayAlertas = alertasActivas.total > 0;
 
   return (
-    <div className="flex flex-col gap-4 lg:gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
           etiqueta="Viajes activos"
@@ -68,14 +68,16 @@ export function PanelSection({ panel }: { readonly panel: PanelDeControl }) {
         <QuickActionsCard />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-3">
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-3">
         {/* La tabla es el contenido principal: primera en el DOM y en la lectura. */}
-        <div className="xl:col-span-2">
+        <div className="h-full xl:col-span-2">
           <ViajesEnCursoTable viajes={viajesEnCurso} />
         </div>
 
-        <div className="flex flex-col gap-4 lg:gap-6">
-          <MapPlaceholderCard />
+        <div className="flex h-full min-h-0 flex-col gap-4 lg:gap-6">
+          <div className="min-h-56 flex-1">
+            <MapPlaceholderCard />
+          </div>
           <NotificacionesCard notificaciones={notificaciones} />
         </div>
       </div>
