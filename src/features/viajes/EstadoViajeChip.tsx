@@ -1,0 +1,68 @@
+/*
+ * El chip de estado de un viaje.
+ *
+ * `lib/contracts/estados.ts` deja escrito que los estados de viaje
+ * son datos del contrato. Hoy el unico estado que la documentacion
+ * confirma es SOLICITADO.
+ *
+ */
+
+import type { CondicionActiva, EstadoViaje } from '@/lib/contracts';
+import { cx } from '@/lib/utils';
+
+type Tono = 'success' | 'warning' | 'info' | 'neutral';
+
+interface EstadoViajeChipProps {
+  readonly estado: EstadoViaje;
+  /** Condiciones superpuestas al estado. La primera manda sobre la apariencia. */
+  readonly condicionesActivas?: readonly CondicionActiva[];
+}
+
+/** Relleno suave + su par `on-*`. El punto usa el tono solido del mismo rol. */
+const tonoClases: Record<Tono, string> = {
+  success: 'bg-success-container text-on-success-container',
+  warning: 'bg-warning-container text-on-warning-container',
+  info: 'bg-info-container text-on-info-container',
+  neutral: 'bg-surface-container-high text-on-surface-variant',
+};
+
+const puntoClases: Record<Tono, string> = {
+  success: 'bg-success',
+  warning: 'bg-warning',
+  info: 'bg-info',
+  neutral: 'bg-outline',
+};
+
+/** Etiquetas de los estados que el cliente conoce. Sin entrada por defecto. */
+const etiquetaPorEstado: Readonly<Record<string, string>> = {
+  SOLICITADO: 'Solicitado',
+  EN_RUTA: 'En Ruta',
+};
+
+function tonoDeEstado(estado: EstadoViaje): Tono {
+  if (estado === 'EN_RUTA') return 'success';
+  if (estado === 'SOLICITADO') return 'info';
+  return 'neutral';
+}
+
+export function EstadoViajeChip({ estado, condicionesActivas = [] }: EstadoViajeChipProps) {
+  const condicion = condicionesActivas[0];
+
+  const tono: Tono = condicion !== undefined ? 'warning' : tonoDeEstado(estado);
+  const texto = condicion?.descripcion ?? etiquetaPorEstado[estado] ?? estado;
+
+  return (
+    <span
+      className={cx(
+        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap',
+        tonoClases[tono],
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cx('size-1.5 shrink-0 rounded-full', puntoClases[tono])}
+      />
+      {texto}
+    </span>
+  );
+}

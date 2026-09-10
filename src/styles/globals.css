@@ -1,0 +1,282 @@
+/*
+ * Tailwind 4 configura por CSS, no por tailwind.config.ts: el tema vive en @theme.
+ * Es la razon por la que este repo no tiene tailwind.config.ts.
+ */
+@import 'tailwindcss';
+
+/*
+ * Dark mode por CLASE, no por prefers-color-scheme: el tema se controla anadiendo
+ * `.dark` en <html>. Con esto, ademas, la variante `dark:` aplica cuando .dark
+ * esta en un ancestro.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * ============================================================================
+ *  SISTEMA DE COLOR — Material 3 (guia para desarrolladores)
+ * ============================================================================
+ *
+ * COMO SE USA
+ *   Los nombres son ROLES, no colores ni escalas. Se usan como cualquier color de
+ *   Tailwind: <utilidad>-<rol>. Ej: bg-surface, text-on-surface, border-outline.
+ *   NUNCA escribas colores crudos (bg-white, text-slate-900, #003595) en componentes:
+ *   no cambian con el tema y rompen la coherencia. Usa siempre un rol.
+ *
+ * LA REGLA "on-X" (la mas importante)
+ *   Un rol `on-X` es el color del CONTENIDO (texto/icono) que va ENCIMA de `X`.
+ *   Van SIEMPRE en pareja para que el contraste sea correcto en claro y oscuro:
+ *       <button class="bg-primary text-on-primary">      // accion principal
+ *       <div class="bg-surface text-on-surface">         // tarjeta y su texto
+ *       <span class="bg-error text-on-error">            // badge de error
+ *   Si pones un fondo `bg-X`, el texto encima debe ser `text-on-X`. No mezcles
+ *   (ej. `bg-primary` con `text-on-surface`): el contraste no esta garantizado.
+ *
+ * ROLES DE ESTADO (success / warning / info)
+ *   Ademas de los roles M3, hay tres roles de ESTADO DE OPERACION. Se usan para
+ *   comunicar la situacion de un dato, no para decorar:
+ *       success  todo en orden        (ej. viaje en ruta sin condiciones)
+ *       warning  atencion, no fallo   (ej. viaje con una condicion activa)
+ *       info     informativo neutro   (ej. viaje solicitado, aviso de llegada)
+ *   Cada uno tiene par solido (`success` + `on-success`) para puntos, bordes e
+ *   iconos, y par suave (`success-container` + `on-success-container`) para el
+ *   relleno de chips y avisos. La regla `on-X` aplica igual:
+ *       <span class="bg-success-container text-on-success-container">En Ruta</span>
+ *   No uses `warning` para la degradacion del servicio: eso es `degradado`.
+ *
+ * DE DONDE SALEN LOS VALORES
+ *   CLARO: definido aqui en @theme  (design system "Logistics Core").
+ *   OSCURO: mismo set de roles, otros valores, en el bloque `.dark` de abajo
+ *           (design system "AI27 Command Portal").
+ *   Para cambiar de tema se anade/quita la clase `.dark` en <html>: todos los roles
+ *   cambian de golpe, sin tocar ningun componente.
+ * ============================================================================
+ */
+@theme {
+  /* === Valores del tema CLARO (Logistics Core Design System) ===
+   * Esta seccion es la REFERENCIA: cada rol lleva su descripcion de uso. El bloque
+   * `.dark` repite los mismos nombres con otros valores, sin repetir estos comentarios.
+   */
+
+  /* -- Superficies: fondos por nivel de elevacion (de mas bajo a mas alto) -- */
+  --color-surface: oklch(0.983 0.009 299.245); /* superficie base generica */
+  --color-surface-dim: oklch(0.889 0.012 291.264); /* superficie atenuada (menos luz) */
+  --color-surface-bright: oklch(0.983 0.009 299.245); /* superficie realzada (mas luz) */
+  --color-surface-container-lowest: oklch(
+    1 0 0
+  ); /* tarjetas/paneles: nivel mas alto de contraste (blanco en claro) */
+  --color-surface-container-low: oklch(0.967 0.011 291.954); /* contenedor sutil */
+  --color-surface-container: oklch(
+    0.949 0.012 291.285
+  ); /* contenedor estandar (uso general de tarjetas) */
+  --color-surface-container-high: oklch(
+    0.931 0.012 291.279
+  ); /* contenedor elevado (hover, secciones destacadas) */
+  --color-surface-container-highest: oklch(
+    0.915 0.011 286.185
+  ); /* contenedor mas elevado (menus, popovers) */
+  --color-on-surface: oklch(
+    0.224 0.012 277.931
+  ); /* TEXTO/icono principal sobre cualquier surface */
+  --color-on-surface-variant: oklch(
+    0.397 0.02 277.952
+  ); /* texto secundario/atenuado sobre surface */
+
+  /* -- Inversas: para overlays de contraste opuesto al tema (tooltips, snackbars) -- */
+  --color-inverse-surface: oklch(0.311 0.013 279.189); /* fondo invertido */
+  --color-inverse-on-surface: oklch(0.958 0.012 291.287); /* texto sobre inverse-surface */
+
+  /* -- Bordes y divisores -- */
+  --color-outline: oklch(0.569 0.022 279.23); /* borde con enfasis (inputs, foco) */
+  --color-outline-variant: oklch(
+    0.829 0.02 279.468
+  ); /* borde sutil (divisores, bordes de tarjeta) */
+  --color-surface-tint: oklch(0.489 0.157 265.742); /* tinte de elevacion (M3); rara vez directo */
+
+  /* -- Primary: color de marca y accion principal (botones, links, estados activos) -- */
+  --color-primary: oklch(0.283 0.126 261.406); /* fondo de accion principal */
+  --color-on-primary: oklch(1 0 0); /* TEXTO/icono sobre bg-primary */
+  --color-primary-container: oklch(
+    0.371 0.165 261.494
+  ); /* variante suave: chips, fondos de acento */
+  --color-on-primary-container: oklch(0.738 0.135 269.366); /* texto sobre primary-container */
+  --color-inverse-primary: oklch(0.831 0.084 271.809); /* primary sobre fondos invertidos */
+
+  /* -- Secondary: acciones y acentos de apoyo (menos enfasis que primary) -- */
+  --color-secondary: oklch(0.483 0.068 260.186);
+  --color-on-secondary: oklch(1 0 0); /* texto sobre bg-secondary */
+  --color-secondary-container: oklch(0.862 0.068 263.723); /* variante suave del secundario */
+  --color-on-secondary-container: oklch(0.466 0.068 260.161);
+
+  /* -- Tertiary: acentos puntuales (badges, resaltes, data-viz) -- */
+  --color-tertiary: oklch(0.297 0.155 303.634);
+  --color-on-tertiary: oklch(1 0 0); /* texto sobre bg-tertiary */
+  --color-tertiary-container: oklch(0.381 0.155 305.552);
+  --color-on-tertiary-container: oklch(0.749 0.153 308.395);
+
+  /* -- Error: estados de fallo y validacion. Para errores, no para avisos suaves -- */
+  --color-error: oklch(0.506 0.193 27.702); /* fondo de error solido */
+  --color-on-error: oklch(1 0 0); /* texto sobre bg-error */
+  --color-error-container: oklch(0.918 0.042 25.226); /* fondo de error suave (banners) */
+  --color-on-error-container: oklch(0.417 0.17 27.379); /* texto sobre error-container */
+
+  /* -- Estados de operacion: success / warning / info --
+   * Roles PROPIOS, no decoracion. M3 solo cierra `error`, y un panel de logistica
+   * necesita decir tambien "va bien", "ojo con esto" y "esto es informativo" sin
+   * forzar la semantica de primary/tertiary. Siguen la misma regla `on-X`, y por eso
+   * cada uno trae su par solido (`X` + `on-X`) y su par suave (`X-container` +
+   * `on-X-container`). Los chips y las notificaciones usan el par SUAVE; el par
+   * solido queda para puntos, bordes e iconos.
+   *
+   * `warning` no sustituye a `degradado`: un aviso de operacion (retraso, condicion
+   * activa del viaje) es del dominio; `degradado` es "el servicio no nos responde".
+   * Son cosas distintas y se pintan distinto a proposito.
+   */
+  --color-success: oklch(0.55 0.13 150); /* verde solido: puntos, bordes, iconos */
+  --color-on-success: oklch(1 0 0); /* texto sobre bg-success */
+  --color-success-container: oklch(0.94 0.045 150); /* verde suave: chips "En Ruta" */
+  --color-on-success-container: oklch(0.35 0.1 150); /* texto sobre success-container */
+
+  --color-warning: oklch(0.62 0.13 75); /* ambar solido */
+  /* L=0.22 y no 0.24: con 0.24 el par se queda en 4.44:1, justo por debajo de AA. */
+  --color-on-warning: oklch(0.22 0.06 75); /* texto sobre bg-warning */
+  --color-warning-container: oklch(0.95 0.05 85); /* ambar suave: chips de aviso */
+  --color-on-warning-container: oklch(0.4 0.1 70); /* texto sobre warning-container */
+
+  --color-info: oklch(0.55 0.14 250); /* azul informativo solido */
+  --color-on-info: oklch(1 0 0); /* texto sobre bg-info */
+  --color-info-container: oklch(0.94 0.035 250); /* azul suave: chips y avisos */
+  --color-on-info-container: oklch(0.37 0.13 255); /* texto sobre info-container */
+
+  /* -- Fondo de la app (el <body> ya lo aplica); usar surface-* para tarjetas -- */
+  --color-background: oklch(0.983 0.009 299.245); /* canvas de la aplicacion */
+  --color-on-background: oklch(0.224 0.012 277.931); /* texto sobre el canvas */
+  --color-surface-variant: oklch(0.915 0.011 286.185); /* superficie alternativa (fondos sutiles) */
+
+  /* -- Sidebar: navy estructural, oscuro en AMBOS temas (marco de navegacion).
+   *    Es un rol PROPIO porque ningun rol M3 se mantiene navy en claro y oscuro a la
+   *    vez: aqui, claro = navy #002266, oscuro = navy casi negro #101828. -- */
+  --color-sidebar: oklch(0.2376 0.0753 254.79); /* fondo de la barra lateral */
+  --color-on-sidebar: oklch(1 0 0); /* texto/icono sobre la barra */
+
+  /*
+   * LEGADO — no usar en codigo nuevo.
+   * Colores heredados que ALGUNOS componentes aun usan directamente. Se conservan
+   * solo para no romperlos. En codigo nuevo usa los roles M3 de arriba:
+   *   brand-*    -> primary / primary-container
+   *   degradado  -> se mantiene: es un rol propio (ausencia por degradacion del
+   *                 servicio), semanticamente distinto de un error. No lo sustituyas
+   *                 por `error`.
+   */
+  --color-brand-50: oklch(0.97 0.02 250);
+  --color-brand-500: oklch(0.55 0.18 250);
+  --color-brand-600: oklch(0.48 0.18 250);
+  --color-brand-700: oklch(0.4 0.16 250);
+  --color-degradado-50: oklch(0.97 0.03 85);
+  --color-degradado-600: oklch(0.6 0.13 85);
+  --color-degradado-800: oklch(0.42 0.1 85);
+
+  /*
+   * Tipografia. Inter para toda la app (body y titulos), en ambos temas.
+   * El sufijo "Variable" es el nombre que registra Fontsource para la fuente variable.
+   */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+  /*
+   * Radios. Sobrescriben la escala por defecto de Tailwind con la del design system:
+   * 8px estandar, 16px componentes grandes, 24px contenedores.
+   */
+  --radius-sm: 0.25rem;
+  --radius-DEFAULT: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+}
+
+/*
+ * === Valores del tema OSCURO (AI27 Command Portal) ===
+ * Mismos roles que arriba, otros valores. La descripcion de uso de cada rol esta en
+ * la seccion CLARO; no se repite aqui para no duplicar. Al editar un rol, cambia su
+ * valor en AMBAS secciones para mantener los dos temas en paridad.
+ * `.dark` gana en especificidad al :root que genera @theme, asi que estos valores
+ * aplican cuando <html> lleva la clase `.dark`.
+ */
+@layer base {
+  .dark {
+    --color-surface: oklch(0.188 0.004 286.006);
+    --color-surface-dim: oklch(0.188 0.004 286.006);
+    --color-surface-bright: oklch(0.345 0.002 286.309);
+    --color-surface-container-lowest: oklch(0.164 0.002 286.169);
+    --color-surface-container-low: oklch(0.223 0.004 286.084);
+    --color-surface-container: oklch(0.24 0.004 286.112);
+    --color-surface-container-high: oklch(0.285 0.002 286.285);
+    --color-surface-container-highest: oklch(0.327 0.004 308.334);
+    --color-on-surface: oklch(0.915 0.003 345.217);
+    --color-on-surface-variant: oklch(0.829 0.01 286.187);
+    --color-inverse-surface: oklch(0.915 0.003 345.217);
+    --color-inverse-on-surface: oklch(0.31 0.004 286.192);
+    --color-outline: oklch(0.655 0.01 279.593);
+    --color-outline-variant: oklch(0.398 0.009 268.434);
+    --color-surface-tint: oklch(0.828 0.032 271.644);
+    --color-primary: oklch(0.828 0.032 271.644);
+    --color-on-primary: oklch(0.31 0.032 267.152);
+    --color-primary-container: oklch(0.21 0.034 263.436);
+    --color-on-primary-container: oklch(0.604 0.032 268.156);
+    --color-inverse-primary: oklch(0.482 0.032 267.193);
+    --color-secondary: oklch(0.83 0.084 271.111);
+    --color-on-secondary: oklch(0.318 0.135 260.674);
+    --color-secondary-container: oklch(0.564 0.241 260.902);
+    --color-on-secondary-container: oklch(0.98 0.011 297.63);
+    --color-tertiary: oklch(0.828 0.034 265.197);
+    --color-on-tertiary: oklch(0.311 0.036 260.09);
+    --color-tertiary-container: oklch(0.208 0.038 258.83);
+    --color-on-tertiary-container: oklch(0.604 0.035 261.664);
+    --color-error: oklch(0.838 0.089 26.757);
+    --color-on-error: oklch(0.328 0.134 27.32);
+    --color-error-container: oklch(0.417 0.17 27.379);
+    --color-on-error-container: oklch(0.918 0.042 25.226);
+
+    /*
+     * Estados en oscuro: el par SOLIDO se aclara (sobre fondo oscuro, un verde de
+     * L=0.55 no destaca) y el par CONTAINER se oscurece con croma bajo, igual que
+     * hace `error` arriba. El `on-*-container` pasa a ser el tono claro.
+     */
+    --color-success: oklch(0.8 0.13 150);
+    --color-on-success: oklch(0.26 0.08 150);
+    --color-success-container: oklch(0.33 0.075 152);
+    --color-on-success-container: oklch(0.9 0.09 150);
+
+    --color-warning: oklch(0.83 0.13 80);
+    --color-on-warning: oklch(0.27 0.07 70);
+    --color-warning-container: oklch(0.35 0.075 70);
+    --color-on-warning-container: oklch(0.92 0.08 85);
+
+    --color-info: oklch(0.8 0.1 255);
+    --color-on-info: oklch(0.26 0.09 258);
+    --color-info-container: oklch(0.33 0.08 258);
+    --color-on-info-container: oklch(0.9 0.06 255);
+    --color-background: oklch(0.188 0.004 286.006);
+    --color-on-background: oklch(0.915 0.003 345.217);
+    --color-surface-variant: oklch(0.327 0.004 308.334);
+
+    /* Sidebar en oscuro: navy casi negro (#101828). Mantiene el marco navy del tema. */
+    --color-sidebar: oklch(0.24 0.004 286.112);
+    --color-on-sidebar: oklch(0.958 0.012 291.287);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-on-background font-sans antialiased;
+    color-scheme: light dark;
+  }
+
+  /* Foco visible en todo lo interactivo: no se quita sin sustituto. */
+  :focus-visible {
+    @apply outline-primary outline-2 outline-offset-2;
+  }
+}

@@ -1,0 +1,84 @@
+/*
+ * PanelSection. La `*Section` del dominio `panel`.
+ *
+ * Presentacional: recibe el panel por props y NO llama a la API. El fetch lo hace el
+ * `loader` de la ruta, que es la frontera. Aqui solo hay composicion y layout.
+ *
+ */
+
+import { ShieldCheck, TrendingUp, TriangleAlert, Truck } from 'lucide-react';
+import type { PanelDeControl } from '@/lib/contracts';
+import { KpiCard } from './KpiCard';
+import { QuickActionsCard } from './QuickActionsCard';
+import { ViajesEnCursoTable } from './ViajesEnCursoTable';
+import { MapPlaceholderCard } from './MapPlaceholderCard';
+import { NotificacionesCard } from './NotificacionesCard';
+
+/** Etiquetas de los niveles de riesgo que el cliente conoce. Union abierta. */
+const etiquetaRiesgo: Readonly<Record<string, string>> = {
+  BAJO_NORMAL: 'Bajo / Normal',
+};
+
+/** Signo explicito: "+3" y "-2" se leen como variacion; "3" se leeria como total. */
+function conSigno(valor: number): string {
+  return valor > 0 ? `+${valor}` : String(valor);
+}
+
+export function PanelSection({ panel }: { readonly panel: PanelDeControl }) {
+  const { viajesActivos, riesgoGlobal, alertasActivas, viajesEnCurso, notificaciones } = panel;
+
+  const hayAlertas = alertasActivas.total > 0;
+
+  return (
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          etiqueta="Viajes activos"
+          valor={viajesActivos.total}
+          icono={<Truck aria-hidden="true" className="size-5" />}
+          tono="neutral"
+          pie={
+            <>
+              <TrendingUp aria-hidden="true" className="text-success size-3.5 shrink-0" />
+              <span className="text-on-success-container">
+                {conSigno(viajesActivos.deltaDesdeAyer)} desde ayer
+              </span>
+            </>
+          }
+        />
+
+        <KpiCard
+          etiqueta="Nivel de riesgo global"
+          // Sin etiqueta conocida se muestra el codigo: avisa de que falta mapearlo.
+          valor={etiquetaRiesgo[riesgoGlobal.nivel] ?? riesgoGlobal.nivel}
+          icono={<ShieldCheck aria-hidden="true" className="size-5" />}
+          tono="primary"
+          pie={`${riesgoGlobal.unidadesSegurasPct}% de unidades seguras`}
+        />
+
+        <KpiCard
+          etiqueta="Alertas activas"
+          valor={alertasActivas.total}
+          icono={<TriangleAlert aria-hidden="true" className="size-5" />}
+          // Sin alertas, el indicador no debe seguir gritando en rojo.
+          tono={hayAlertas ? 'error' : 'neutral'}
+          pie={hayAlertas ? 'Requieren atención inmediata' : 'Sin alertas pendientes'}
+        />
+
+        <QuickActionsCard />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:gap-6 xl:grid-cols-3">
+        {/* La tabla es el contenido principal: primera en el DOM y en la lectura. */}
+        <div className="xl:col-span-2">
+          <ViajesEnCursoTable viajes={viajesEnCurso} />
+        </div>
+
+        <div className="flex flex-col gap-4 lg:gap-6">
+          <MapPlaceholderCard />
+          <NotificacionesCard notificaciones={notificaciones} />
+        </div>
+      </div>
+    </div>
+  );
+}

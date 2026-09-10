@@ -1,0 +1,109 @@
+/*
+ * ConversacionSection.
+ *
+ * La historia llega YA ordenada por secuencia de dominio desde `lib/api/conversaciones`.
+ * Este componente no reordena y, sobre todo, no ordena por `enviadoEn`: dos mensajes
+ * con el mismo segundo de reloj tienen orden canonico y es el de dominio.
+ *
+ * El composer es el unico subcomponente con estado, y esta abajo a proposito.
+ */
+
+import { useState, type FormEvent } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { Mensaje } from '@/lib/contracts';
+import { findDomainSequenceGaps } from '@/lib/contracts';
+import { enviarMensaje } from '@/lib/api/conversaciones';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { EmptyState, ErrorState } from '@/components/ui/Feedback';
+import { formatDateTime } from '@/lib/utils';
+
+export function ConversacionSection({
+  conversacionId,
+  mensajes,
+}: {
+  readonly conversacionId: string;
+  readonly mensajes: readonly Mensaje[];
+}) {
+  /*
+   * Un hueco en la secuencia de dominio NO se cierra con el stream: se cierra por
+   * lectura HTTP durable contra mensajeria. Detectarlo sirve para no presentar una
+   * conversacion incompleta como si estuviera completa.
+   */
+  const huecos = findDomainSequenceGaps(mensajes);
+
+  return (
+    <div className="flex flex-col gap-4">
+      {huecos.length > 0 && (
+        <p
+          role="status"
+          className="bg-degradado-50 text-degradado-800 rounded-md px-3 py-2 text-sm"
+        >
+          Faltan {huecos.length} mensaje(s) por cargar. Actualiza para completar la conversacion.
+        </p>
+      )}
+
+      {mensajes.length === 0 ? (
+        <EmptyState title="Sin mensajes todavia" />
+      ) : (
+        <ol className="flex flex-col gap-3">
+          {mensajes.map((mensaje) => (
+            <li
+              key={mensaje.id}
+              className={
+                mensaje.deCliente
+                  ? 'bg-brand-50 ml-auto max-w-[80%] rounded-lg px-3 py-2'
+                  : 'max-w-[80%] rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200'
+              }
+            >
+              <p className="text-sm">{mensaje.cuerpo}</p>
+              <p className="mt-1 text-xs text-slate-500">{formatDateTime(mensaje.enviadoEn)}</p>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      <MensajeComposer conversacionId={conversacionId} />
+    </div>
+  );
+}
+
+function MensajeComposer({ conversacionId }: { readonly conversacionId: string }) {
+  const [cuerpo, setCuerpo] = useState('');
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    /*
+     * La clave de idempotencia se genera por envio, no por render: un reintento de
+     * red no debe duplicar el mensaje. El actor y el tenant NO van en el body — se
+     * derivan del token en el servidor.
+     */
+    mutationFn: () => enviarMensaje(conversacionId, cuerpo, crypto.randomUUID()),
+    onSuccess: () => {
+      setCuerpo('');
+      void queryClient.invalidateQueries({ queryKey: ['mensajes', conversacionId] });
+    },
+  });
+
+  function onSubmit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    if (cuerpo.trim().length === 0) return;
+    mutation.mutate();
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex flex-col gap-2">
+      <Input
+        label="Nuevo mensaje"
+        value={cuerpo}
+        onChange={(event) => setCuerpo(event.target.value)}
+      />
+      {mutation.isError && <ErrorState error={mutation.error} />}
+      <div>
+        <Button type="submit" pending={mutation.isPending}>
+          Enviar
+        </Button>
+      </div>
+    </form>
+  );
+}
