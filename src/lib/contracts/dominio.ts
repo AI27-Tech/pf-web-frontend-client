@@ -40,6 +40,70 @@ export interface SolicitudViaje {
   readonly notas: string;
 }
 
+/*
+ * PROVISIONAL — el borrador del asistente "Solicitar nuevo servicio".
+ *
+ * NO es el body de `POST /viajes` (ese es `SolicitudViaje`, arriba): es el estado que
+ * el cliente arma paso a paso ANTES de enviar. Se mantiene aparte a proposito, porque
+ * el contrato real del alta de servicio todavia no existe (ver Decisiones abiertas del
+ * README) y este formulario captura mas campos de los que hoy viaja `SolicitudViaje`.
+ * Cuando llegue el contrato, aqui se decide que subconjunto cruza al backend.
+ *
+ * Todos los campos son `string` porque provienen de campos de formulario; la
+ * normalizacion (a ISO, a numero, etc.) se hara en la frontera de envio cuando exista.
+ */
+
+/** Paso 1: tipo de servicio, programacion de salida y datos operativos. */
+export interface DatosServicio {
+  /** `id` de la familia de catalogo `tipos-servicio`. */
+  readonly tipoServicio: string;
+  readonly fechaSalida: string;
+  readonly horaSalida: string;
+  /** `id` de la familia de catalogo `prioridades-servicio`. */
+  readonly prioridad: string;
+  /** Referencia / No. de orden de compra. Opcional. */
+  readonly referenciaOrden: string;
+  readonly contactoNombre: string;
+  readonly contactoTelefono: string;
+}
+
+/** Paso 2: una ubicacion (origen o destino) con sus datos de contacto y acceso. */
+export interface DatosUbicacion {
+  readonly nombreLugar: string;
+  readonly calleNumero: string;
+  readonly ciudadEstado: string;
+  readonly codigoPostal: string;
+  readonly contactoSitio: string;
+  readonly telefonoContacto: string;
+  readonly instruccionesAcceso: string;
+}
+
+/** Paso 3: informacion de la carga y requerimientos de unidad/operacion. */
+export interface DatosCarga {
+  /** `id` de la familia de catalogo `categorias-carga`. */
+  readonly categoria: string;
+  /** `id` de la familia de catalogo `rangos-valor`. */
+  readonly valorEstimado: string;
+  /** `id`s de la familia de catalogo `requisitos-manejo` marcados. */
+  readonly requisitos: readonly string[];
+  readonly requerimientosVehiculo: string;
+  readonly instruccionesOperativas: string;
+}
+
+/** Paso 3: documentacion adjunta. La subida real no esta implementada. */
+export interface DatosDocumentacion {
+  readonly comentarios: string;
+}
+
+/** El borrador completo, agrupado por los pasos del asistente. */
+export interface BorradorSolicitud {
+  readonly servicio: DatosServicio;
+  readonly origen: DatosUbicacion;
+  readonly destino: DatosUbicacion;
+  readonly carga: DatosCarga;
+  readonly documentacion: DatosDocumentacion;
+}
+
 export interface ConversacionResumen {
   readonly id: string;
   readonly asunto: string;

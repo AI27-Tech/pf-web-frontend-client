@@ -12,10 +12,10 @@ import { Button } from './Button';
 
 export function Spinner({ label = 'Cargando' }: { readonly label?: string }) {
   return (
-    <div role="status" className="flex items-center gap-2 py-6 text-sm text-slate-500">
+    <div role="status" className="text-on-surface-variant flex items-center gap-2 py-6 text-sm">
       <span
         aria-hidden="true"
-        className="border-brand-600 size-4 animate-spin rounded-full border-2 border-t-transparent"
+        className="border-primary size-4 animate-spin rounded-full border-2 border-t-transparent"
       />
       {label}…
     </div>
@@ -30,9 +30,11 @@ export function EmptyState({
   readonly children?: ReactNode;
 }) {
   return (
-    <div className="rounded-lg bg-white py-10 text-center ring-1 ring-slate-200">
-      <p className="font-medium text-slate-700">{title}</p>
-      {children !== undefined && <div className="mt-2 text-sm text-slate-500">{children}</div>}
+    <div className="bg-surface-container-lowest border-outline-variant rounded-lg border py-10 text-center">
+      <p className="text-on-surface font-medium">{title}</p>
+      {children !== undefined && (
+        <div className="text-on-surface-variant mt-2 text-sm">{children}</div>
+      )}
     </div>
   );
 }
@@ -65,7 +67,7 @@ export function ErrorState({
       className={
         degradado
           ? 'bg-degradado-50 text-degradado-800 flex flex-col gap-3 rounded-lg p-5'
-          : 'flex flex-col gap-3 rounded-lg bg-red-50 p-5 text-red-900'
+          : 'bg-error-container text-on-error-container flex flex-col gap-3 rounded-lg p-5'
       }
     >
       <p className="font-medium">{title}</p>

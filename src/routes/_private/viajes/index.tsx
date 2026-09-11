@@ -19,6 +19,7 @@ function ViajesPage() {
         <h1 className="text-xl font-semibold">Viajes</h1>
         <Link
           to="/viajes/new"
+          search={{ paso: 'servicio' }}
           className="bg-brand-600 hover:bg-brand-700 rounded-md px-3 py-2 text-sm font-medium text-white"
         >
           Solicitar servicio

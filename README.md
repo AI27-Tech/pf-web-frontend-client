@@ -218,6 +218,23 @@ No hay Server Components: es una SPA. La disciplina equivalente es **cargar en l
 
 Cero `useEffect` + `useState` para traer datos. El único `useEffect` con E/S es el que abre el stream, y eso no es un fetch.
 
+### Solicitar nuevo servicio: un asistente de una sola ruta
+
+`/viajes/new` es un asistente de cuatro pasos (Servicio y Fecha → Ruta → Detalles → Revisar)
+más una pantalla de confirmación. Es **una sola ruta**, no una por paso: el paso actual vive
+en el search param `?paso=` (`servicio`/`ruta`/`detalles`/`revisar`/`enviada`), y el borrador
+vive en un `useReducer` dentro de `SolicitarServicioWizard`. Continuar, Regresar y los enlaces
+"Editar" son navegación real (`navigate({ search: { paso } })`), de modo que el botón atrás y
+el enlace directo a un paso funcionan.
+
+**No hay backend:** "Enviar solicitud" NO hace `POST /viajes` ni crea registro. Genera un ID
+simulado (`AI27-YYMMDD-NNN`) en el cliente y muestra el acuse. El borrador se modela como
+`BorradorSolicitud` en `lib/contracts/dominio.ts` (PROVISIONAL, separado de `SolicitudViaje`);
+cuando exista el contrato real, ahí se decide qué subconjunto cruza al backend.
+
+Para integrar datos reales luego, esos catálogos son lo primero que se valida contra el contrato,
+igual que el resto del dataset mock.
+
 ---
 
 ## Estructura

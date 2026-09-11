@@ -18,12 +18,12 @@ export function Input({ label, error, className, leadingSlot, trailingSlot, ...r
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-slate-700">
+      <label htmlFor={id} className="text-on-surface-variant text-sm font-medium">
         {label}
       </label>
       <div className="relative flex items-center">
         {leadingSlot !== undefined && (
-          <span className="pointer-events-none absolute left-3 flex items-center text-slate-400">
+          <span className="text-on-surface-variant pointer-events-none absolute left-3 flex items-center">
             {leadingSlot}
           </span>
         )}
@@ -32,12 +32,12 @@ export function Input({ label, error, className, leadingSlot, trailingSlot, ...r
           aria-invalid={error !== undefined || undefined}
           aria-describedby={error !== undefined ? errorId : undefined}
           className={cx(
-            'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900',
-            'placeholder:text-slate-400',
-            'focus:border-brand-500 focus:ring-brand-500 focus:ring-1 focus:outline-none',
+            'bg-surface-container-lowest border-outline-variant text-on-surface w-full rounded-lg border px-3 py-2.5 text-sm',
+            'placeholder:text-on-surface-variant/60',
+            'focus:border-primary focus:ring-primary focus:ring-1 focus:outline-none',
             leadingSlot !== undefined && 'pl-10',
             trailingSlot !== undefined && 'pr-10',
-            error !== undefined && 'border-red-500',
+            error !== undefined && 'border-error',
             className,
           )}
           {...rest}
@@ -47,7 +47,7 @@ export function Input({ label, error, className, leadingSlot, trailingSlot, ...r
         )}
       </div>
       {error !== undefined && (
-        <p id={errorId} role="alert" className="text-sm text-red-600">
+        <p id={errorId} role="alert" className="text-error text-sm">
           {error}
         </p>
       )}
