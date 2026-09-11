@@ -110,7 +110,7 @@ describe('EtaCell · los tres estados del ETA', () => {
 
   it('el maximo por defecto es el del design system', () => {
     // Si alguien cambia el default, esta prueba lo dice: el numero esta acordado.
-    expect(ETA_MAX_CHARS).toBe(19);
+    expect(ETA_MAX_CHARS).toBe(18);
   });
 });
 

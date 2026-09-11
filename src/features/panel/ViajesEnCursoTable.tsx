@@ -91,6 +91,8 @@ export function ViajesEnCursoTable({ viajes, etaMaxCaracteres }: ViajesEnCursoTa
           headerTone="muted"
           selectable
           minWidthClass="min-w-[36rem]"
+          porPagina={3}
+          fill
         />
       )}
     </Card>

@@ -46,6 +46,22 @@ describe('EstadoViajeChip', () => {
     expect(screen.queryByText('En Ruta')).not.toBeInTheDocument();
   });
 
+  it('COMPLETADO se presenta en tono informativo', () => {
+    render(<EstadoViajeChip estado="COMPLETADO" />);
+
+    const chip = screen.getByText('Completado');
+    expect(chip.className).toContain('bg-info-container');
+    expect(chip.className).toContain('text-on-info-container');
+  });
+
+  it('CANCELADO se presenta en tono de error', () => {
+    render(<EstadoViajeChip estado="CANCELADO" />);
+
+    const chip = screen.getByText('Cancelado');
+    expect(chip.className).toContain('bg-error-container');
+    expect(chip.className).toContain('text-on-error-container');
+  });
+
   it('un estado desconocido se muestra tal cual, en tono neutro', () => {
     render(<EstadoViajeChip estado="EN_ADUANA_PENDIENTE" />);
 
