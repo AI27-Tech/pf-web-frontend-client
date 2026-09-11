@@ -1,6 +1,6 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
 import { listViajes } from '@/lib/api/viajes';
-import { ViajesListSection } from '@/features/viajes/ViajesListSection';
+import { HistorialViajesSection } from '@/features/viajes/historial/HistorialViajesSection';
 import { ErrorState, Spinner } from '@/components/ui/Feedback';
 
 export const Route = createFileRoute('/_private/viajes/')({
@@ -25,7 +25,7 @@ function ViajesPage() {
           Solicitar servicio
         </Link>
       </div>
-      <ViajesListSection viajes={viajes} />
+      <HistorialViajesSection viajes={viajes} />
     </div>
   );
 }

@@ -60,8 +60,57 @@ Las entradas más recientes se colocan al inicio.
 - `tests/ui/primitivas.test.tsx`
 - `tests/panel/KpiCard.test.tsx`
 - `e2e/solicitud.spec.ts`
-- `e2e/journey.spec.ts`
+- `README.md`
+- `CHANGELOG.md`
+
+## 2026:09:11 12:10
+
+**Resumen:** Se rediseñó la pantalla `/viajes` como "Historial de Viajes" según el nuevo mockup: encabezado con descripción y "Exportar CSV", una barra de filtros propia (solo frontend), y una tabla enriquecida con celdas de dos líneas (ruta con sitio, vehículo/conductor), icono de reporte de seguridad, fila resaltada para viajes cancelados y pie de paginación. La tabla del Panel de Control se unificó con la misma primitiva, que ahora pagina.
+
+**Cambios:**
+
+- `lib/contracts/dominio.ts`: `ViajeResumen` sumó `origenSitio`, `destinoSitio`, `unidad` (`UnidadAsignada | null`) y `reporteSeguridad`. Se añadieron los tipos `UnidadAsignada` y `ReporteSeguridad` (unión abierta, como `EstadoViaje`), exportados desde el barrel `lib/contracts/index.ts`. Todos PROVISIONALES, con `TODO(contracts)`. `unidad: null` modela "sin asignar" (viaje recién `SOLICITADO`) en vez de fingir un vehículo.
+- `mocks/data.ts`: se extendieron las tres entradas de `viajesWire` con los campos nuevos y se añadieron `viaje-6` (COMPLETADO), `viaje-7` (CANCELADO) y `viaje-8` (COMPLETADO), exclusivos del listado, con sus entradas en `viajeDetalleWire` para que el folio enlazado no dé 404. No contradicen al panel, que solo mira viajes en curso; dan material para la fila cancelada, los chips nuevos y dos páginas a 3 por página. `GET /viajes` sigue devolviendo el array plano.
+- `components/ui/Table.tsx`: ganó capacidades genéricas — `rowTone` (resalta una fila en tono de error), `footer`, `headerTone='filled'` (banda de cabecera rellena en mayúsculas), `porPagina` (paginación como **estado de UI**: la tabla posee el número de página, recorta las filas y pinta `Pagination`) y `fill` (estira la tabla al alto de su contenedor: el área de filas crece y el pie de paginación queda anclado abajo, en vez de que la tabla mida solo su contenido). `TODO(contracts)`: cuando `bff` pagine, esto se mueve a un search param + `loaderDeps`.
+- La pantalla del Historial y la tabla del Panel usan `fill` para ocupar todo el alto disponible: la ruta `/viajes` y `HistorialViajesSection` propagan el alto con `flex min-h-0 flex-1 flex-col` (mismo patrón que el Panel de Control), y la `Card` de la tabla estira hasta el borde inferior del área de contenido.
+- `components/ui/Pagination.tsx` (nuevo): pie controlado con "Mostrando X–Y de Z registros", "Página N de M" y dos botones con `aria-label`, deshabilitados en los límites.
+- `features/viajes/EstadoViajeChip.tsx`: se añadió el tono `error` y las etiquetas `COMPLETADO` (info) y `CANCELADO` (error). Sigue en pie: una condición activa gana al estado, y un código sin mapear se pinta en neutro.
+- `features/viajes/historial/` (nuevo): `RutaCell`, `UnidadCell` (con "Sin asignar" cuando no hay unidad), `ReporteSeguridadCell` (icono + texto en `sr-only` y `title`, para que el color no sea el único portador de significado), `HistorialViajesTable`, `CampoFiltro`, `HistorialFiltros`, `HistorialHeader` y `HistorialViajesSection`.
+- Filtros y "Exportar CSV" son solo frontend: usables pero deshabilitados con su motivo en el `title`. El filtrado y la exportación son del servidor; se cablearán vía search params + `loaderDeps` cuando exista el contrato.
+- `routes/_private/viajes/index.tsx`: se quitó el enlace "Solicitar servicio" (sigue en el sidebar y en las acciones rápidas del panel) y se montó `HistorialViajesSection`. Se borró `features/viajes/ViajesListSection.tsx`, que quedó huérfano.
+- `features/panel/ViajesEnCursoTable.tsx`: se aplicó `porPagina={3}` para que la tabla del panel pagine sus cinco viajes en curso a dos páginas, con la misma primitiva.
+- Solo se usan roles de `globals.css`; ningún color nuevo. Se añadió `tests/viajes/disciplinaColor.test.tsx`, que barre por comodín `features/viajes/historial/*.tsx` más `Pagination.tsx` y `EstadoViajeChip.tsx` en busca de colores crudos, con el mismo criterio que la suite del panel.
+- Se actualizaron `e2e/panel.spec.ts` y `e2e/journey.spec.ts` (la tabla del panel ahora muestra 3 filas por página; `EN_ADUANA` cae en la segunda página). Se añadió `e2e/historial.spec.ts`.
+- Se corrieron `pnpm typecheck` y `pnpm lint` (en verde) y `pnpm test` (166/168; las dos fallas restantes —`tests/panel/formatEta.test.ts` y `tests/panel/NotificacionesCard.test.tsx`— se confirmaron preexistentes y ajenas reproduciéndolas con `git stash`). En e2e, 37/38 en verde; la única falla (`journey.spec.ts:120`, sobre el detalle de un viaje) se confirmó preexistente con `git stash` antes de estos cambios. Se eliminó `test-results/` generado por Playwright.
+
+**Archivos modificados:**
+
+- `src/mocks/data.ts`
+- `src/components/ui/Table.tsx`
+- `src/components/ui/Pagination.tsx`
+- `src/features/viajes/EstadoViajeChip.tsx`
+- `src/features/viajes/historial/RutaCell.tsx`
+- `src/features/viajes/historial/UnidadCell.tsx`
+- `src/features/viajes/historial/ReporteSeguridadCell.tsx`
+- `src/features/viajes/historial/HistorialViajesTable.tsx`
+- `src/features/viajes/historial/CampoFiltro.tsx`
+- `src/features/viajes/historial/HistorialFiltros.tsx`
+- `src/features/viajes/historial/HistorialHeader.tsx`
+- `src/features/viajes/historial/HistorialViajesSection.tsx`
+- `src/routes/_private/viajes/index.tsx`
+- `src/features/panel/ViajesEnCursoTable.tsx`
+- `src/features/viajes/ViajesListSection.tsx` (eliminado)
+- `tests/ui/Pagination.test.tsx`
+- `tests/ui/Table.test.tsx`
+- `tests/ui/EstadoViajeChip.test.tsx`
+- `tests/viajes/celdasHistorial.test.tsx`
+- `tests/viajes/HistorialViajesTable.test.tsx`
+- `tests/viajes/HistorialFiltros.test.tsx`
+- `tests/viajes/HistorialViajesSection.test.tsx`
+- `tests/viajes/disciplinaColor.test.tsx`
+- `e2e/historial.spec.ts`
 - `e2e/panel.spec.ts`
+- `e2e/journey.spec.ts`
 - `README.md`
 - `CHANGELOG.md`
 

@@ -91,11 +91,11 @@ describe('NotificacionesCard', () => {
 });
 
 describe('MapPlaceholderCard', () => {
-  it('el hueco se explica con palabras y el icono no se anuncia', () => {
+  it('el espacio se explica con palabras y el icono no se anuncia', () => {
     render(<MapPlaceholderCard />);
 
     // Un icono solo seria un cuadro vacio para un lector de pantalla.
-    expect(screen.getByText(/La vista de mapa todavia no esta disponible/i)).toBeInTheDocument();
+    expect(screen.getByText(/La vista de mapa todavía no está disponible./i)).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Vista de mapa' })).toBeInTheDocument();
   });
 });

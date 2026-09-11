@@ -205,6 +205,41 @@ es puramente decorativo y no viene del wire: rota entre los roles M3 `primary` /
 `secondary` / `tertiary` por posición en la lista, así que respeta el tema oscuro sin
 necesitar un rol de color nuevo.
 
+### Historial de Viajes: listado enriquecido y paginado en cliente
+
+`routes/_private/viajes/index.tsx` carga `listViajes()` — el listado plano de
+`GET /api/v1/viajes` — y se lo pasa a `features/viajes/historial/HistorialViajesSection`,
+que compone encabezado, barra de filtros y tabla. La tabla reutiliza la MISMA primitiva
+`components/ui/Table` que el Panel de Control; el Historial la usa con `headerTone='filled'`,
+`rowTone` (resalta en tono de error la fila de un viaje cancelado) y `porPagina`.
+
+`ViajeResumen` sumó cuatro campos para esta pantalla, todos **PROVISIONALES** igual que el
+resto de `lib/contracts/`:
+
+| Campo              | Para qué                                                                   |
+| ------------------ | -------------------------------------------------------------------------- |
+| `origenSitio`      | Segunda línea de la columna de ruta ("Almacén Central"). Puede ser `null`  |
+| `destinoSitio`     | Segunda línea del destino. Puede ser `null`                                |
+| `unidad`           | Vehículo, placa y conductor. `null` cuando el viaje aún no tiene unidad    |
+| `reporteSeguridad` | Icono de la columna "Reporte Seguridad". Unión abierta, como `EstadoViaje` |
+
+`unidad: null` no es decoración: un viaje recién `SOLICITADO` no tiene unidad, y la celda
+dice "Sin asignar" en vez de fingir un vehículo — la misma disciplina de no inventar datos
+que sigue `Fresco`.
+
+Dos cosas son del servidor y hoy **no** están cableadas, a propósito:
+
+- **El filtrado** (`HistorialFiltros`) es solo frontend: los campos se pueden usar y
+  conservan su valor, pero no filtran nada y el botón "Filtrar" está deshabilitado con su
+  motivo. El día que exista el contrato, alimentarán un search param de la ruta (patrón de
+  `login.tsx`) que el `loader` leerá con `loaderDeps` para pedir a `bff` la página ya
+  filtrada. No se filtra en cliente: la lista completa no vive en el navegador.
+- **La paginación** hoy es **estado de UI** dentro de `Table` (`porPagina`): el servidor
+  entrega la lista completa y la tabla la recorta. `TODO(contracts)`: cuando `bff` pagine,
+  esto se mueve al mismo search param + `loaderDeps` y la tabla recibe solo la página actual.
+- **Exportar CSV** está deshabilitado: la exportación la resolverá `bff` con el alcance del
+  tenant, no un armado en cliente.
+
 ---
 
 ## Dónde vive el fetch
