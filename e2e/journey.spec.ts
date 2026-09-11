@@ -127,16 +127,20 @@ test.describe('viajes', () => {
     await expect(page.getByText(/Sin senal del dispositivo/i).first()).toBeVisible();
   });
 
-  test('solicitar un servicio redirige a su detalle', async ({ page }) => {
+  test('solicitar un servicio abre el asistente en su primer paso', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/new');
 
-    await page.getByLabel('Origen').fill('CDMX · Iztapalapa');
-    await page.getByLabel('Destino').fill('Puebla · Centro');
-    await page.getByLabel('Requerido para').fill('2026-09-10T09:00');
-    await page.getByRole('button', { name: 'Solicitar servicio' }).click();
-
-    await expect(page).toHaveURL(/\/viajes\/viaje-3$/);
+    /*
+     * El alta de servicio ya no es un formulario unico que POSTea y redirige: es un
+     * asistente de cuatro pasos que NO crea registro (no hay backend). El recorrido
+     * completo —incluida la confirmacion con ID simulado— vive en `solicitud.spec.ts`;
+     * aqui solo se comprueba que la ruta abre el asistente en su primer paso.
+     */
+    await expect(
+      page.getByRole('heading', { name: 'Solicitar nuevo servicio', level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByRole('radio', { name: /Monitoreo Activo/ })).toBeVisible();
   });
 
   test('la bitacora visible al cliente se lista', async ({ page }) => {

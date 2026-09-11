@@ -93,7 +93,8 @@ test.describe('panel · acciones', () => {
     const acciones = page.getByRole('region', { name: 'Acciones rapidas' });
     await acciones.getByRole('link', { name: 'Solicitar Servicio' }).click();
 
-    await expect(page).toHaveURL(/\/viajes\/new$/);
+    // El enlace lleva el paso inicial como search param (?paso=servicio).
+    await expect(page).toHaveURL(/\/viajes\/new/);
   });
 
   test('"Descargar Reporte" existe y no navega', async ({ page }) => {
