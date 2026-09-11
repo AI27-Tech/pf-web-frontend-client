@@ -21,7 +21,7 @@ export function AppShell() {
       <div className="flex min-w-0 flex-1 flex-col">
         <DegradationBanner />
 
-        <main id="contenido" className="mx-auto w-full max-w-6xl px-4 py-6">
+        <main id="contenido" className="flex w-full flex-1 flex-col px-4 py-6">
           <Outlet />
         </main>
       </div>

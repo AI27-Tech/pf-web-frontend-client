@@ -25,7 +25,7 @@ function PanelPage() {
   const panel = Route.useLoaderData();
 
   return (
-    <div className="flex flex-col gap-4 lg:gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6">
       <h1 className="text-on-surface text-2xl font-bold sm:text-3xl">Panel de Control</h1>
       <PanelSection panel={panel} />
     </div>
