@@ -50,4 +50,4 @@ export const POLLING_INTERVAL_MS = 5_000;
 /** Margen con el que se refresca la sesion antes de que el token expire. */
 export const SESSION_REFRESH_MARGIN_MS = 60_000;
 
-export const ETA_MAX_CHARS = 19;
+export const ETA_MAX_CHARS = 18;

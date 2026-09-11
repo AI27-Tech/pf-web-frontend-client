@@ -16,7 +16,8 @@ test.describe('sesion', () => {
     await login(page);
     await expect(page).toHaveURL('/');
     await expect(page.getByRole('heading', { name: 'Viajes en Curso' })).toBeVisible();
-    await expect(page.locator('tbody tr')).toHaveCount(5);
+    // La tabla del panel pagina a 3 por pagina: 5 viajes en curso, 3 en la primera.
+    await expect(page.locator('tbody tr')).toHaveCount(3);
   });
 
   test('credenciales incorrectas se reportan como credenciales, no como otra cosa', async ({
@@ -123,7 +124,7 @@ test.describe('viajes', () => {
     await expect(page.getByRole('heading', { name: /AI27-000102/ })).toBeVisible();
     // Estado y condicion son dos cosas distintas, y se ven las dos.
     await expect(page.getByText('EN_RUTA')).toBeVisible();
-    await expect(page.getByText(/Retrasado/i).first()).toBeVisible();
+    await expect(page.getByText(/Sin senal del dispositivo/i).first()).toBeVisible();
   });
 
   test('solicitar un servicio redirige a su detalle', async ({ page }) => {

@@ -10,7 +10,7 @@
 import type { CondicionActiva, EstadoViaje } from '@/lib/contracts';
 import { cx } from '@/lib/utils';
 
-type Tono = 'success' | 'warning' | 'info' | 'neutral';
+type Tono = 'success' | 'warning' | 'info' | 'error' | 'neutral';
 
 interface EstadoViajeChipProps {
   readonly estado: EstadoViaje;
@@ -23,6 +23,7 @@ const tonoClases: Record<Tono, string> = {
   success: 'bg-success-container text-on-success-container',
   warning: 'bg-warning-container text-on-warning-container',
   info: 'bg-info-container text-on-info-container',
+  error: 'bg-error-container text-on-error-container',
   neutral: 'bg-surface-container-high text-on-surface-variant',
 };
 
@@ -30,6 +31,7 @@ const puntoClases: Record<Tono, string> = {
   success: 'bg-success',
   warning: 'bg-warning',
   info: 'bg-info',
+  error: 'bg-error',
   neutral: 'bg-outline',
 };
 
@@ -37,11 +39,15 @@ const puntoClases: Record<Tono, string> = {
 const etiquetaPorEstado: Readonly<Record<string, string>> = {
   SOLICITADO: 'Solicitado',
   EN_RUTA: 'En Ruta',
+  COMPLETADO: 'Completado',
+  CANCELADO: 'Cancelado',
 };
 
 function tonoDeEstado(estado: EstadoViaje): Tono {
   if (estado === 'EN_RUTA') return 'success';
   if (estado === 'SOLICITADO') return 'info';
+  if (estado === 'COMPLETADO') return 'info';
+  if (estado === 'CANCELADO') return 'error';
   return 'neutral';
 }
 

@@ -51,7 +51,8 @@ test.describe('panel · contenido', () => {
     await login(page);
 
     const tabla = page.getByRole('table');
-    await expect(tabla.locator('tbody tr')).toHaveCount(5);
+    // La tabla pagina a 3 por pagina; los tres viajes con ETA distinto caen en la 1a.
+    await expect(tabla.locator('tbody tr')).toHaveCount(3);
 
     // Presente: hora concreta. El mock lo fija hoy a las 18:30.
     await expect(page.getByText('Hoy, 18:30')).toBeVisible();
@@ -68,6 +69,8 @@ test.describe('panel · contenido', () => {
     await expect(page.getByText('En Ruta').first()).toBeVisible();
     await expect(page.getByText('Retrasado').first()).toBeVisible();
     await expect(page.getByText('Solicitado')).toBeVisible();
+    // EN_ADUANA es viaje-5: con la tabla paginada a 3 por pagina cae en la segunda.
+    await page.getByRole('button', { name: 'Pagina siguiente' }).click();
     await expect(page.getByText('EN_ADUANA')).toBeVisible();
   });
 

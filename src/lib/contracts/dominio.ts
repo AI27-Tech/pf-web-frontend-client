@@ -10,6 +10,31 @@
 import type { CondicionActiva, EstadoViaje } from './estados';
 import type { DomainSeq } from './sequences';
 
+/**
+ * La unidad asignada a un viaje: vehiculo y conductor.
+ *
+ * Puede no existir todavia — un viaje recien SOLICITADO aun no tiene unidad — por eso
+ * en `ViajeResumen` viaja como `UnidadAsignada | null` y no como campos sueltos: "sin
+ * asignar" es un estado, no tres cadenas vacias.
+ *
+ * TODO(contracts): confirmar nombres y forma contra contracts/openapi/bff.yaml.
+ */
+export interface UnidadAsignada {
+  /** Marca y modelo, p. ej. "Volvo FH16". */
+  readonly descripcion: string;
+  /** Placa/matricula, p. ej. "AB-123". */
+  readonly placa: string;
+  readonly conductorNombre: string;
+}
+
+/**
+ * Resultado del reporte de seguridad de un viaje.
+ *
+ * Union abierta, igual que `EstadoViaje`: la UI presenta los valores que conoce y
+ * degrada a neutro los que no, sin inventar catalogos que el contrato no confirma.
+ */
+export type ReporteSeguridad = 'SIN_INCIDENCIAS' | 'CON_INCIDENCIAS' | 'PENDIENTE' | (string & {});
+
 export interface ViajeResumen {
   readonly id: string;
   readonly folio: string;
@@ -17,6 +42,13 @@ export interface ViajeResumen {
   readonly origen: string;
   readonly destino: string;
   readonly solicitadoEn: string;
+  /** Sitio concreto del origen, p. ej. "Almacen Central". Puede no venir. */
+  readonly origenSitio: string | null;
+  /** Sitio concreto del destino, p. ej. "Planta Industrial Sur". Puede no venir. */
+  readonly destinoSitio: string | null;
+  /** `null` cuando el viaje aun no tiene unidad asignada (recien SOLICITADO). */
+  readonly unidad: UnidadAsignada | null;
+  readonly reporteSeguridad: ReporteSeguridad;
 }
 
 /** Detalle: estado de progreso mas condiciones activas superpuestas (§C.2). */

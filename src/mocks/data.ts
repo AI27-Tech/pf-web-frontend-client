@@ -35,6 +35,12 @@ export interface MensajeWireMock {
   readonly de_cliente: boolean;
 }
 
+/*
+ * El listado de viajes.
+ *
+ * TODO(contracts): confirmar nombres de campo (`origenSitio`, `unidad`,
+ * `reporteSeguridad`, ...) contra contracts/openapi/bff.yaml cuando exista.
+ */
 export const viajesWire = [
   {
     id: 'viaje-1',
@@ -43,6 +49,10 @@ export const viajesWire = [
     origen: 'CDMX · Vallejo',
     destino: 'Queretaro · Parque Industrial',
     solicitadoEn: '2026-09-07T08:15:00Z',
+    origenSitio: 'Almacen Central',
+    destinoSitio: 'Planta Industrial Sur',
+    unidad: { descripcion: 'Volvo FH16', placa: 'AB-123', conductorNombre: 'Juan Perez' },
+    reporteSeguridad: 'SIN_INCIDENCIAS',
   },
   {
     id: 'viaje-2',
@@ -51,6 +61,10 @@ export const viajesWire = [
     origen: 'Guadalajara · El Salto',
     destino: 'Leon · Zona Franca',
     solicitadoEn: '2026-09-07T06:40:00Z',
+    origenSitio: 'Centro Logistico',
+    destinoSitio: 'Parque Industrial',
+    unidad: { descripcion: 'Kenworth T680', placa: 'CD-456', conductorNombre: 'Miguel Silva' },
+    reporteSeguridad: 'CON_INCIDENCIAS',
   },
   {
     id: 'viaje-3',
@@ -59,6 +73,51 @@ export const viajesWire = [
     origen: 'Monterrey · Apodaca',
     destino: 'Saltillo · Derramadero',
     solicitadoEn: '2026-09-07T15:05:00Z',
+    origenSitio: 'Patio de Origen',
+    destinoSitio: 'Derramadero',
+    // Recien solicitado: aun no hay unidad asignada. La celda dira "Sin asignar".
+    unidad: null,
+    reporteSeguridad: 'PENDIENTE',
+  },
+  {
+    id: 'viaje-6',
+    folio: 'AI27-000106',
+    estado: 'COMPLETADO',
+    origen: 'Puebla · Parque Vw',
+    destino: 'Veracruz · Puerto Nuevo',
+    solicitadoEn: '2026-09-05T06:00:00Z',
+    origenSitio: 'Planta Vw',
+    destinoSitio: 'Puerto Nuevo',
+    unidad: {
+      descripcion: 'Freightliner Cascadia',
+      placa: 'EF-789',
+      conductorNombre: 'Carlos Gomez',
+    },
+    reporteSeguridad: 'SIN_INCIDENCIAS',
+  },
+  {
+    id: 'viaje-7',
+    folio: 'AI27-000107',
+    estado: 'CANCELADO',
+    origen: 'Tijuana · Otay',
+    destino: 'Mexicali · Ejido Nuevo Leon',
+    solicitadoEn: '2026-09-04T09:30:00Z',
+    origenSitio: 'Otay Industrial',
+    destinoSitio: 'Ejido Nuevo Leon',
+    unidad: { descripcion: 'Scania R450', placa: 'GH-012', conductorNombre: 'Laura Mendez' },
+    reporteSeguridad: 'CON_INCIDENCIAS',
+  },
+  {
+    id: 'viaje-8',
+    folio: 'AI27-000108',
+    estado: 'COMPLETADO',
+    origen: 'CDMX · Iztapalapa',
+    destino: 'Toluca · Lerma',
+    solicitadoEn: '2026-09-03T11:20:00Z',
+    origenSitio: 'CEDIS Oriente',
+    destinoSitio: 'Zona Industrial Lerma',
+    unidad: { descripcion: 'International LT', placa: 'IJ-345', conductorNombre: 'Roberto Diaz' },
+    reporteSeguridad: 'SIN_INCIDENCIAS',
   },
 ] as const;
 
@@ -86,6 +145,24 @@ export const viajeDetalleWire: Record<string, Json> = {
     condicionesActivas: [],
     contratoId: 'contrato-90',
     rutaId: null,
+  },
+  'viaje-6': {
+    ...viajesWire[3],
+    condicionesActivas: [],
+    contratoId: 'contrato-45',
+    rutaId: 'ruta-58',
+  },
+  'viaje-7': {
+    ...viajesWire[4],
+    condicionesActivas: [],
+    contratoId: 'contrato-62',
+    rutaId: 'ruta-71',
+  },
+  'viaje-8': {
+    ...viajesWire[5],
+    condicionesActivas: [],
+    contratoId: 'contrato-83',
+    rutaId: 'ruta-19',
   },
 };
 
