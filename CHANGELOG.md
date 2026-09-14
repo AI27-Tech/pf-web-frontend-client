@@ -4,6 +4,65 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:09:11 16:10
+
+**Resumen:** Se rediseñó "Solicitar nuevo servicio" (`/viajes/new`) reemplazando el formulario único por un asistente de cuatro pasos (Servicio y Fecha → Ruta → Detalles → Revisar) más una pantalla de confirmación, siguiendo el diseño. Sin backend: el borrador se conserva en memoria entre pasos y "Enviar solicitud" NO crea ningún registro — solo genera un ID simulado y muestra el acuse.
+
+**Cambios:**
+
+- **Arquitectura (Opción A):** la ruta `/viajes/new` sigue siendo una hoja única. El paso actual vive en el search param `?paso=` (`servicio`/`ruta`/`detalles`/`revisar`/`enviada`), validado en `validateSearch`; el borrador vive en un `useReducer` dentro de `SolicitarServicioWizard`. No se añadió ningún contexto nuevo (se respeta "tres contextos y ni uno más"): el borrador es efímero al flujo. Continuar/Regresar/Editar son navegación real (`navigate({ search: { paso } })`), así que el botón atrás y los enlaces "Editar" funcionan y el paso es enlazable. Un `useEffect` guarda contra la entrada "en frío" (recarga o enlace directo a un paso avanzado con el borrador vacío): rebota al primer paso.
+- **Datos:** se modeló el formulario completo como `BorradorSolicitud` (con `DatosServicio`/`DatosUbicacion`/`DatosCarga`/`DatosDocumentacion`) en `lib/contracts/dominio.ts`, marcado PROVISIONAL y separado de `SolicitudViaje` (que es el body de `POST /viajes`, hoy sin usar). El `loader` de la ruta carga cinco catálogos en paralelo con `listCatalogo` y los pasa por props; cada paso es presentacional y no llama a la API.
+- **Catálogos mock:** se ampliaron `FamiliaCatalogo` y `catalogosWire` con `prioridades-servicio`, `categorias-carga`, `rangos-valor` y `requisitos-manejo`, y se actualizó `tipos-servicio` a los tres del diseño (`Monitoreo Activo`/`Custodia Armada`/`Localización GPS`). Los `id` son estables en inglés; las descripciones e iconos de las tarjetas de tipo de servicio son presentación y viven en la feature, no en el catálogo.
+- **Primitivas UI (M3):** se añadieron `Select`, `Textarea`, `Checkbox`, `RadioCard` y `FileDropzone` (esta última, placeholder inerte: no hay subida real todavía), todas con label asociado, foco visible y error por `aria-describedby`. Se migraron `Input` y `Feedback` de los colores legado (`slate-*`, `brand-*`, `red-*`) a los roles M3. El asistente completo consume solo roles: light/dark cambian de golpe con la clase `.dark`, sin tokens de color nuevos. Estos archivos de componentes son provisionales en lo que se valida e implementa la nueva librería.
+- **Pasos:** `PasoServicioFecha` (tarjetas de tipo de servicio, fecha/hora, prioridad y contactos), `PasoRuta` (Origen/Destino con el mismo formulario reutilizable y "Resumen de Ruta" sin cálculo, reutilizando `MapPlaceholderCard`), `PasoDetalles` (carga, unidad, "Documentación" con dropzone inerte y aviso de privacidad), `PasoRevisar` (resumen de solo lectura con "Editar" por sección, chips derivados de prioridad y "Alto Valor", y casilla de confirmación que habilita el envío) y `SolicitudEnviada` (acuse con ID `AI27-YYMMDD-NNN`, resumen de ruta/fecha/hora, "Ver solicitud" inerte y "Volver al inicio" que reinicia el borrador y vuelve al primer paso). Se eliminó "Guardar borrador" según lo acordado.
+- Se eliminó `features/viajes/ViajeRequestSection.tsx` (el formulario único) y se reescribió `routes/_private/viajes/new.tsx`. Los dos enlaces existentes a `/viajes/new` (panel y listado) pasaron el paso inicial como search param; `solicitarViaje` se conserva en `lib/api/viajes.ts` como superficie válida, hoy sin consumidor.
+- **Pruebas:** 40 nuevas pruebas unitarias en `tests/viajes/` y `tests/ui/primitivas.test.tsx` (reducer y `generarIdSolicitud`, las cinco primitivas nuevas, stepper y navegación del wizard, cada paso y la confirmación), más un barrido de disciplina de color sobre `features/viajes/solicitud/`. Se añadió `e2e/solicitud.spec.ts` (recorrido completo contra el mock, preservación de datos al ir y volver, "Editar" desde Revisar, envío con ID y "Volver al inicio", y tema oscuro). Se actualizaron `e2e/journey.spec.ts` (el alta ya no POSTea ni redirige: abre el asistente), `e2e/panel.spec.ts` y `tests/panel/KpiCard.test.tsx` (el enlace ahora lleva `?paso=servicio`).
+
+**Archivos modificados:**
+
+- `src/lib/contracts/dominio.ts`
+- `src/lib/contracts/index.ts`
+- `src/lib/api/catalogos.ts`
+- `src/mocks/data.ts`
+- `src/components/ui/Input.tsx`
+- `src/components/ui/Feedback.tsx`
+- `src/components/ui/Select.tsx`
+- `src/components/ui/Textarea.tsx`
+- `src/components/ui/Checkbox.tsx`
+- `src/components/ui/RadioCard.tsx`
+- `src/components/ui/FileDropzone.tsx`
+- `src/features/viajes/solicitud/borrador.ts`
+- `src/features/viajes/solicitud/pasos.ts`
+- `src/features/viajes/solicitud/StepperSolicitud.tsx`
+- `src/features/viajes/solicitud/WizardFooter.tsx`
+- `src/features/viajes/solicitud/SolicitarServicioWizard.tsx`
+- `src/features/viajes/solicitud/SeccionCard.tsx`
+- `src/features/viajes/solicitud/PasoServicioFecha.tsx`
+- `src/features/viajes/solicitud/UbicacionFields.tsx`
+- `src/features/viajes/solicitud/ResumenRutaCard.tsx`
+- `src/features/viajes/solicitud/PasoRuta.tsx`
+- `src/features/viajes/solicitud/PasoDetalles.tsx`
+- `src/features/viajes/solicitud/DocumentacionCard.tsx`
+- `src/features/viajes/solicitud/PrivacidadCard.tsx`
+- `src/features/viajes/solicitud/PasoRevisar.tsx`
+- `src/features/viajes/solicitud/SolicitudEnviada.tsx`
+- `src/features/viajes/ViajeRequestSection.tsx` (eliminado)
+- `src/routes/_private/viajes/new.tsx`
+- `src/routes/_private/viajes/index.tsx`
+- `src/features/panel/QuickActionsCard.tsx`
+- `tests/viajes/borrador.test.ts`
+- `tests/viajes/SolicitarServicioWizard.test.tsx`
+- `tests/viajes/PasoServicioFecha.test.tsx`
+- `tests/viajes/PasoRuta.test.tsx`
+- `tests/viajes/PasoDetalles.test.tsx`
+- `tests/viajes/PasoRevisar.test.tsx`
+- `tests/viajes/SolicitudEnviada.test.tsx`
+- `tests/ui/primitivas.test.tsx`
+- `tests/panel/KpiCard.test.tsx`
+- `e2e/solicitud.spec.ts`
+- `README.md`
+- `CHANGELOG.md`
+
 ## 2026:09:11 12:10
 
 **Resumen:** Se rediseñó la pantalla `/viajes` como "Historial de Viajes" según el nuevo mockup: encabezado con descripción y "Exportar CSV", una barra de filtros propia (solo frontend), y una tabla enriquecida con celdas de dos líneas (ruta con sitio, vehículo/conductor), icono de reporte de seguridad, fila resaltada para viajes cancelados y pie de paginación. La tabla del Panel de Control se unificó con la misma primitiva, que ahora pagina.
@@ -26,8 +85,6 @@ Las entradas más recientes se colocan al inicio.
 
 **Archivos modificados:**
 
-- `src/lib/contracts/dominio.ts`
-- `src/lib/contracts/index.ts`
 - `src/mocks/data.ts`
 - `src/components/ui/Table.tsx`
 - `src/components/ui/Pagination.tsx`

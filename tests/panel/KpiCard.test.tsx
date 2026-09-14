@@ -62,7 +62,8 @@ describe('QuickActionsCard', () => {
 
     const enlace = await screen.findByRole('link', { name: /Solicitar Servicio/i });
     // Enlace de verdad: abrible en pestana nueva, con destino visible. No un boton.
-    expect(enlace).toHaveAttribute('href', '/viajes/new');
+    // El destino lleva el paso inicial como search param (?paso=servicio).
+    expect(enlace.getAttribute('href')).toMatch(/^\/viajes\/new/);
   });
 
   it('"Descargar Reporte" existe y sigue operable aunque no haga nada todavia', async () => {

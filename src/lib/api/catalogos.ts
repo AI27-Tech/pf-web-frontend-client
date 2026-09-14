@@ -13,8 +13,20 @@
 import { api } from './client';
 import type { OpcionCatalogo } from '../contracts';
 
-/** Familias de catalogo que esta app (Audiencia: Cliente) consume. */
-export type FamiliaCatalogo = 'rutas' | 'zonas' | 'tipos-servicio';
+/**
+ * Familias de catalogo que esta app (Audiencia: Cliente) consume.
+ *
+ * Las cuatro ultimas alimentan los desplegables y casillas del asistente "Solicitar
+ * nuevo servicio". Son datos de PRESENTACION: pintan opciones, no autorizan nada.
+ */
+export type FamiliaCatalogo =
+  | 'rutas'
+  | 'zonas'
+  | 'tipos-servicio'
+  | 'prioridades-servicio'
+  | 'categorias-carga'
+  | 'rangos-valor'
+  | 'requisitos-manejo';
 
 export async function listCatalogo(
   familia: FamiliaCatalogo,
