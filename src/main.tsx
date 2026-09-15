@@ -4,6 +4,9 @@ import { RouterProvider } from '@tanstack/react-router';
 import { router } from '@/app/router';
 import { Providers } from '@/app/providers';
 import '@fontsource-variable/inter';
+// Tokens de diseño de AI27-tech (variables --ui-*). Debe cargarse ANTES de
+// globals.css, porque el tema del portal referencia esos tokens con var(--ui-*).
+import '@ai27-tech/ui/styles.css';
 import '@/styles/globals.css';
 
 const container = document.getElementById('root');

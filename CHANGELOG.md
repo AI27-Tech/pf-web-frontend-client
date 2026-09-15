@@ -4,6 +4,30 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:09:15 13:40
+
+**Resumen:** Se migró el tema de Tailwind del portal de cliente para que derive de los design tokens de la librería compartida AI27-tech (`@ai27-tech/ui`), que pasa a ser la única fuente de verdad del color, los radios y la tipografía. Los roles Material 3 que usan los componentes ahora referencian los tokens `--ui-*` con `var()`, sin duplicar valores, espejando el patrón ya aplicado en el frontend interno. No se tocaron componentes ni JSX: los mismos nombres de clase (`bg-primary`, `text-on-surface`, `border-outline`, …) apuntan ahora a los valores de AI27-tech. Build y typecheck en verde.
+
+**Cambios:**
+
+- Se agregó `@ai27-tech/ui@0.2.0-beta.1` como dependencia del portal (misma versión que el frontend interno) y se registró en el lockfile.
+- Se importó `@ai27-tech/ui/styles.css` en `src/main.tsx`, antes de `globals.css`, para que las variables `--ui-*` existan cuando el tema las referencia.
+- Se fijó `data-theme="light"` en el `<html>` de `index.html`: el portal corre en claro por defecto (no hay toggle de tema todavía) y así la librería no sigue la preferencia del sistema operativo.
+- Se reescribió `src/styles/globals.css`: la sección `@theme` (valores oklch de los antiguos design systems "Logistics Core" / "AI27 Command Portal") se reemplazó por un `@theme inline` en el que cada rol referencia su token `var(--ui-*)`. Mapeo aplicado: `surface`/`surface-*`→`--ui-color-surface`/`-muted`/`-raised`/`-container-*`; `on-surface`/`-variant`→`--ui-color-text`/`-muted`; `outline`/`outline-variant`→`--ui-color-border-strong`/`--ui-color-border`; `primary`/`on-primary`→`--ui-color-primary`/`--ui-color-on-primary`; `primary-container`→`--ui-color-primary-hover`; `secondary`/`on-secondary`→`--ui-color-secondary`/`--ui-color-on-secondary`; `secondary-container`→`--ui-color-secondary-hover`; `error`/`on-error`→`--ui-color-danger`/`--ui-color-on-danger`; `error-container`→`--ui-color-danger-container`; `success`/`warning`/`info`→`--ui-color-success`/`-warning`/`-info` (+ `-container`); `background`/`on-background`→`--ui-color-surface-muted`/`--ui-color-text`; radios→`--ui-radius-*`.
+- Se retiraron del tema los roles sin equivalente en AI27-tech que NO se usaban en componentes: `tertiary`/`on-tertiary`/`tertiary-container`/`on-tertiary-container`, `inverse-surface`, `inverse-on-surface`, `inverse-primary` y `surface-tint`.
+- Se conservaron como roles propios del portal (sin equivalente en AI27-tech pero EN USO en componentes; retirarlos exigiría tocar JSX, fuera de alcance): `sidebar`/`on-sidebar` (Sidebar), `brand-*` (login, chips de conversación) y `degradado-*` (banner y avisos de servicio degradado). Quedan pendientes de decisión para una fase que sí toque componentes.
+
+**Nota / conflicto reportado:** los archivos `PALETA_COLORES_LIGHT_MODE.md` y `PALETA_COLORES_DARK_MODE.md` de la raíz del monorepo describen otro sistema (Material 3, primary `#003595`, fuentes Plus Jakarta Sans/Hanken Grotesk) que NO coincide con el `tokens.css` real publicado por la librería (sistema "Nocturne", primary periwinkle `#7c9df0`, fuente Inter). Por decisión explícita, la fuente de verdad es `tokens.css`. En consecuencia, la migración cambia intencionadamente el azul de marca del portal a periwinkle: es una regresión visual esperada, no un defecto.
+
+**Archivos modificados:**
+
+- `package.json`
+- `pnpm-lock.yaml`
+- `src/main.tsx`
+- `index.html`
+- `src/styles/globals.css`
+- `CHANGELOG.md`
+
 ## 2026:09:15 12:05
 
 **Resumen:** Continuación y cierre del barrido de la convención de nombres, sobre las piezas de tablas/paginación, frescura, Seguimiento en Vivo, helpers de fecha/ETA y mocks. Junto con la entrada de las 11:57, completa el barrido total: los identificadores técnicos en español pasaron a inglés y los sustantivos de dominio y comandos ubicuos se conservaron en español. Verificado con typecheck, la suite completa (206 pruebas) y lint, todo en verde.
