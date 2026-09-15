@@ -10,9 +10,6 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
-import { useModal } from '@/context/ModalContext';
-import { Modal } from '@/components/ui/Modal';
-import { DegradationBanner } from './DegradationBanner';
 
 type NavItem = {
   readonly to: string;
@@ -50,7 +47,6 @@ function isItemActive(pathname: string, to: string, exact: boolean): boolean {
 }
 
 export function AppShell() {
-  const modal = useModal();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   /*
@@ -62,17 +58,8 @@ export function AppShell() {
 
   return (
     <div className="flex h-dvh">
-      <a
-        href="#contenido"
-        className="focus:bg-primary focus:text-on-primary sr-only focus:not-sr-only focus:absolute focus:z-50 focus:px-3 focus:py-2"
-      >
-        Saltar al contenido
-      </a>
-
       <Sidebar
-        // La sidebar de la libreria usa height:100%; con `min-h-dvh` en el padre eso no
-        // basta para estirarla. `h-dvh sticky top-0` la fija a toda la altura del viewport.
-        className="sticky top-0 h-dvh shrink-0"
+        className="h-dv"
         header={
           <div className="flex items-center gap-3">
             <ShieldHalf className="size-6 shrink-0" />
@@ -114,17 +101,9 @@ export function AppShell() {
         </SidebarGroup>
       </Sidebar>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-        <DegradationBanner />
-
-        <main id="contenido" className="flex w-full flex-1 flex-col overflow-y-auto px-4 py-6">
-          <Outlet />
-        </main>
-      </div>
-
-      <Modal open={modal.content !== null} title="Confirmar" onClose={modal.close}>
-        {modal.content}
-      </Modal>
+      <main id="contenido" className="flex w-full flex-1 flex-col overflow-y-auto px-4 py-6">
+        <Outlet />
+      </main>
     </div>
   );
 }
