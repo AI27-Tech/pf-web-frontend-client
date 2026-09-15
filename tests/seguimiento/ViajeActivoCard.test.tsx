@@ -11,7 +11,7 @@ import { ausentePorDegradacion, presente, sinDato } from '@/lib/contracts';
 import { EstadoSeguimientoBadge } from '@/features/seguimiento/EstadoSeguimientoBadge';
 import { ViajeActivoCard } from '@/features/seguimiento/ViajeActivoCard';
 import { ViajesActivosCard } from '@/features/seguimiento/ViajesActivosCard';
-import { accentoDeRuta } from '@/features/seguimiento/rutaAccent';
+import { routeAccentClass } from '@/features/seguimiento/accentClass';
 import { renderConRouter } from '../support/router';
 
 const viajeBase: ViajeEnCurso = {
@@ -60,12 +60,12 @@ describe('EstadoSeguimientoBadge', () => {
   });
 });
 
-describe('accentoDeRuta', () => {
+describe('routeAccentClass', () => {
   it('rota entre los tres roles de acento por indice', () => {
-    expect(accentoDeRuta(0)).toBe('border-l-primary');
-    expect(accentoDeRuta(1)).toBe('border-l-secondary');
-    expect(accentoDeRuta(2)).toBe('border-l-tertiary');
-    expect(accentoDeRuta(3)).toBe('border-l-primary');
+    expect(routeAccentClass(0)).toBe('border-l-primary');
+    expect(routeAccentClass(1)).toBe('border-l-secondary');
+    expect(routeAccentClass(2)).toBe('border-l-tertiary');
+    expect(routeAccentClass(3)).toBe('border-l-primary');
   });
 });
 
@@ -73,7 +73,7 @@ describe('ViajeActivoCard', () => {
   it('muestra folio, ruta, operador, ETA y el progreso como porcentaje', () => {
     render(
       <ul>
-        <ViajeActivoCard viaje={viajeBase} indice={0} seleccionada onSeleccionar={() => {}} />
+        <ViajeActivoCard viaje={viajeBase} index={0} selected onSelect={() => {}} />
       </ul>,
     );
 
@@ -86,7 +86,7 @@ describe('ViajeActivoCard', () => {
   it('no dibuja una barra de progreso: el progreso es solo texto', () => {
     render(
       <ul>
-        <ViajeActivoCard viaje={viajeBase} indice={0} seleccionada onSeleccionar={() => {}} />
+        <ViajeActivoCard viaje={viajeBase} index={0} selected onSelect={() => {}} />
       </ul>,
     );
 
@@ -97,7 +97,7 @@ describe('ViajeActivoCard', () => {
     const viaje = { ...viajeBase, progresoPct: 140 };
     render(
       <ul>
-        <ViajeActivoCard viaje={viaje} indice={0} seleccionada onSeleccionar={() => {}} />
+        <ViajeActivoCard viaje={viaje} index={0} selected onSelect={() => {}} />
       </ul>,
     );
 
@@ -107,7 +107,7 @@ describe('ViajeActivoCard', () => {
   it('no incluye el enlace "Ver Detalles": esa navegacion vive solo en la barra de telemetria', () => {
     render(
       <ul>
-        <ViajeActivoCard viaje={viajeBase} indice={0} seleccionada onSeleccionar={() => {}} />
+        <ViajeActivoCard viaje={viajeBase} index={0} selected onSelect={() => {}} />
       </ul>,
     );
 
@@ -121,7 +121,7 @@ describe('ViajeActivoCard', () => {
     };
     render(
       <ul>
-        <ViajeActivoCard viaje={viaje} indice={0} seleccionada={false} onSeleccionar={() => {}} />
+        <ViajeActivoCard viaje={viaje} index={0} selected={false} onSelect={() => {}} />
       </ul>,
     );
 
@@ -132,28 +132,23 @@ describe('ViajeActivoCard', () => {
     const viaje = { ...viajeBase, eta: sinDato<Eta>() };
     render(
       <ul>
-        <ViajeActivoCard viaje={viaje} indice={0} seleccionada={false} onSeleccionar={() => {}} />
+        <ViajeActivoCard viaje={viaje} index={0} selected={false} onSelect={() => {}} />
       </ul>,
     );
 
     expect(screen.getByText('Pendiente')).toBeInTheDocument();
   });
 
-  it('el click en la tarjeta llama a onSeleccionar', async () => {
-    const onSeleccionar = vi.fn();
+  it('el click en la tarjeta llama a onSelect', async () => {
+    const onSelect = vi.fn();
     render(
       <ul>
-        <ViajeActivoCard
-          viaje={viajeBase}
-          indice={0}
-          seleccionada={false}
-          onSeleccionar={onSeleccionar}
-        />
+        <ViajeActivoCard viaje={viajeBase} index={0} selected={false} onSelect={onSelect} />
       </ul>,
     );
 
     await userEvent.click(screen.getByRole('button', { pressed: false }));
-    expect(onSeleccionar).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -166,7 +161,7 @@ describe('ViajesActivosCard', () => {
 
   it('cuenta cuantos viajes estan EN_RUTA', async () => {
     renderConRouter(
-      <ViajesActivosCard viajes={viajes} viajeSeleccionadoId="viaje-1" onSeleccionar={() => {}} />,
+      <ViajesActivosCard viajes={viajes} selectedViajeId="viaje-1" onSelect={() => {}} />,
     );
 
     expect(await screen.findByText('2 En Ruta')).toBeInTheDocument();
@@ -174,7 +169,7 @@ describe('ViajesActivosCard', () => {
 
   it('sin viajes activos lo dice en lugar de dejar la tarjeta vacia', async () => {
     renderConRouter(
-      <ViajesActivosCard viajes={[]} viajeSeleccionadoId={undefined} onSeleccionar={() => {}} />,
+      <ViajesActivosCard viajes={[]} selectedViajeId={undefined} onSelect={() => {}} />,
     );
 
     expect(await screen.findByText('No hay viajes activos')).toBeInTheDocument();

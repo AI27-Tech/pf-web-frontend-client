@@ -30,8 +30,8 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
   const [pending, setPending] = useState(false);
 
   // Estado puramente de UI: no viaja a `login()` ni afecta la autenticacion.
-  const [mostrarPassword, setMostrarPassword] = useState(false);
-  const [recordarme, setRecordarme] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -87,18 +87,18 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
 
       <Input
         label="Contrasena"
-        type={mostrarPassword ? 'text' : 'password'}
+        type={showPassword ? 'text' : 'password'}
         autoComplete="current-password"
         leadingSlot={<Lock aria-hidden="true" className="size-4" />}
         trailingSlot={
           <button
             type="button"
-            onClick={() => setMostrarPassword((valor) => !valor)}
-            aria-pressed={mostrarPassword}
-            aria-label={mostrarPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+            onClick={() => setShowPassword((value) => !value)}
+            aria-pressed={showPassword}
+            aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
             className="text-slate-400 hover:text-slate-600"
           >
-            {mostrarPassword ? (
+            {showPassword ? (
               <EyeOff aria-hidden="true" className="size-4" />
             ) : (
               <Eye aria-hidden="true" className="size-4" />
@@ -114,8 +114,8 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
         <label className="flex items-center gap-2 text-slate-600">
           <input
             type="checkbox"
-            checked={recordarme}
-            onChange={(event) => setRecordarme(event.target.checked)}
+            checked={rememberMe}
+            onChange={(event) => setRememberMe(event.target.checked)}
             className="focus:ring-brand-500 size-4 rounded border-slate-300"
           />
           Recordarme

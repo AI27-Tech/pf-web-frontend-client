@@ -3,7 +3,7 @@
  *
  * Existen para que haya UNA sola implementacion de "leer un campo marcado". La regla
  * "ausente por degradacion no es ausente" se cumple o se rompe en `parseFrescoWire`,
- * y esa funcion la comparten el parser de tracking y el del panel: si cada parser
+ * y esa funcion la comparten el parser de seguimiento y el del panel: si cada parser
  * escribiera su propia version, la regla se cumpliria dos veces y se romperia una.
  *
  * Este modulo no conoce viajes, ni ETAs, ni posiciones. Solo sabe de estructura:
@@ -23,7 +23,7 @@ import { ausentePorDegradacion, presente, sinDato } from '../contracts';
  * Error de forma del wire. Es 'roto', no 'degradado': el contrato no cuadra.
  *
  * Cada parser de dominio lo traduce a su propio error para no filtrar el detalle de
- * este modulo — ver `TrackingPayloadError` y `PanelPayloadError`.
+ * este modulo — ver `SeguimientoPayloadError` y `PanelPayloadError`.
  */
 export class WireError extends Error {
   constructor(message: string) {
@@ -78,7 +78,7 @@ export function optionalNumber(source: Record<string, unknown>, key: string): nu
  */
 export function parseFrescoWire<T>(
   raw: unknown,
-  parseValor: (value: Record<string, unknown>) => T,
+  parseValue: (value: Record<string, unknown>) => T,
 ): Fresco<T> {
   if (raw === undefined || raw === null) return sinDato<T>();
 
@@ -97,11 +97,11 @@ export function parseFrescoWire<T>(
   }
 
   if (estado === 'presente') {
-    const valor = raw['valor'];
-    if (!isRecord(valor)) {
+    const value = raw['valor'];
+    if (!isRecord(value)) {
       throw new WireError('Campo presente sin valor');
     }
-    return presente(parseValor(valor), requireString(raw, 'observado_en'));
+    return presente(parseValue(value), requireString(raw, 'observado_en'));
   }
 
   throw new WireError(`Estado de frescura desconocido: ${String(estado)}`);

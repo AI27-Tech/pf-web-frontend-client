@@ -8,19 +8,19 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Table, type Column } from '@/components/ui/Table';
 
-interface Fila {
+interface Row {
   readonly id: string;
-  readonly nombre: string;
+  readonly name: string;
 }
 
-const columnas: readonly Column<Fila>[] = [
-  { key: 'nombre', header: 'Nombre', cell: (fila) => fila.nombre },
+const columns: readonly Column<Row>[] = [
+  { key: 'name', header: 'Nombre', cell: (row) => row.name },
 ];
 
-function filas(cantidad: number): readonly Fila[] {
-  return Array.from({ length: cantidad }, (_, indice) => ({
-    id: `fila-${indice + 1}`,
-    nombre: `Fila ${indice + 1}`,
+function rows(count: number): readonly Row[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `fila-${index + 1}`,
+    name: `Fila ${index + 1}`,
   }));
 }
 
@@ -29,10 +29,10 @@ describe('Table · rowTone', () => {
     render(
       <Table
         caption="Prueba"
-        columns={columnas}
-        rows={filas(2)}
-        rowKey={(fila) => fila.id}
-        rowTone={(fila) => (fila.id === 'fila-2' ? 'error' : 'default')}
+        columns={columns}
+        rows={rows(2)}
+        rowKey={(row) => row.id}
+        rowTone={(row) => (row.id === 'fila-2' ? 'error' : 'default')}
       />,
     );
 
@@ -49,9 +49,9 @@ describe('Table · footer', () => {
     render(
       <Table
         caption="Prueba"
-        columns={columnas}
-        rows={filas(2)}
-        rowKey={(fila) => fila.id}
+        columns={columns}
+        rows={rows(2)}
+        rowKey={(row) => row.id}
         footer={<span>Pie de prueba</span>}
       />,
     );
@@ -60,15 +60,15 @@ describe('Table · footer', () => {
   });
 });
 
-describe('Table · porPagina', () => {
+describe('Table · pageSize', () => {
   it('recorta las filas a la pagina y navega con el pie', async () => {
     render(
       <Table
         caption="Prueba"
-        columns={columnas}
-        rows={filas(6)}
-        rowKey={(fila) => fila.id}
-        porPagina={3}
+        columns={columns}
+        rows={rows(6)}
+        rowKey={(row) => row.id}
+        pageSize={3}
       />,
     );
 
@@ -87,10 +87,8 @@ describe('Table · porPagina', () => {
     expect(screen.getByText('Mostrando 4–6 de 6 registros')).toBeInTheDocument();
   });
 
-  it('sin porPagina no aparece la paginacion', () => {
-    render(
-      <Table caption="Prueba" columns={columnas} rows={filas(6)} rowKey={(fila) => fila.id} />,
-    );
+  it('sin pageSize no aparece la paginacion', () => {
+    render(<Table caption="Prueba" columns={columns} rows={rows(6)} rowKey={(row) => row.id} />);
 
     expect(screen.queryByRole('navigation', { name: 'Paginacion' })).not.toBeInTheDocument();
     // Todas las filas presentes: no hay recorte.
@@ -103,9 +101,9 @@ describe('Table · headerTone', () => {
     render(
       <Table
         caption="Prueba"
-        columns={columnas}
-        rows={filas(2)}
-        rowKey={(fila) => fila.id}
+        columns={columns}
+        rows={rows(2)}
+        rowKey={(row) => row.id}
         headerTone="muted"
       />,
     );
@@ -120,9 +118,9 @@ describe('Table · headerTone', () => {
     render(
       <Table
         caption="Prueba"
-        columns={columnas}
-        rows={filas(2)}
-        rowKey={(fila) => fila.id}
+        columns={columns}
+        rows={rows(2)}
+        rowKey={(row) => row.id}
         headerTone="filled"
       />,
     );
@@ -138,9 +136,9 @@ describe('Table · vacio', () => {
     render(
       <Table
         caption="Prueba"
-        columns={columnas}
+        columns={columns}
         rows={[]}
-        rowKey={(fila) => fila.id}
+        rowKey={(row) => row.id}
         emptyMessage="Nada por aqui"
       />,
     );

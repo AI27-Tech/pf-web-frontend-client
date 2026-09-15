@@ -7,7 +7,7 @@ import { useId, type SelectHTMLAttributes } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { cx } from '@/lib/utils';
 
-export interface OpcionSelect {
+export interface SelectOption {
   readonly value: string;
   readonly label: string;
 }
@@ -17,7 +17,7 @@ interface SelectProps extends Omit<
   'className' | 'id' | 'children'
 > {
   readonly label: string;
-  readonly opciones: readonly OpcionSelect[];
+  readonly options: readonly SelectOption[];
   /** Texto de la opcion vacia inicial (p. ej. "Seleccione una categoria"). */
   readonly placeholder?: string;
   readonly error?: string;
@@ -26,7 +26,7 @@ interface SelectProps extends Omit<
 
 export function Select({
   label,
-  opciones,
+  options,
   placeholder,
   error,
   className,
@@ -62,9 +62,9 @@ export function Select({
               {placeholder}
             </option>
           )}
-          {opciones.map((opcion) => (
-            <option key={opcion.value} value={opcion.value} className="text-on-surface">
-              {opcion.label}
+          {options.map((option) => (
+            <option key={option.value} value={option.value} className="text-on-surface">
+              {option.label}
             </option>
           ))}
         </select>

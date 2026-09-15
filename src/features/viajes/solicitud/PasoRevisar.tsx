@@ -26,27 +26,27 @@ interface PasoRevisarProps {
   readonly onEnviar: () => void;
 }
 
-const SIN_DATO = 'No especificado';
+const NO_DATA = 'No especificado';
 
-function etiqueta(catalogo: readonly OpcionCatalogo[], id: string): string {
-  if (id === '') return SIN_DATO;
-  return catalogo.find((opcion) => opcion.id === id)?.nombre ?? id;
+function labelFor(catalogo: readonly OpcionCatalogo[], id: string): string {
+  if (id === '') return NO_DATA;
+  return catalogo.find((option) => option.id === id)?.nombre ?? id;
 }
 
 /** Fecha ISO (`yyyy-mm-dd`) a texto largo en espanol; vacio -> "sin dato". */
-function formatFecha(iso: string): string {
-  if (iso === '') return SIN_DATO;
-  const fecha = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(fecha.getTime())) return iso;
+function formatDate(iso: string): string {
+  if (iso === '') return NO_DATA;
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
   return new Intl.DateTimeFormat('es-MX', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(fecha);
+  }).format(date);
 }
 
-function textoOSinDato(valor: string): string {
-  return valor.trim() !== '' ? valor : SIN_DATO;
+function textOrNoData(value: string): string {
+  return value.trim() !== '' ? value : NO_DATA;
 }
 
 export function PasoRevisar({
@@ -56,86 +56,86 @@ export function PasoRevisar({
   onRegresar,
   onEnviar,
 }: PasoRevisarProps) {
-  const [confirmado, setConfirmado] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
   const { servicio, origen, destino, carga, documentacion } = borrador;
 
   // "Alto Valor" viaja como requisito de manejo; el chip lo refleja si esta marcado.
-  const esAltoValor = carga.requisitos.includes('alto-valor');
-  const requisitosTexto = carga.requisitos
-    .map((id) => etiqueta(catalogos.requisitos, id))
+  const isHighValue = carga.requisitos.includes('alto-valor');
+  const requisitosText = carga.requisitos
+    .map((id) => labelFor(catalogos.requisitos, id))
     .join(', ');
 
   return (
     <div className="flex flex-col gap-4">
       <TarjetaResumen
-        titulo="Servicio y Fecha"
-        icono={<CalendarDays aria-hidden="true" className="size-5" />}
+        title="Servicio y Fecha"
+        icon={<CalendarDays aria-hidden="true" className="size-5" />}
         onEditar={() => onEditar('servicio')}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Dato etiqueta="Tipo de servicio">
-            {etiqueta(catalogos.tiposServicio, servicio.tipoServicio)}
+          <Dato label="Tipo de servicio">
+            {labelFor(catalogos.tiposServicio, servicio.tipoServicio)}
           </Dato>
-          <Dato etiqueta="Prioridad">
+          <Dato label="Prioridad">
             <ChipPrioridad prioridad={servicio.prioridad} catalogo={catalogos.prioridades} />
           </Dato>
-          <Dato etiqueta="Fecha de inicio">{formatFecha(servicio.fechaSalida)}</Dato>
-          <Dato etiqueta="Hora">{textoOSinDato(servicio.horaSalida)}</Dato>
+          <Dato label="Fecha de inicio">{formatDate(servicio.fechaSalida)}</Dato>
+          <Dato label="Hora">{textOrNoData(servicio.horaSalida)}</Dato>
         </div>
       </TarjetaResumen>
 
       <TarjetaResumen
-        titulo="Ruta"
-        icono={<Route aria-hidden="true" className="size-5" />}
+        title="Ruta"
+        icon={<Route aria-hidden="true" className="size-5" />}
         onEditar={() => onEditar('ruta')}
       >
         <div className="flex items-center justify-between gap-4">
-          <Dato etiqueta="Origen">{textoOSinDato(origen.nombreLugar || origen.ciudadEstado)}</Dato>
+          <Dato label="Origen">{textOrNoData(origen.nombreLugar || origen.ciudadEstado)}</Dato>
           <span aria-hidden="true" className="text-on-surface-variant">
             →
           </span>
-          <Dato etiqueta="Destino" alineado="right">
-            {textoOSinDato(destino.nombreLugar || destino.ciudadEstado)}
+          <Dato label="Destino" aligned="right">
+            {textOrNoData(destino.nombreLugar || destino.ciudadEstado)}
           </Dato>
         </div>
       </TarjetaResumen>
 
       <TarjetaResumen
-        titulo="Detalles de Carga y Operación"
-        icono={<Package aria-hidden="true" className="size-5" />}
+        title="Detalles de Carga y Operación"
+        icon={<Package aria-hidden="true" className="size-5" />}
         onEditar={() => onEditar('detalles')}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Dato etiqueta="Tipo de carga">{etiqueta(catalogos.categorias, carga.categoria)}</Dato>
-          <Dato etiqueta="Valor declarado">
-            {esAltoValor ? (
+          <Dato label="Tipo de carga">{labelFor(catalogos.categorias, carga.categoria)}</Dato>
+          <Dato label="Valor declarado">
+            {isHighValue ? (
               <span className="bg-info-container text-on-info-container inline-flex rounded-full px-2.5 py-1 text-xs font-semibold">
                 Alto Valor
               </span>
             ) : (
-              etiqueta(catalogos.rangosValor, carga.valorEstimado)
+              labelFor(catalogos.rangosValor, carga.valorEstimado)
             )}
           </Dato>
-          <Dato etiqueta="Tipo de unidad">{textoOSinDato(carga.requerimientosVehiculo)}</Dato>
-          <Dato etiqueta="Condiciones especiales">{textoOSinDato(requisitosTexto)}</Dato>
+          <Dato label="Tipo de unidad">{textOrNoData(carga.requerimientosVehiculo)}</Dato>
+          <Dato label="Condiciones especiales">{textOrNoData(requisitosText)}</Dato>
         </div>
       </TarjetaResumen>
 
       <TarjetaResumen
-        titulo="Documentación Adjunta"
-        icono={<FileText aria-hidden="true" className="size-5" />}
+        title="Documentación Adjunta"
+        icon={<FileText aria-hidden="true" className="size-5" />}
         onEditar={() => onEditar('detalles')}
       >
         <p className="text-on-surface-variant text-sm">
-          {textoOSinDato(documentacion.comentarios) === SIN_DATO
+          {textOrNoData(documentacion.comentarios) === NO_DATA
             ? 'Sin documentos adjuntos.'
             : documentacion.comentarios}
         </p>
       </TarjetaResumen>
 
       <TarjetaResumen
-        titulo="Instrucciones Adicionales"
-        icono={<MessageSquareText aria-hidden="true" className="size-5" />}
+        title="Instrucciones Adicionales"
+        icon={<MessageSquareText aria-hidden="true" className="size-5" />}
         onEditar={() => onEditar('detalles')}
       >
         <p className="border-primary text-on-surface-variant border-l-4 pl-3 text-sm italic">
@@ -148,8 +148,8 @@ export function PasoRevisar({
       <Card className="p-4" ariaLabel="Confirmación">
         <Checkbox
           label="Confirmo que la información proporcionada es correcta y acepto los términos de servicio."
-          checked={confirmado}
-          onChange={(evento) => setConfirmado(evento.target.checked)}
+          checked={confirmed}
+          onChange={(event) => setConfirmed(event.target.checked)}
         />
       </Card>
 
@@ -157,7 +157,7 @@ export function PasoRevisar({
         <Button variant="secondary" onClick={onRegresar}>
           Regresar
         </Button>
-        <Button variant="primary" onClick={onEnviar} disabled={!confirmado}>
+        <Button variant="primary" onClick={onEnviar} disabled={!confirmed}>
           Enviar solicitud
         </Button>
       </div>
@@ -168,22 +168,22 @@ export function PasoRevisar({
 /* --- Piezas internas ------------------------------------------------------------- */
 
 function TarjetaResumen({
-  titulo,
-  icono,
+  title,
+  icon,
   onEditar,
   children,
 }: {
-  readonly titulo: string;
-  readonly icono: ReactNode;
+  readonly title: string;
+  readonly icon: ReactNode;
   readonly onEditar: () => void;
   readonly children: ReactNode;
 }) {
   return (
-    <Card className="p-5" ariaLabel={titulo}>
+    <Card className="p-5" ariaLabel={title}>
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-primary">{icono}</span>
-          <h2 className="text-on-surface text-base font-semibold">{titulo}</h2>
+          <span className="text-primary">{icon}</span>
+          <h2 className="text-on-surface text-base font-semibold">{title}</h2>
         </div>
         <button
           type="button"
@@ -200,18 +200,18 @@ function TarjetaResumen({
 }
 
 function Dato({
-  etiqueta,
-  alineado = 'left',
+  label,
+  aligned = 'left',
   children,
 }: {
-  readonly etiqueta: string;
-  readonly alineado?: 'left' | 'right';
+  readonly label: string;
+  readonly aligned?: 'left' | 'right';
   readonly children: ReactNode;
 }) {
   return (
-    <div className={cx('flex flex-col gap-1', alineado === 'right' && 'items-end text-right')}>
+    <div className={cx('flex flex-col gap-1', aligned === 'right' && 'items-end text-right')}>
       <span className="text-on-surface-variant text-xs font-semibold tracking-wide uppercase">
-        {etiqueta}
+        {label}
       </span>
       <span className="text-on-surface text-sm">{children}</span>
     </div>
@@ -225,15 +225,15 @@ function ChipPrioridad({
   readonly prioridad: string;
   readonly catalogo: readonly OpcionCatalogo[];
 }) {
-  if (prioridad === '') return <>{SIN_DATO}</>;
+  if (prioridad === '') return <>{NO_DATA}</>;
   // Alta/critica pesan como aviso -> par `error`; el resto, neutro.
-  const esUrgente = prioridad === 'alta' || prioridad === 'critica';
-  const clases = esUrgente
+  const isUrgent = prioridad === 'alta' || prioridad === 'critica';
+  const classes = isUrgent
     ? 'bg-error-container text-on-error-container'
     : 'bg-surface-container-high text-on-surface-variant';
   return (
-    <span className={cx('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', clases)}>
-      {etiqueta(catalogo, prioridad)}
+    <span className={cx('inline-flex rounded-full px-2.5 py-1 text-xs font-semibold', classes)}>
+      {labelFor(catalogo, prioridad)}
     </span>
   );
 }

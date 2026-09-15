@@ -21,7 +21,7 @@
 
 import type { Fresco, Posicion } from '@/lib/contracts';
 
-export function TrackingMap({ posicion }: { readonly posicion: Fresco<Posicion> }) {
+export function MapaSeguimiento({ posicion }: { readonly posicion: Fresco<Posicion> }) {
   return (
     <div
       role="img"
@@ -30,7 +30,7 @@ export function TrackingMap({ posicion }: { readonly posicion: Fresco<Posicion> 
           ? `Mapa del viaje. Ultima posicion conocida: ${posicion.valor.lat}, ${posicion.valor.lon}`
           : 'Mapa del viaje. Sin posicion disponible.'
       }
-      className="flex h-72 items-center justify-center rounded-lg bg-slate-200 text-sm text-slate-600"
+      className="bg-surface-container-high text-on-surface-variant flex h-72 items-center justify-center rounded-lg text-sm"
     >
       {posicion.estado === 'presente' ? (
         <span>

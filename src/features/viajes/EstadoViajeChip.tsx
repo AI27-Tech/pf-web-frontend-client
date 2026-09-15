@@ -10,7 +10,7 @@
 import type { CondicionActiva, EstadoViaje } from '@/lib/contracts';
 import { cx } from '@/lib/utils';
 
-type Tono = 'success' | 'warning' | 'info' | 'error' | 'neutral';
+type Tone = 'success' | 'warning' | 'info' | 'error' | 'neutral';
 
 interface EstadoViajeChipProps {
   readonly estado: EstadoViaje;
@@ -19,7 +19,7 @@ interface EstadoViajeChipProps {
 }
 
 /** Relleno suave + su par `on-*`. El punto usa el tono solido del mismo rol. */
-const tonoClases: Record<Tono, string> = {
+const toneClasses: Record<Tone, string> = {
   success: 'bg-success-container text-on-success-container',
   warning: 'bg-warning-container text-on-warning-container',
   info: 'bg-info-container text-on-info-container',
@@ -27,7 +27,7 @@ const tonoClases: Record<Tono, string> = {
   neutral: 'bg-surface-container-high text-on-surface-variant',
 };
 
-const puntoClases: Record<Tono, string> = {
+const dotClasses: Record<Tone, string> = {
   success: 'bg-success',
   warning: 'bg-warning',
   info: 'bg-info',
@@ -36,14 +36,14 @@ const puntoClases: Record<Tono, string> = {
 };
 
 /** Etiquetas de los estados que el cliente conoce. Sin entrada por defecto. */
-const etiquetaPorEstado: Readonly<Record<string, string>> = {
+const labelByEstado: Readonly<Record<string, string>> = {
   SOLICITADO: 'Solicitado',
   EN_RUTA: 'En Ruta',
   COMPLETADO: 'Completado',
   CANCELADO: 'Cancelado',
 };
 
-function tonoDeEstado(estado: EstadoViaje): Tono {
+function toneForEstado(estado: EstadoViaje): Tone {
   if (estado === 'EN_RUTA') return 'success';
   if (estado === 'SOLICITADO') return 'info';
   if (estado === 'COMPLETADO') return 'info';
@@ -54,21 +54,18 @@ function tonoDeEstado(estado: EstadoViaje): Tono {
 export function EstadoViajeChip({ estado, condicionesActivas = [] }: EstadoViajeChipProps) {
   const condicion = condicionesActivas[0];
 
-  const tono: Tono = condicion !== undefined ? 'warning' : tonoDeEstado(estado);
-  const texto = condicion?.descripcion ?? etiquetaPorEstado[estado] ?? estado;
+  const tone: Tone = condicion !== undefined ? 'warning' : toneForEstado(estado);
+  const text = condicion?.descripcion ?? labelByEstado[estado] ?? estado;
 
   return (
     <span
       className={cx(
         'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap',
-        tonoClases[tono],
+        toneClasses[tone],
       )}
     >
-      <span
-        aria-hidden="true"
-        className={cx('size-1.5 shrink-0 rounded-full', puntoClases[tono])}
-      />
-      {texto}
+      <span aria-hidden="true" className={cx('size-1.5 shrink-0 rounded-full', dotClasses[tone])} />
+      {text}
     </span>
   );
 }

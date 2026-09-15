@@ -19,14 +19,14 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { POLLING_INTERVAL_MS, STREAM_ENABLED } from '@/lib/constants';
-import { getTracking } from '@/lib/api/viajes';
-import { parseTrackingPayload } from '@/lib/tracking/parseTrackingPayload';
+import { getSeguimiento } from '@/lib/api/viajes';
+import { parseSeguimientoPayload } from '@/lib/seguimiento/parseSeguimientoPayload';
 import { openStream } from '@/lib/stream/streamClient';
-import { canalViaje, type Sobre, type TrackingPayload } from '@/lib/contracts';
+import { canalViaje, type Sobre, type SeguimientoPayload } from '@/lib/contracts';
 import { useDegradation } from '@/context/DegradationContext';
 
-/** Tipos de sobre que transportan un payload de tracking. */
-const TIPOS_DE_TRACKING: ReadonlySet<Sobre['tipo']> = new Set([
+/** Tipos de sobre que transportan un payload de seguimiento. */
+const TIPOS_DE_SEGUIMIENTO: ReadonlySet<Sobre['tipo']> = new Set([
   'posicion.actualizada',
   'eta.actualizado',
   'geocerca.evento',
@@ -35,8 +35,8 @@ const TIPOS_DE_TRACKING: ReadonlySet<Sobre['tipo']> = new Set([
 ]);
 
 /** La clave de cache, en un solo sitio para que pull y push escriban en la misma. */
-function trackingQueryKey(viajeId: string): readonly [string, string] {
-  return ['tracking', viajeId];
+function seguimientoQueryKey(viajeId: string): readonly [string, string] {
+  return ['seguimiento', viajeId];
 }
 
 /**
@@ -44,20 +44,20 @@ function trackingQueryKey(viajeId: string): readonly [string, string] {
  * de dominio mayor — no la que llego mas tarde, y no el `seq` de transporte mayor.
  */
 function mergeByDomainSequence(
-  previous: TrackingPayload | undefined,
-  incoming: TrackingPayload,
-): TrackingPayload {
+  previous: SeguimientoPayload | undefined,
+  incoming: SeguimientoPayload,
+): SeguimientoPayload {
   if (previous === undefined) return incoming;
   return incoming.secuenciaDominio >= previous.secuenciaDominio ? incoming : previous;
 }
 
-export function useTracking(viajeId: string) {
+export function useSeguimiento(viajeId: string) {
   const { mode, reportStreamStatus } = useDegradation();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: trackingQueryKey(viajeId),
-    queryFn: ({ signal }) => getTracking(viajeId, signal),
+    queryKey: seguimientoQueryKey(viajeId),
+    queryFn: ({ signal }) => getSeguimiento(viajeId, signal),
     /*
      * Polling solo cuando el push no esta entregando. La carga de push se convierte
      * en carga de pull sobre bff, asi que esta cadencia no es gratis.
@@ -73,12 +73,12 @@ export function useTracking(viajeId: string) {
       onStatus: reportStreamStatus,
 
       onSobre: (sobre) => {
-        if (!TIPOS_DE_TRACKING.has(sobre.tipo)) return;
+        if (!TIPOS_DE_SEGUIMIENTO.has(sobre.tipo)) return;
 
         try {
           // EL MISMO parser que usa la ruta pull. Ahi esta P4.
-          const payload = parseTrackingPayload(sobre.payload);
-          queryClient.setQueryData<TrackingPayload>(trackingQueryKey(viajeId), (previous) =>
+          const payload = parseSeguimientoPayload(sobre.payload);
+          queryClient.setQueryData<SeguimientoPayload>(seguimientoQueryKey(viajeId), (previous) =>
             mergeByDomainSequence(previous, payload),
           );
         } catch {

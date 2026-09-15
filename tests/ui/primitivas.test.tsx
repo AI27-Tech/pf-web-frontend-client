@@ -15,13 +15,13 @@ import { RadioCard } from '@/components/ui/RadioCard';
 import { FileDropzone } from '@/components/ui/FileDropzone';
 
 describe('Select', () => {
-  const opciones = [
+  const options = [
     { value: 'a', label: 'Opción A' },
     { value: 'b', label: 'Opción B' },
   ];
 
   it('asocia el label y pinta las opciones con placeholder', () => {
-    render(<Select label="Prioridad" opciones={opciones} placeholder="Seleccione" value="" />);
+    render(<Select label="Prioridad" options={options} placeholder="Seleccione" value="" />);
 
     const select = screen.getByLabelText('Prioridad');
     expect(select).toBeInTheDocument();
@@ -31,7 +31,7 @@ describe('Select', () => {
 
   it('reporta el cambio de valor', () => {
     const onChange = vi.fn();
-    render(<Select label="Prioridad" opciones={opciones} value="" onChange={onChange} />);
+    render(<Select label="Prioridad" options={options} value="" onChange={onChange} />);
 
     fireEvent.change(screen.getByLabelText('Prioridad'), { target: { value: 'b' } });
     expect(onChange).toHaveBeenCalled();
@@ -65,9 +65,9 @@ describe('RadioCard', () => {
         value="monitoreo-activo"
         checked
         onChange={() => {}}
-        titulo="Monitoreo Activo"
-        descripcion="Seguimiento en tiempo real"
-        icono={<Truck aria-hidden="true" />}
+        title="Monitoreo Activo"
+        description="Seguimiento en tiempo real"
+        icon={<Truck aria-hidden="true" />}
       />,
     );
 
@@ -83,9 +83,9 @@ describe('RadioCard', () => {
         value="custodia-armada"
         checked={false}
         onChange={onChange}
-        titulo="Custodia Armada"
-        descripcion="Escolta física"
-        icono={<Truck aria-hidden="true" />}
+        title="Custodia Armada"
+        description="Escolta física"
+        icon={<Truck aria-hidden="true" />}
       />,
     );
 
@@ -96,7 +96,7 @@ describe('RadioCard', () => {
 
 describe('FileDropzone', () => {
   it('es un placeholder inerte: deshabilitado y con nombre accesible', () => {
-    render(<FileDropzone formatos="PDF, JPG, PNG (Max 10MB)" />);
+    render(<FileDropzone formats="PDF, JPG, PNG (Max 10MB)" />);
 
     const boton = screen.getByRole('button', { name: /no disponible/i });
     expect(boton).toBeDisabled();

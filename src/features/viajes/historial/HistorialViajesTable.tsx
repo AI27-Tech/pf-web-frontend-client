@@ -18,7 +18,7 @@ import { UnidadCell } from './UnidadCell';
 import { ReporteSeguridadCell } from './ReporteSeguridadCell';
 
 /** Registros por pagina del historial. */
-const POR_PAGINA = 3;
+const PAGE_SIZE = 3;
 
 const columns: readonly Column<ViajeResumen>[] = [
   {
@@ -88,7 +88,7 @@ export function HistorialViajesTable({ viajes }: { readonly viajes: readonly Via
         minWidthClass="min-w-[52rem]"
         // La fila de un viaje cancelado se resalta en tono de error.
         rowTone={(viaje) => (viaje.estado === 'CANCELADO' ? 'error' : 'default')}
-        porPagina={POR_PAGINA}
+        pageSize={PAGE_SIZE}
         fill
       />
     </Card>

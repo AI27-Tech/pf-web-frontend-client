@@ -9,11 +9,11 @@ import { cx } from '@/lib/utils';
 
 interface FileDropzoneProps {
   /** Formatos y limite a mostrar, p. ej. "PDF, JPG, PNG (Max 10MB)". */
-  readonly formatos?: string;
+  readonly formats?: string;
   readonly className?: string;
 }
 
-export function FileDropzone({ formatos, className }: FileDropzoneProps) {
+export function FileDropzone({ formats, className }: FileDropzoneProps) {
   return (
     <button
       type="button"
@@ -29,9 +29,9 @@ export function FileDropzone({ formatos, className }: FileDropzoneProps) {
       <UploadCloud aria-hidden="true" className="size-8" />
       <span className="text-on-surface text-sm font-medium">Arrastre archivos aquí</span>
       <span className="text-xs">o haga clic para seleccionar</span>
-      {formatos !== undefined && (
+      {formats !== undefined && (
         <span className="bg-surface-container text-on-surface-variant mt-1 rounded-full px-2 py-0.5 text-[11px]">
-          {formatos}
+          {formats}
         </span>
       )}
     </button>

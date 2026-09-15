@@ -1,13 +1,13 @@
 /*
  * PROVISIONAL — se reemplaza por generacion desde contracts/. Ver README.
  *
- * La forma del payload de tracking. UNA sola, para las dos rutas de datos.
+ * La forma del payload de seguimiento. UNA sola, para las dos rutas de datos.
  *
  * Es la propiedad P4: la misma entrada por `GET /viajes/{id}/tracking` (pull) y por
  * el sobre de push produce bytes identicos, porque en el backend las dos rutas
  * consumen la misma biblioteca pura `packages/tracking-payload`. Del lado cliente,
  * la contraparte de esa propiedad es que haya un solo parser — ver
- * `src/lib/tracking/parseTrackingPayload.ts`.
+ * `src/lib/seguimiento/parseSeguimientoPayload.ts`.
  *
  * No declares aqui una variante "de push" ni una "de pull". Si aparece una segunda
  * forma, la deriva que P4 prohibe ya ocurrio.
@@ -47,7 +47,7 @@ export interface EventoGeocerca {
 }
 
 /** Lo que el mapa y el panel de seguimiento consumen. Una sola forma. */
-export interface TrackingPayload {
+export interface SeguimientoPayload {
   readonly viajeId: string;
   readonly estado: EstadoViaje;
   readonly condicionesActivas: readonly CondicionActiva[];

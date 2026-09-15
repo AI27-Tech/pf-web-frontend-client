@@ -20,23 +20,21 @@ import { ViajesActivosCard } from './ViajesActivosCard';
 
 export function SeguimientoSection({ viajes }: { readonly viajes: readonly ViajeEnCurso[] }) {
   // La primera tarjeta va seleccionada por defecto, igual que muestra el diseno.
-  const [viajeSeleccionadoId, setViajeSeleccionadoId] = useState<string | undefined>(
-    viajes[0]?.viajeId,
-  );
-  const [mostrandoDetalle, setMostrandoDetalle] = useState(false);
+  const [selectedViajeId, setSelectedViajeId] = useState<string | undefined>(viajes[0]?.viajeId);
+  const [showDetail, setShowDetail] = useState(false);
 
-  const viajeSeleccionado = viajes.find((viaje) => viaje.viajeId === viajeSeleccionadoId);
+  const selectedViaje = viajes.find((viaje) => viaje.viajeId === selectedViajeId);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6 xl:flex-row">
       <div className="flex min-h-0 xl:h-full xl:w-1/3">
-        {mostrandoDetalle ? (
+        {showDetail ? (
           <DetalleViajePlaceholderCard />
         ) : (
           <ViajesActivosCard
             viajes={viajes}
-            viajeSeleccionadoId={viajeSeleccionadoId}
-            onSeleccionar={setViajeSeleccionadoId}
+            selectedViajeId={selectedViajeId}
+            onSelect={setSelectedViajeId}
           />
         )}
       </div>
@@ -46,9 +44,9 @@ export function SeguimientoSection({ viajes }: { readonly viajes: readonly Viaje
           <MapPlaceholderCard />
         </div>
         <TelemetriaExtraCard
-          viaje={viajeSeleccionado}
-          mostrandoDetalle={mostrandoDetalle}
-          onAlternarDetalle={() => setMostrandoDetalle((valor) => !valor)}
+          viaje={selectedViaje}
+          showDetail={showDetail}
+          onToggleDetail={() => setShowDetail((prev) => !prev)}
         />
       </div>
     </div>

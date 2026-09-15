@@ -18,22 +18,22 @@ import { Button } from '@/components/ui/Button';
 import { CampoFiltro } from './CampoFiltro';
 
 /** Motivo del `title` del boton, para no repetirlo. */
-const MOTIVO_SIN_FILTRO = 'El filtrado se hara en el servidor (pendiente de contrato)';
+const NO_FILTER_REASON = 'El filtrado se hara en el servidor (pendiente de contrato)';
 
-const claseControl =
+const controlClass =
   'bg-surface-container-lowest border-outline text-on-surface w-full rounded-lg border px-3 py-2.5 text-sm ' +
   'placeholder:text-on-surface-variant focus:border-primary focus:outline-none';
 
 export function HistorialFiltros() {
   // Estado local: los valores se conservan al escribir/elegir, pero no filtran nada.
-  const [rango, setRango] = useState('30d');
+  const [range, setRange] = useState('30d');
   const [estado, setEstado] = useState('');
-  const [busqueda, setBusqueda] = useState('');
+  const [search, setSearch] = useState('');
 
   return (
     <form
       // Sin filtrado real: se evita que un Enter recargue la pagina.
-      onSubmit={(evento) => evento.preventDefault()}
+      onSubmit={(event) => event.preventDefault()}
       className="bg-surface-container-lowest border-outline-variant flex flex-col gap-4 rounded-lg border p-4 lg:flex-row lg:items-end"
     >
       <div className="lg:w-56">
@@ -41,9 +41,9 @@ export function HistorialFiltros() {
           {(id) => (
             <select
               id={id}
-              value={rango}
-              onChange={(evento) => setRango(evento.target.value)}
-              className={claseControl}
+              value={range}
+              onChange={(event) => setRange(event.target.value)}
+              className={controlClass}
             >
               <option value="7d">Ultimos 7 dias</option>
               <option value="30d">Ultimos 30 dias</option>
@@ -59,8 +59,8 @@ export function HistorialFiltros() {
             <select
               id={id}
               value={estado}
-              onChange={(evento) => setEstado(evento.target.value)}
-              className={claseControl}
+              onChange={(event) => setEstado(event.target.value)}
+              className={controlClass}
             >
               <option value="">Todos los estados</option>
               <option value="EN_RUTA">En Ruta</option>
@@ -75,22 +75,22 @@ export function HistorialFiltros() {
       <div className="flex-1">
         <CampoFiltro
           label="Busqueda rapida"
-          icono={<Search aria-hidden="true" className="size-4" />}
+          icon={<Search aria-hidden="true" className="size-4" />}
         >
           {(id) => (
             <input
               id={id}
               type="search"
-              value={busqueda}
-              onChange={(evento) => setBusqueda(evento.target.value)}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por ID de Vehiculo, Origen o Destino..."
-              className={`${claseControl} pl-10`}
+              className={`${controlClass} pl-10`}
             />
           )}
         </CampoFiltro>
       </div>
 
-      <Button type="submit" variant="secondary" disabled title={MOTIVO_SIN_FILTRO}>
+      <Button type="submit" variant="secondary" disabled title={NO_FILTER_REASON}>
         Filtrar
       </Button>
     </form>

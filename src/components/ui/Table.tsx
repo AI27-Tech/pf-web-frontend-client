@@ -41,7 +41,7 @@ interface TableProps<T> {
   readonly rowTone?: (row: T) => RowTone;
   /**
    * Contenido del pie, dentro del marco y con borde superior. Se pinta ademas de la
-   * paginacion automatica de `porPagina`, si ambos estan presentes.
+   * paginacion automatica de `pageSize`, si ambos estan presentes.
    */
   readonly footer?: ReactNode;
   /**
@@ -52,7 +52,7 @@ interface TableProps<T> {
    * lista completa. TODO(contracts): cuando bff pagine, esto se mueve a un search
    * param de la ruta + loaderDeps, y la tabla vuelve a recibir solo la pagina actual.
    */
-  readonly porPagina?: number;
+  readonly pageSize?: number;
   /**
    * Estira la tabla para ocupar la altura de su contenedor: el area de filas crece y
    * el pie queda anclado abajo. Sin esto la tabla mide solo su contenido. Requiere que
@@ -73,34 +73,34 @@ export function Table<T>({
   minWidthClass,
   rowTone,
   footer,
-  porPagina,
+  pageSize,
   fill = false,
 }: TableProps<T>) {
   const [selectedKey, setSelectedKey] = useState<string | null>(defaultSelectedRowKey ?? null);
-  const [paginaActual, setPaginaActual] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
 
   if (rows.length === 0) {
     return <p className="text-on-surface-variant py-6 text-sm">{emptyMessage}</p>;
   }
 
-  const conMarco = headerTone === 'default';
-  const paginado = porPagina !== undefined && porPagina > 0;
+  const bordered = headerTone === 'default';
+  const paginated = pageSize !== undefined && pageSize > 0;
 
   // Se acota la pagina al rango valido: la pagina no se queda
   // fuera de rango mostrando un cuerpo vacio.
-  const totalPaginas = paginado ? Math.max(1, Math.ceil(rows.length / porPagina)) : 1;
-  const pagina = Math.min(paginaActual, totalPaginas);
+  const totalPages = paginated ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+  const page = Math.min(currentPage, totalPages);
 
-  const desde = paginado ? (pagina - 1) * porPagina + 1 : 1;
-  const hasta = paginado ? Math.min(pagina * porPagina, rows.length) : rows.length;
-  const filasVisibles = paginado ? rows.slice(desde - 1, hasta) : rows;
+  const rangeStart = paginated ? (page - 1) * pageSize + 1 : 1;
+  const rangeEnd = paginated ? Math.min(page * pageSize, rows.length) : rows.length;
+  const visibleRows = paginated ? rows.slice(rangeStart - 1, rangeEnd) : rows;
 
-  function toggleSeleccion(key: string): void {
+  function toggleSelection(key: string): void {
     if (!selectable) return;
-    setSelectedKey((actual) => (actual === key ? null : key));
+    setSelectedKey((current) => (current === key ? null : key));
   }
 
-  const theadClase =
+  const theadClass =
     headerTone === 'default'
       ? 'bg-surface-container text-on-surface-variant'
       : headerTone === 'filled'
@@ -112,7 +112,7 @@ export function Table<T>({
       className={cx(
         'flex flex-col',
         fill && 'min-h-0 flex-1',
-        conMarco && 'border-outline-variant rounded-lg border',
+        bordered && 'border-outline-variant rounded-lg border',
       )}
     >
       <div className={cx('overflow-x-auto', fill && 'min-h-0 flex-1')}>
@@ -120,11 +120,11 @@ export function Table<T>({
           className={cx(
             'divide-outline-variant min-w-full divide-y text-sm',
             minWidthClass,
-            conMarco && 'bg-surface-container-lowest',
+            bordered && 'bg-surface-container-lowest',
           )}
         >
           <caption className="sr-only">{caption}</caption>
-          <thead className={theadClase}>
+          <thead className={theadClass}>
             <tr>
               {columns.map((column) => (
                 <th key={column.key} scope="col" className="px-3 py-2 text-left font-semibold">
@@ -134,38 +134,38 @@ export function Table<T>({
             </tr>
           </thead>
           <tbody className="divide-outline-variant divide-y">
-            {filasVisibles.map((row) => {
+            {visibleRows.map((row) => {
               const key = rowKey(row);
-              const seleccionada = selectable && selectedKey === key;
-              const tono: RowTone = rowTone?.(row) ?? 'default';
-              const esError = tono === 'error';
+              const selected = selectable && selectedKey === key;
+              const tone: RowTone = rowTone?.(row) ?? 'default';
+              const isError = tone === 'error';
 
               return (
                 <tr
                   key={key}
-                  onClick={selectable ? () => toggleSeleccion(key) : undefined}
+                  onClick={selectable ? () => toggleSelection(key) : undefined}
                   // La seleccion es solo por click. `aria-selected` sigue anunciando el
                   // estado a quien usa un lector de pantalla, sin convertir la fila en
                   // una parada de tabulacion que no hace nada al activarla.
-                  aria-selected={selectable ? seleccionada : undefined}
+                  aria-selected={selectable ? selected : undefined}
                   className={cx(
                     // `group` deja que la primera celda reaccione al hover de la fila.
                     'group transition-colors',
-                    esError ? 'bg-error-container/40' : 'hover:bg-surface-container',
+                    isError ? 'bg-error-container/40' : 'hover:bg-surface-container',
                     selectable && 'cursor-pointer',
-                    seleccionada && !esError && 'bg-surface-container',
+                    selected && !isError && 'bg-surface-container',
                   )}
                 >
-                  {columns.map((column, indice) => (
+                  {columns.map((column, index) => (
                     <td
                       key={column.key}
                       className={cx(
                         'px-3 py-3 align-middle',
-                        indice === 0 && 'border-l-2',
-                        indice === 0 &&
-                          (esError
+                        index === 0 && 'border-l-2',
+                        index === 0 &&
+                          (isError
                             ? 'border-error'
-                            : seleccionada
+                            : selected
                               ? 'border-primary'
                               : 'group-hover:border-primary border-transparent'),
                       )}
@@ -180,17 +180,17 @@ export function Table<T>({
         </table>
       </div>
 
-      {(footer !== undefined || paginado) && (
+      {(footer !== undefined || paginated) && (
         <div className="border-outline-variant bg-surface-container-low border-t px-3 py-3">
           {footer}
-          {paginado && (
+          {paginated && (
             <Pagination
-              pagina={pagina}
-              totalPaginas={totalPaginas}
-              totalRegistros={rows.length}
-              desde={desde}
-              hasta={hasta}
-              onCambiarPagina={setPaginaActual}
+              page={page}
+              totalPages={totalPages}
+              totalRecords={rows.length}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setCurrentPage}
             />
           )}
         </div>

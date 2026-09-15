@@ -12,7 +12,7 @@ import { FileDropzone } from '@/components/ui/FileDropzone';
 
 interface DocumentacionCardProps {
   readonly comentarios: string;
-  readonly onComentarios: (valor: string) => void;
+  readonly onComentarios: (value: string) => void;
 }
 
 export function DocumentacionCard({ comentarios, onComentarios }: DocumentacionCardProps) {
@@ -23,12 +23,12 @@ export function DocumentacionCard({ comentarios, onComentarios }: DocumentacionC
         <h2 className="text-on-surface text-base font-semibold">Documentación</h2>
       </div>
 
-      <FileDropzone formatos="PDF, JPG, PNG (Max 10MB)" />
+      <FileDropzone formats="PDF, JPG, PNG (Max 10MB)" />
 
       <Textarea
         label="Comentarios sobre documentos"
         value={comentarios}
-        onChange={(evento) => onComentarios(evento.target.value)}
+        onChange={(event) => onComentarios(event.target.value)}
         placeholder="Notas sobre facturas o cartas porte…"
       />
     </Card>

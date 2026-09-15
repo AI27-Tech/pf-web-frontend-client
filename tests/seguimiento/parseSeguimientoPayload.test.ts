@@ -11,30 +11,33 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { parseTrackingPayload, TrackingPayloadError } from '@/lib/tracking/parseTrackingPayload';
+import {
+  parseSeguimientoPayload,
+  SeguimientoPayloadError,
+} from '@/lib/seguimiento/parseSeguimientoPayload';
 import {
   envolverEnSobre,
   wireCompleto,
   wireDegradado,
   wireSinDatos,
-} from '../fixtures/trackingWire';
+} from '../fixtures/seguimientoWire';
 
-describe('parseTrackingPayload · no-deriva pull/push (P4)', () => {
+describe('parseSeguimientoPayload · no-deriva pull/push (P4)', () => {
   it('produce el mismo resultado por la ruta pull y por el sobre de push', () => {
     // Ruta pull: el cuerpo de GET /api/v1/viajes/{id}/tracking.
-    const porPull = parseTrackingPayload(wireCompleto);
+    const porPull = parseSeguimientoPayload(wireCompleto);
 
     // Ruta push: el mismo payload dentro de un sobre SSE.
     const sobre = envolverEnSobre(wireCompleto, 1042);
-    const porPush = parseTrackingPayload(sobre.payload);
+    const porPush = parseSeguimientoPayload(sobre.payload);
 
     expect(porPush).toStrictEqual(porPull);
   });
 
   it('el seq de transporte no contamina el resultado', () => {
     // Dos sobres con `seq` distinto y el mismo payload: misma salida.
-    const primero = parseTrackingPayload(envolverEnSobre(wireCompleto, 1).payload);
-    const segundo = parseTrackingPayload(envolverEnSobre(wireCompleto, 999_999).payload);
+    const primero = parseSeguimientoPayload(envolverEnSobre(wireCompleto, 1).payload);
+    const segundo = parseSeguimientoPayload(envolverEnSobre(wireCompleto, 999_999).payload);
 
     expect(primero).toStrictEqual(segundo);
     // La secuencia que sale es la DE DOMINIO, no la del sobre.
@@ -42,9 +45,9 @@ describe('parseTrackingPayload · no-deriva pull/push (P4)', () => {
   });
 });
 
-describe('parseTrackingPayload · ausente por degradacion no es ausente', () => {
+describe('parseSeguimientoPayload · ausente por degradacion no es ausente', () => {
   it('preserva la marca de degradacion en lugar de colapsarla a null', () => {
-    const payload = parseTrackingPayload(wireDegradado);
+    const payload = parseSeguimientoPayload(wireDegradado);
 
     expect(payload.posicion.estado).toBe('ausente-por-degradacion');
     if (payload.posicion.estado === 'ausente-por-degradacion') {
@@ -54,8 +57,8 @@ describe('parseTrackingPayload · ausente por degradacion no es ausente', () => 
   });
 
   it('distingue degradacion de ausencia de dato', () => {
-    const degradado = parseTrackingPayload(wireDegradado);
-    const sinDatos = parseTrackingPayload(wireSinDatos);
+    const degradado = parseSeguimientoPayload(wireDegradado);
+    const sinDatos = parseSeguimientoPayload(wireSinDatos);
 
     // Los dos "no tienen posicion", y son estados distintos. Colapsarlos es la mentira.
     expect(degradado.posicion.estado).toBe('ausente-por-degradacion');
@@ -65,18 +68,18 @@ describe('parseTrackingPayload · ausente por degradacion no es ausente', () => 
 
   it('sirve el estado del viaje aunque posicion y ETA falten', () => {
     // El payload parcial sigue siendo util: estado si, posicion no.
-    const payload = parseTrackingPayload(wireDegradado);
+    const payload = parseSeguimientoPayload(wireDegradado);
     expect(payload.estado).toBe('EN_RUTA');
   });
 });
 
-describe('parseTrackingPayload · forma invalida', () => {
+describe('parseSeguimientoPayload · forma invalida', () => {
   it('rechaza un payload que no es objeto', () => {
-    expect(() => parseTrackingPayload('no soy un objeto')).toThrow(TrackingPayloadError);
+    expect(() => parseSeguimientoPayload('no soy un objeto')).toThrow(SeguimientoPayloadError);
   });
 
   it('rechaza un estado de frescura desconocido en lugar de adivinar', () => {
     const invalido = { ...wireCompleto, posicion: { estado: 'quiza' } };
-    expect(() => parseTrackingPayload(invalido)).toThrow(TrackingPayloadError);
+    expect(() => parseSeguimientoPayload(invalido)).toThrow(SeguimientoPayloadError);
   });
 });

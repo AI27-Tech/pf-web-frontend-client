@@ -10,22 +10,22 @@ import { CircleCheck, MapPin, TriangleAlert, type LucideIcon } from 'lucide-reac
 import type { EstadoSeguimiento } from '@/lib/contracts';
 import { cx } from '@/lib/utils';
 
-type Tono = 'success' | 'warning' | 'info' | 'neutral';
+type Tone = 'success' | 'warning' | 'info' | 'neutral';
 
-function tonoConocido(tono: EstadoSeguimiento['tono']): Tono {
+function knownTone(tono: EstadoSeguimiento['tono']): Tone {
   if (tono === 'success') return 'success';
   if (tono === 'warning') return 'warning';
   if (tono === 'info') return 'info';
   return 'neutral';
 }
 
-const iconoPorClave: Readonly<Record<string, LucideIcon>> = {
+const iconByKey: Readonly<Record<string, LucideIcon>> = {
   'ruta-segura': CircleCheck,
   'desvio-detectado': TriangleAlert,
   'en-transito': MapPin,
 };
 
-const textoClases: Record<Tono, string> = {
+const textClasses: Record<Tone, string> = {
   success: 'text-success',
   warning: 'text-warning',
   info: 'text-info',
@@ -37,14 +37,14 @@ export function EstadoSeguimientoBadge({
 }: {
   readonly estadoSeguimiento: EstadoSeguimiento;
 }) {
-  const tono = tonoConocido(estadoSeguimiento.tono);
-  const Icono = iconoPorClave[estadoSeguimiento.icono] ?? MapPin;
+  const tone = knownTone(estadoSeguimiento.tono);
+  const Icon = iconByKey[estadoSeguimiento.icono] ?? MapPin;
 
   return (
     <span
-      className={cx('inline-flex items-center gap-1.5 text-xs font-semibold', textoClases[tono])}
+      className={cx('inline-flex items-center gap-1.5 text-xs font-semibold', textClasses[tone])}
     >
-      <Icono aria-hidden="true" className="size-3.5 shrink-0" />
+      <Icon aria-hidden="true" className="size-3.5 shrink-0" />
       {estadoSeguimiento.etiqueta}
     </span>
   );

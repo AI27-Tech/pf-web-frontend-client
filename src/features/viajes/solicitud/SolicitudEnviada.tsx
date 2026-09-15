@@ -18,26 +18,26 @@ interface SolicitudEnviadaProps {
   readonly onVolverAlInicio: () => void;
 }
 
-const SIN_DATO = 'No especificado';
+const NO_DATA = 'No especificado';
 
-function texto(valor: string): string {
-  return valor.trim() !== '' ? valor : SIN_DATO;
+function orFallback(value: string): string {
+  return value.trim() !== '' ? value : NO_DATA;
 }
 
-function formatFecha(iso: string): string {
-  if (iso === '') return SIN_DATO;
-  const fecha = new Date(`${iso}T00:00:00`);
-  if (Number.isNaN(fecha.getTime())) return iso;
+function formatDate(iso: string): string {
+  if (iso === '') return NO_DATA;
+  const date = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
   return new Intl.DateTimeFormat('es-MX', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(fecha);
+  }).format(date);
 }
 
 export function SolicitudEnviada({ id, borrador, onVolverAlInicio }: SolicitudEnviadaProps) {
-  const origen = texto(borrador.origen.nombreLugar || borrador.origen.ciudadEstado);
-  const destino = texto(borrador.destino.nombreLugar || borrador.destino.ciudadEstado);
+  const origen = orFallback(borrador.origen.nombreLugar || borrador.origen.ciudadEstado);
+  const destino = orFallback(borrador.destino.nombreLugar || borrador.destino.ciudadEstado);
 
   return (
     <Card
@@ -81,16 +81,14 @@ export function SolicitudEnviada({ id, borrador, onVolverAlInicio }: SolicitudEn
               <CalendarDays aria-hidden="true" className="size-3.5" />
               Fecha
             </dt>
-            <dd className="text-on-surface text-sm">
-              {formatFecha(borrador.servicio.fechaSalida)}
-            </dd>
+            <dd className="text-on-surface text-sm">{formatDate(borrador.servicio.fechaSalida)}</dd>
           </div>
           <div className="flex flex-col gap-1">
             <dt className="text-on-surface-variant flex items-center gap-1 text-xs font-medium">
               <Clock aria-hidden="true" className="size-3.5" />
               Hora
             </dt>
-            <dd className="text-on-surface text-sm">{texto(borrador.servicio.horaSalida)}</dd>
+            <dd className="text-on-surface text-sm">{orFallback(borrador.servicio.horaSalida)}</dd>
           </div>
         </dl>
       </div>

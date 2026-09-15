@@ -18,19 +18,19 @@
 
 import type { Eta, Fresco } from '@/lib/contracts';
 import { ETA_MAX_CHARS } from '@/lib/constants';
-import { formatEtaTexto } from '@/lib/tracking/formatEta';
+import { formatEtaText } from '@/lib/seguimiento/formatEta';
 import { formatDateTime, truncate } from '@/lib/utils';
 
 interface EtaCellProps {
   readonly eta: Fresco<Eta>;
   /** Ancho maximo en caracteres. Por defecto, el del design system. */
-  readonly maxCaracteres?: number;
+  readonly maxChars?: number;
 }
 
-export function EtaCell({ eta, maxCaracteres = ETA_MAX_CHARS }: EtaCellProps) {
+export function EtaCell({ eta, maxChars = ETA_MAX_CHARS }: EtaCellProps) {
   if (eta.estado === 'presente') {
-    const completo = formatEtaTexto(eta.valor.estimadoEn);
-    const visible = truncate(completo, maxCaracteres);
+    const full = formatEtaText(eta.valor.estimadoEn);
+    const truncated = truncate(full, maxChars);
 
     return (
       /*
@@ -38,14 +38,14 @@ export function EtaCell({ eta, maxCaracteres = ETA_MAX_CHARS }: EtaCellProps) {
        * no tiene que razonar sobre si recorto, y el dato entero esta siempre a un
        * hover de distancia.
        */
-      <span title={completo} className="text-on-surface whitespace-nowrap">
-        {visible}
+      <span title={full} className="text-on-surface whitespace-nowrap">
+        {truncated}
       </span>
     );
   }
 
   if (eta.estado === 'ausente-por-degradacion') {
-    const ultimo =
+    const lastKnown =
       eta.ultimoDatoEn !== null
         ? ` Ultimo dato conocido: ${formatDateTime(eta.ultimoDatoEn)} (no actualizado).`
         : '';
@@ -58,7 +58,7 @@ export function EtaCell({ eta, maxCaracteres = ETA_MAX_CHARS }: EtaCellProps) {
        */
       <span
         role="status"
-        title={`${eta.motivo}.${ultimo}`}
+        title={`${eta.motivo}.${lastKnown}`}
         className="text-degradado-800 bg-degradado-50 inline-flex items-center rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap"
       >
         ETA no disponible

@@ -15,13 +15,13 @@ import { MapPlaceholderCard } from './MapPlaceholderCard';
 import { NotificacionesCard } from './NotificacionesCard';
 
 /** Etiquetas de los niveles de riesgo que el cliente conoce. Union abierta. */
-const etiquetaRiesgo: Readonly<Record<string, string>> = {
+const riesgoLabel: Readonly<Record<string, string>> = {
   BAJO_NORMAL: 'Bajo / Normal',
 };
 
 /** Signo explicito: "+3" y "-2" se leen como variacion; "3" se leeria como total. */
-function conSigno(valor: number): string {
-  return valor > 0 ? `+${valor}` : String(valor);
+function withSign(value: number): string {
+  return value > 0 ? `+${value}` : String(value);
 }
 
 export function PanelSection({ panel }: { readonly panel: PanelDeControl }) {
@@ -33,36 +33,36 @@ export function PanelSection({ panel }: { readonly panel: PanelDeControl }) {
     <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6">
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <KpiCard
-          etiqueta="Viajes activos"
-          valor={viajesActivos.total}
-          icono={<Truck aria-hidden="true" className="size-5" />}
-          tono="neutral"
-          pie={
+          label="Viajes activos"
+          value={viajesActivos.total}
+          icon={<Truck aria-hidden="true" className="size-5" />}
+          tone="neutral"
+          footer={
             <>
               <TrendingUp aria-hidden="true" className="text-success size-3.5 shrink-0" />
               <span className="text-on-success-container">
-                {conSigno(viajesActivos.deltaDesdeAyer)} desde ayer
+                {withSign(viajesActivos.deltaDesdeAyer)} desde ayer
               </span>
             </>
           }
         />
 
         <KpiCard
-          etiqueta="Nivel de riesgo global"
+          label="Nivel de riesgo global"
           // Sin etiqueta conocida se muestra el codigo: avisa de que falta mapearlo.
-          valor={etiquetaRiesgo[riesgoGlobal.nivel] ?? riesgoGlobal.nivel}
-          icono={<ShieldCheck aria-hidden="true" className="size-5" />}
-          tono="primary"
-          pie={`${riesgoGlobal.unidadesSegurasPct}% de unidades seguras`}
+          value={riesgoLabel[riesgoGlobal.nivel] ?? riesgoGlobal.nivel}
+          icon={<ShieldCheck aria-hidden="true" className="size-5" />}
+          tone="primary"
+          footer={`${riesgoGlobal.unidadesSegurasPct}% de unidades seguras`}
         />
 
         <KpiCard
-          etiqueta="Alertas activas"
-          valor={alertasActivas.total}
-          icono={<TriangleAlert aria-hidden="true" className="size-5" />}
+          label="Alertas activas"
+          value={alertasActivas.total}
+          icon={<TriangleAlert aria-hidden="true" className="size-5" />}
           // Sin alertas, el indicador no debe seguir gritando en rojo.
-          tono={hayAlertas ? 'error' : 'neutral'}
-          pie={hayAlertas ? 'Requieren atención inmediata' : 'Sin alertas pendientes'}
+          tone={hayAlertas ? 'error' : 'neutral'}
+          footer={hayAlertas ? 'Requieren atención inmediata' : 'Sin alertas pendientes'}
         />
 
         <QuickActionsCard />

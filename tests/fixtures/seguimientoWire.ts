@@ -1,8 +1,8 @@
 /*
- * Fixtures del payload de tracking en su forma de contrato ("wire").
+ * Fixtures del payload de seguimiento en su forma de contrato ("wire").
  *
  * PROVISIONAL: los nombres de campo son los que asume
- * `src/lib/tracking/parseTrackingPayload.ts`, y NO estan confirmados por
+ * `src/lib/seguimiento/parseSeguimientoPayload.ts`, y NO estan confirmados por
  * contracts/openapi/bff.yaml — que no existe todavia. La documentacion fija el
  * requisito (la ausencia por degradacion "viaja marcada"), no la serializacion.
  *

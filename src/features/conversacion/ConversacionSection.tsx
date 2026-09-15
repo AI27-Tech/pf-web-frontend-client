@@ -30,16 +30,16 @@ export function ConversacionSection({
    * lectura HTTP durable contra mensajeria. Detectarlo sirve para no presentar una
    * conversacion incompleta como si estuviera completa.
    */
-  const huecos = findDomainSequenceGaps(mensajes);
+  const gaps = findDomainSequenceGaps(mensajes);
 
   return (
     <div className="flex flex-col gap-4">
-      {huecos.length > 0 && (
+      {gaps.length > 0 && (
         <p
           role="status"
           className="bg-degradado-50 text-degradado-800 rounded-md px-3 py-2 text-sm"
         >
-          Faltan {huecos.length} mensaje(s) por cargar. Actualiza para completar la conversacion.
+          Faltan {gaps.length} mensaje(s) por cargar. Actualiza para completar la conversacion.
         </p>
       )}
 

@@ -12,12 +12,12 @@ describe('Pagination', () => {
   it('muestra el rango de registros y la pagina actual', () => {
     render(
       <Pagination
-        pagina={1}
-        totalPaginas={2}
-        totalRegistros={6}
-        desde={1}
-        hasta={3}
-        onCambiarPagina={() => {}}
+        page={1}
+        totalPages={2}
+        totalRecords={6}
+        rangeStart={1}
+        rangeEnd={3}
+        onPageChange={() => {}}
       />,
     );
 
@@ -28,12 +28,12 @@ describe('Pagination', () => {
   it('en la primera pagina, "anterior" esta deshabilitado y "siguiente" no', () => {
     render(
       <Pagination
-        pagina={1}
-        totalPaginas={2}
-        totalRegistros={6}
-        desde={1}
-        hasta={3}
-        onCambiarPagina={() => {}}
+        page={1}
+        totalPages={2}
+        totalRecords={6}
+        rangeStart={1}
+        rangeEnd={3}
+        onPageChange={() => {}}
       />,
     );
 
@@ -44,12 +44,12 @@ describe('Pagination', () => {
   it('en la ultima pagina, "siguiente" esta deshabilitado', () => {
     render(
       <Pagination
-        pagina={2}
-        totalPaginas={2}
-        totalRegistros={6}
-        desde={4}
-        hasta={6}
-        onCambiarPagina={() => {}}
+        page={2}
+        totalPages={2}
+        totalRecords={6}
+        rangeStart={4}
+        rangeEnd={6}
+        onPageChange={() => {}}
       />,
     );
 
@@ -58,20 +58,20 @@ describe('Pagination', () => {
   });
 
   it('avisa del cambio de pagina con el numero destino, no lo cambia solo', async () => {
-    const onCambiarPagina = vi.fn();
+    const onPageChange = vi.fn();
     render(
       <Pagination
-        pagina={1}
-        totalPaginas={2}
-        totalRegistros={6}
-        desde={1}
-        hasta={3}
-        onCambiarPagina={onCambiarPagina}
+        page={1}
+        totalPages={2}
+        totalRecords={6}
+        rangeStart={1}
+        rangeEnd={3}
+        onPageChange={onPageChange}
       />,
     );
 
     await userEvent.click(screen.getByRole('button', { name: 'Pagina siguiente' }));
 
-    expect(onCambiarPagina).toHaveBeenCalledWith(2);
+    expect(onPageChange).toHaveBeenCalledWith(2);
   });
 });

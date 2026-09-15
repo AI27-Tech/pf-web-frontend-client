@@ -2,8 +2,8 @@
  * Dataset de los mocks, en FORMA DE CONTRATO ("wire"), no en forma de app.
  *
  * Esta es la decision que hace que estos mocks valgan algo: devuelven `snake_case` y
- * los envoltorios de frescura tal como los espera `parseTrackingPayload`, asi que la
- * app corre su parser de verdad. Si los mocks devolvieran `TrackingPayload` ya
+ * los envoltorios de frescura tal como los espera `parseSeguimientoPayload`, asi que la
+ * app corre su parser de verdad. Si los mocks devolvieran `SeguimientoPayload` ya
  * construido, saltarian la unica pieza que de verdad hay que ejercitar y solo
  * probariamos que React renderiza objetos.
  *
@@ -166,8 +166,8 @@ export const viajeDetalleWire: Record<string, Json> = {
   },
 };
 
-/** Payload de tracking en forma de contrato. Lo consumen la ruta pull Y el stream. */
-export function trackingWire(viajeId: string, secuenciaDominio: number): Json {
+/** Payload de seguimiento en forma de contrato. Lo consumen la ruta pull Y el stream. */
+export function seguimientoWire(viajeId: string, secuenciaDominio: number): Json {
   if (viajeId === 'viaje-2') {
     /*
      * El caso que mas importa demostrar: `procesamiento` no responde, asi que bff
@@ -326,15 +326,15 @@ export const mensajesWire: Record<string, MensajeWireMock[]> = {
  * Las tres primeras filas son los MISMOS `viaje-1/2/3` del resto del dataset, con sus
  * mismos folios, y su ETA cubre los tres estados de `Fresco`:
  *   viaje-1  ETA presente                -> camino feliz
- *   viaje-2  ETA ausente por degradacion -> coherente con su tracking degradado
+ *   viaje-2  ETA ausente por degradacion -> coherente con su seguimiento degradado
  *   viaje-3  sin ETA                     -> recien solicitado, nunca hubo
  *
  * Que `viaje-2` no traiga ETA no es una omision: si el panel le pintara una hora
- * concreta, el dataset se contradiria consigo mismo — la ruta de tracking de ese
+ * concreta, el dataset se contradiria consigo mismo — la ruta de seguimiento de ese
  * mismo viaje declara que `procesamiento` esta caido.
  *
  * `viaje-4` y `viaje-5` se añaden solo aqui, exclusivos del panel, para mostrar mas
- * variedad de datos sin inventar tracking ni bitacora que no existen en el resto del
+ * variedad de datos sin inventar seguimiento ni bitacora que no existen en el resto del
  * dataset. Ver el comentario junto a `viajes_en_curso` para el detalle de cada uno.
  *
  * Los numeros de los indicadores (24 viajes activos, 98%, 2 alertas) son los del
@@ -342,30 +342,30 @@ export const mensajesWire: Record<string, MensajeWireMock[]> = {
  * tres viajes de ejemplo.
  */
 export function panelWire(): Json {
-  const ahora = Date.now();
-  const haceMinutos = (minutos: number): string => new Date(ahora - minutos * 60_000).toISOString();
+  const now = Date.now();
+  const minutesAgo = (minutes: number): string => new Date(now - minutes * 60_000).toISOString();
 
   /** Hoy a una hora concreta, en la zona del navegador. */
-  const hoyALas = (hora: number, minuto: number): string => {
-    const fecha = new Date(ahora);
-    fecha.setHours(hora, minuto, 0, 0);
-    return fecha.toISOString();
+  const todayAt = (hour: number, minute: number): string => {
+    const date = new Date(now);
+    date.setHours(hour, minute, 0, 0);
+    return date.toISOString();
   };
 
-  /** Manana a una hora concreta. Ejercita la rama "Mañana" de `formatEtaTexto`. */
-  const mananaALas = (hora: number, minuto: number): string => {
-    const fecha = new Date(ahora);
-    fecha.setDate(fecha.getDate() + 1);
-    fecha.setHours(hora, minuto, 0, 0);
-    return fecha.toISOString();
+  /** Manana a una hora concreta. Ejercita la rama "Mañana" de `formatEtaText`. */
+  const tomorrowAt = (hour: number, minute: number): string => {
+    const date = new Date(now);
+    date.setDate(date.getDate() + 1);
+    date.setHours(hour, minute, 0, 0);
+    return date.toISOString();
   };
 
-  /** Dentro de `dias` dias. Ejercita la rama de fecha completa de `formatEtaTexto`. */
-  const enDiasALas = (dias: number, hora: number, minuto: number): string => {
-    const fecha = new Date(ahora);
-    fecha.setDate(fecha.getDate() + dias);
-    fecha.setHours(hora, minuto, 0, 0);
-    return fecha.toISOString();
+  /** Dentro de N dias. Ejercita la rama de fecha completa de `formatEtaText`. */
+  const inDaysAt = (days: number, hour: number, minute: number): string => {
+    const date = new Date(now);
+    date.setDate(date.getDate() + days);
+    date.setHours(hour, minute, 0, 0);
+    return date.toISOString();
   };
 
   return {
@@ -382,8 +382,8 @@ export function panelWire(): Json {
         condiciones_activas: [],
         eta: {
           estado: 'presente',
-          observado_en: haceMinutos(1),
-          valor: { objetivo: 'destino', estimado_en: hoyALas(18, 30) },
+          observado_en: minutesAgo(1),
+          valor: { objetivo: 'destino', estimado_en: todayAt(18, 30) },
         },
         operador_nombre: 'Carlos R.',
         progreso_pct: 65,
@@ -402,13 +402,13 @@ export function panelWire(): Json {
           {
             codigo: 'RETRASADO',
             descripcion: 'Retrasado',
-            desde: haceMinutos(95),
+            desde: minutesAgo(95),
           },
         ],
         eta: {
           estado: 'ausente_por_degradacion',
           motivo: 'procesamiento no disponible',
-          ultimo_dato_en: haceMinutos(95),
+          ultimo_dato_en: minutesAgo(95),
         },
         operador_nombre: 'Miguel S.',
         progreso_pct: 42,
@@ -446,8 +446,8 @@ export function panelWire(): Json {
         condiciones_activas: [],
         eta: {
           estado: 'presente',
-          observado_en: haceMinutos(3),
-          valor: { objetivo: 'destino', estimado_en: mananaALas(10, 15) },
+          observado_en: minutesAgo(3),
+          valor: { objetivo: 'destino', estimado_en: tomorrowAt(10, 15) },
         },
         operador_nombre: 'Luis P.',
         progreso_pct: 30,
@@ -468,8 +468,8 @@ export function panelWire(): Json {
         condiciones_activas: [],
         eta: {
           estado: 'presente',
-          observado_en: haceMinutos(4),
-          valor: { objetivo: 'destino', estimado_en: enDiasALas(5, 18, 30) },
+          observado_en: minutesAgo(4),
+          valor: { objetivo: 'destino', estimado_en: inDaysAt(5, 18, 30) },
         },
         operador_nombre: 'Sofia T.',
         progreso_pct: 88,
@@ -485,7 +485,7 @@ export function panelWire(): Json {
         severidad: 'critica',
         titulo: 'Desvío de ruta detectado',
         cuerpo: `La unidad del viaje ${viajesWire[1].folio} salió de la geocerca en un tramo peligroso.`,
-        ocurrio_en: haceMinutos(2),
+        ocurrio_en: minutesAgo(2),
       },
       {
         id: 'notif-2',
@@ -494,7 +494,7 @@ export function panelWire(): Json {
         // lista de viajes en curso, y asi el dataset no se contradice.
         titulo: 'Llegada a destino',
         cuerpo: 'El viaje AI27-000098 se completó con exito en CEDIS Norte.',
-        ocurrio_en: haceMinutos(45),
+        ocurrio_en: minutesAgo(45),
       },
     ],
   };

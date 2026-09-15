@@ -7,7 +7,7 @@
  * autenticado; no sirve para validar reglas de negocio.
  *
  * Lo unico que se imita con rigor es lo que la UI tiene que saber leer:
- *   - la forma del payload de tracking, incluida la ausencia MARCADA
+ *   - la forma del payload de seguimiento, incluida la ausencia MARCADA
  *   - la forma del sobre SSE, con su `seq` de transporte separado del de dominio
  *   - la taxonomia de errores: 401 para credenciales, 503 para degradacion
  *
@@ -23,19 +23,19 @@ import {
   conversacionesWire,
   mensajesWire,
   panelWire,
-  trackingWire,
+  seguimientoWire,
   viajeDetalleWire,
   viajesWire,
 } from './data';
 import { streamResponse } from './stream';
 
 /** Latencia artificial: sin ella los estados de carga nunca se ven. */
-const LATENCIA_MS = 250;
+const LATENCY_MS = 250;
 
 export const handlers = [
   // --- Sesion -------------------------------------------------------------------
   http.post('*/api/v1/sesion', async ({ request }) => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
 
     const body = (await request.json()) as { usuario?: string; password?: string };
 
@@ -57,7 +57,7 @@ export const handlers = [
   }),
 
   http.post('*/api/v1/sesion/refresh', async () => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return HttpResponse.json({
       access_token: 'mock.jwt.no-firmado.refrescado',
       expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
@@ -66,7 +66,7 @@ export const handlers = [
   }),
 
   http.delete('*/api/v1/sesion', async () => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return new HttpResponse(null, { status: 204 });
   }),
 
@@ -76,24 +76,24 @@ export const handlers = [
    * notificaciones a partir de varios servicios. El cliente hace un GET, no cuatro.
    */
   http.get('*/api/v1/panel', async () => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return HttpResponse.json(panelWire());
   }),
 
   // --- Viajes -------------------------------------------------------------------
   http.get('*/api/v1/viajes', async () => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return HttpResponse.json(viajesWire);
   }),
 
   http.post('*/api/v1/viajes', async () => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     // El estado inicial lo decide `operacion`, no el cliente: siempre SOLICITADO.
     return HttpResponse.json({ id: 'viaje-3' }, { status: 201 });
   }),
 
   http.get('*/api/v1/viajes/:viajeId', async ({ params }) => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     const detalle = viajeDetalleWire[String(params.viajeId)];
     if (detalle === undefined) {
       return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
@@ -106,63 +106,63 @@ export const handlers = [
    * stream no entrega, la app hace polling contra aqui con el mismo parser.
    */
   http.get('*/api/v1/viajes/:viajeId/tracking', async ({ params }) => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     const viajeId = String(params.viajeId);
     if (viajeDetalleWire[viajeId] === undefined) {
       return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
     }
-    return HttpResponse.json(trackingWire(viajeId, 1));
+    return HttpResponse.json(seguimientoWire(viajeId, 1));
   }),
 
   http.get('*/api/v1/viajes/:viajeId/bitacora', async ({ params }) => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return HttpResponse.json(bitacoraWire[String(params.viajeId)] ?? []);
   }),
 
   // --- Catalogos ----------------------------------------------------------------
   http.get('*/api/v1/catalogos/:familia', async ({ params }) => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return HttpResponse.json(catalogosWire[String(params.familia)] ?? []);
   }),
 
   // --- Conversaciones -----------------------------------------------------------
   http.get('*/api/v1/conversaciones', async () => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return HttpResponse.json(conversacionesWire);
   }),
 
   http.get('*/api/v1/conversaciones/:conversacionId/mensajes', async ({ params }) => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return HttpResponse.json(mensajesWire[String(params.conversacionId)] ?? []);
   }),
 
   http.post('*/api/v1/conversaciones/:conversacionId/mensajes', async ({ params, request }) => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
 
     const conversacionId = String(params.conversacionId);
     const body = (await request.json()) as { cuerpo?: string };
-    const existentes = mensajesWire[conversacionId] ?? [];
+    const existing = mensajesWire[conversacionId] ?? [];
 
     /*
      * La secuencia de dominio la asigna el servidor, dentro de su transaccion. El
      * cliente no la propone, y este mock respeta eso.
      */
-    const siguienteSeq = existentes.reduce((max, m) => Math.max(max, m.seq), 0) + 1;
+    const nextSeq = existing.reduce((max, m) => Math.max(max, m.seq), 0) + 1;
 
-    const creado = {
+    const created = {
       id: `m-${crypto.randomUUID().slice(0, 8)}`,
-      seq: siguienteSeq,
+      seq: nextSeq,
       cuerpo: body.cuerpo ?? '',
       enviado_en: new Date().toISOString(),
       de_cliente: true,
     };
 
-    mensajesWire[conversacionId] = [...existentes, creado];
-    return HttpResponse.json(creado, { status: 201 });
+    mensajesWire[conversacionId] = [...existing, created];
+    return HttpResponse.json(created, { status: 201 });
   }),
 
   http.post('*/api/v1/conversaciones/:conversacionId/receipts/lectura', async () => {
-    await delay(LATENCIA_MS);
+    await delay(LATENCY_MS);
     return new HttpResponse(null, { status: 204 });
   }),
 

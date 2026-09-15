@@ -22,9 +22,9 @@ interface PasoRutaProps {
 }
 
 /** Texto resumido de una ubicacion: nombre si lo hay, si no la ciudad, si no vacio. */
-function resumen(ubicacion: DatosUbicacion): string {
-  if (ubicacion.nombreLugar.trim() !== '') return ubicacion.nombreLugar;
-  if (ubicacion.ciudadEstado.trim() !== '') return ubicacion.ciudadEstado;
+function summary(location: DatosUbicacion): string {
+  if (location.nombreLugar.trim() !== '') return location.nombreLugar;
+  if (location.ciudadEstado.trim() !== '') return location.ciudadEstado;
   return '';
 }
 
@@ -32,11 +32,11 @@ export function PasoRuta({ origen, destino, dispatch }: PasoRutaProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-3">
       <div className="flex flex-col gap-6 lg:col-span-2">
-        <SeccionCard titulo="Origen" icono={<Navigation aria-hidden="true" className="size-5" />}>
+        <SeccionCard title="Origen" icon={<Navigation aria-hidden="true" className="size-5" />}>
           <UbicacionFields
             datos={origen}
-            onCampo={(campo, valor) => dispatch({ tipo: 'origen', campo, valor })}
-            ejemplos={{
+            onField={(field, value) => dispatch({ tipo: 'origen', campo: field, valor: value })}
+            examples={{
               nombreLugar: 'Ej. Centro de Distribución Norte',
               calleNumero: 'Ej. Av. Principal 123',
               ciudadEstado: 'Ej. Monterrey, N.L.',
@@ -46,11 +46,11 @@ export function PasoRuta({ origen, destino, dispatch }: PasoRutaProps) {
           />
         </SeccionCard>
 
-        <SeccionCard titulo="Destino" icono={<MapPin aria-hidden="true" className="size-5" />}>
+        <SeccionCard title="Destino" icon={<MapPin aria-hidden="true" className="size-5" />}>
           <UbicacionFields
             datos={destino}
-            onCampo={(campo, valor) => dispatch({ tipo: 'destino', campo, valor })}
-            ejemplos={{
+            onField={(field, value) => dispatch({ tipo: 'destino', campo: field, valor: value })}
+            examples={{
               nombreLugar: 'Ej. Planta de Manufactura Sur',
               calleNumero: 'Ej. Blvd. Industrial 456',
               ciudadEstado: 'Ej. Guadalajara, Jal.',
@@ -62,7 +62,7 @@ export function PasoRuta({ origen, destino, dispatch }: PasoRutaProps) {
       </div>
 
       <div className="lg:col-span-1">
-        <ResumenRutaCard origen={resumen(origen)} destino={resumen(destino)} />
+        <ResumenRutaCard origen={summary(origen)} destino={summary(destino)} />
       </div>
     </div>
   );

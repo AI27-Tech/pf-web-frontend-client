@@ -13,23 +13,19 @@ import { ViajeActivoCard } from './ViajeActivoCard';
 
 interface ViajesActivosCardProps {
   readonly viajes: readonly ViajeEnCurso[];
-  readonly viajeSeleccionadoId: string | undefined;
-  readonly onSeleccionar: (viajeId: string) => void;
+  readonly selectedViajeId: string | undefined;
+  readonly onSelect: (viajeId: string) => void;
 }
 
-export function ViajesActivosCard({
-  viajes,
-  viajeSeleccionadoId,
-  onSeleccionar,
-}: ViajesActivosCardProps) {
-  const enRuta = viajes.filter((viaje) => viaje.estado === 'EN_RUTA').length;
+export function ViajesActivosCard({ viajes, selectedViajeId, onSelect }: ViajesActivosCardProps) {
+  const enRutaCount = viajes.filter((viaje) => viaje.estado === 'EN_RUTA').length;
 
   return (
     <Card className="flex h-full w-full flex-col gap-3 p-4" ariaLabel="Viajes activos">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-on-surface text-lg font-bold">Viajes Activos</h2>
         <span className="bg-surface-container-high text-on-surface-variant rounded-full px-2.5 py-1 text-xs font-semibold">
-          {enRuta} En Ruta
+          {enRutaCount} En Ruta
         </span>
       </div>
 
@@ -39,13 +35,13 @@ export function ViajesActivosCard({
         </EmptyState>
       ) : (
         <ul className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-          {viajes.map((viaje, indice) => (
+          {viajes.map((viaje, index) => (
             <ViajeActivoCard
               key={viaje.viajeId}
               viaje={viaje}
-              indice={indice}
-              seleccionada={viaje.viajeId === viajeSeleccionadoId}
-              onSeleccionar={() => onSeleccionar(viaje.viajeId)}
+              index={index}
+              selected={viaje.viajeId === selectedViajeId}
+              onSelect={() => onSelect(viaje.viajeId)}
             />
           ))}
         </ul>

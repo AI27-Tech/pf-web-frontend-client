@@ -1,5 +1,5 @@
 /*
- * TrackingSection. Presentacional: recibe un `TrackingPayload` y lo pinta.
+ * SeguimientoDetalleSection. Presentacional: recibe un `SeguimientoPayload` y lo pinta.
  *
  * No sabe si el payload llego por pull o por push, y esa ignorancia es la propiedad
  * que hay que preservar. Si algun dia este componente necesita saberlo para decidir
@@ -9,22 +9,22 @@
  * "no lo sabemos ahora" en "no hay".
  */
 
-import type { TrackingPayload } from '@/lib/contracts';
+import type { SeguimientoPayload } from '@/lib/contracts';
 import { FreshnessMark } from '@/components/ui/FreshnessMark';
 import { formatDateTime } from '@/lib/utils';
-import { TrackingMap } from './TrackingMap';
+import { MapaSeguimiento } from './MapaSeguimiento';
 
-export function TrackingSection({ payload }: { readonly payload: TrackingPayload }) {
+export function SeguimientoDetalleSection({ payload }: { readonly payload: SeguimientoPayload }) {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-baseline gap-3">
         <h1 className="text-xl font-semibold">Seguimiento</h1>
-        <span className="bg-brand-50 text-brand-700 rounded-full px-2.5 py-1 text-xs font-medium">
+        <span className="bg-primary-container text-on-primary-container rounded-full px-2.5 py-1 text-xs font-medium">
           {payload.estado}
         </span>
       </header>
 
-      <TrackingMap posicion={payload.posicion} />
+      <MapaSeguimiento posicion={payload.posicion} />
 
       <div className="grid gap-6 sm:grid-cols-2">
         <section aria-labelledby="posicion-heading">
@@ -32,9 +32,9 @@ export function TrackingSection({ payload }: { readonly payload: TrackingPayload
             Posicion
           </h2>
           <FreshnessMark
-            dato={payload.posicion}
-            etiqueta="posicion"
-            umbralAntiguedadSeg={30}
+            data={payload.posicion}
+            label="posicion"
+            staleThresholdSeconds={30}
             render={(posicion) => (
               <p className="text-sm">
                 {posicion.lat.toFixed(5)}, {posicion.lon.toFixed(5)}
@@ -49,9 +49,9 @@ export function TrackingSection({ payload }: { readonly payload: TrackingPayload
             Llegada estimada
           </h2>
           <FreshnessMark
-            dato={payload.eta}
-            etiqueta="estimacion de llegada"
-            umbralAntiguedadSeg={120}
+            data={payload.eta}
+            label="estimacion de llegada"
+            staleThresholdSeconds={120}
             render={(eta) => (
               <p className="text-sm">
                 {eta.objetivo}: {formatDateTime(eta.estimadoEn)}
@@ -62,8 +62,8 @@ export function TrackingSection({ payload }: { readonly payload: TrackingPayload
       </div>
 
       {payload.condicionesActivas.length > 0 && (
-        <section aria-labelledby="condiciones-tracking">
-          <h2 id="condiciones-tracking" className="mb-2 text-sm font-semibold">
+        <section aria-labelledby="condiciones-seguimiento">
+          <h2 id="condiciones-seguimiento" className="mb-2 text-sm font-semibold">
             Condiciones activas
           </h2>
           <ul className="flex flex-col gap-2">

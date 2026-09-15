@@ -18,10 +18,10 @@ import { EtaCell } from './EtaCell';
 interface ViajesEnCursoTableProps {
   readonly viajes: readonly ViajeEnCurso[];
   /** Ancho maximo del ETA en caracteres. Se propaga a la celda. */
-  readonly etaMaxCaracteres?: number;
+  readonly etaMaxChars?: number;
 }
 
-function columnas(etaMaxCaracteres: number | undefined): readonly Column<ViajeEnCurso>[] {
+function buildColumns(etaMaxChars: number | undefined): readonly Column<ViajeEnCurso>[] {
   return [
     {
       key: 'folio',
@@ -57,8 +57,8 @@ function columnas(etaMaxCaracteres: number | undefined): readonly Column<ViajeEn
       key: 'eta',
       header: 'ETA',
       cell: (viaje) =>
-        etaMaxCaracteres !== undefined ? (
-          <EtaCell eta={viaje.eta} maxCaracteres={etaMaxCaracteres} />
+        etaMaxChars !== undefined ? (
+          <EtaCell eta={viaje.eta} maxChars={etaMaxChars} />
         ) : (
           <EtaCell eta={viaje.eta} />
         ),
@@ -66,7 +66,7 @@ function columnas(etaMaxCaracteres: number | undefined): readonly Column<ViajeEn
   ];
 }
 
-export function ViajesEnCursoTable({ viajes, etaMaxCaracteres }: ViajesEnCursoTableProps) {
+export function ViajesEnCursoTable({ viajes, etaMaxChars }: ViajesEnCursoTableProps) {
   return (
     <Card className="flex h-full flex-col gap-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -85,13 +85,13 @@ export function ViajesEnCursoTable({ viajes, etaMaxCaracteres }: ViajesEnCursoTa
       ) : (
         <Table
           caption="Viajes en curso de tu cuenta, con su estado y su hora estimada de llegada"
-          columns={columnas(etaMaxCaracteres)}
+          columns={buildColumns(etaMaxChars)}
           rows={viajes}
           rowKey={(viaje) => viaje.viajeId}
           headerTone="muted"
           selectable
           minWidthClass="min-w-[36rem]"
-          porPagina={3}
+          pageSize={3}
           fill
         />
       )}

@@ -13,10 +13,10 @@ interface NotificacionesCardProps {
 
 interface EstiloSeveridad {
   /** Palabra que un lector de pantalla lee antes del titulo. */
-  readonly etiqueta: string;
-  readonly contenedor: string;
-  readonly borde: string;
-  readonly icono: typeof Info;
+  readonly label: string;
+  readonly container: string;
+  readonly border: string;
+  readonly icon: typeof Info;
 }
 
 /**
@@ -26,24 +26,24 @@ interface EstiloSeveridad {
  */
 const porSeveridad: Readonly<Record<string, EstiloSeveridad>> = {
   critica: {
-    etiqueta: 'Critica',
-    contenedor: 'bg-error-container text-on-error-container',
-    borde: 'border-error',
-    icono: CircleAlert,
+    label: 'Critica',
+    container: 'bg-error-container text-on-error-container',
+    border: 'border-error',
+    icon: CircleAlert,
   },
   informativa: {
-    etiqueta: 'Informativa',
-    contenedor: 'bg-info-container text-on-info-container',
-    borde: 'border-info',
-    icono: Info,
+    label: 'Informativa',
+    container: 'bg-info-container text-on-info-container',
+    border: 'border-info',
+    icon: Info,
   },
 };
 
 const SEVERIDAD_DESCONOCIDA: EstiloSeveridad = {
-  etiqueta: 'Aviso',
-  contenedor: 'bg-surface-container text-on-surface-variant',
-  borde: 'border-outline',
-  icono: Info,
+  label: 'Aviso',
+  container: 'bg-surface-container text-on-surface-variant',
+  border: 'border-outline',
+  icon: Info,
 };
 
 function estiloDe(severidad: SeveridadNotificacion): EstiloSeveridad {
@@ -52,15 +52,15 @@ function estiloDe(severidad: SeveridadNotificacion): EstiloSeveridad {
 
 function NotificacionItem({ notificacion }: { readonly notificacion: NotificacionPanel }) {
   const estilo = estiloDe(notificacion.severidad);
-  const Icono = estilo.icono;
+  const Icon = estilo.icon;
 
   return (
-    <li className={cx('flex gap-3 rounded-md border-l-4 p-3', estilo.contenedor, estilo.borde)}>
-      <Icono aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+    <li className={cx('flex gap-3 rounded-md border-l-4 p-3', estilo.container, estilo.border)}>
+      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
 
       <div className="flex min-w-0 flex-col gap-1">
         <p className="text-sm font-semibold">
-          <span className="sr-only">{estilo.etiqueta}: </span>
+          <span className="sr-only">{estilo.label}: </span>
           {notificacion.titulo}
         </p>
         <p className="text-xs">{notificacion.cuerpo}</p>

@@ -16,20 +16,20 @@ import type { ViajeEnCurso } from '@/lib/contracts';
 import { Card } from '@/components/ui/Card';
 
 function InformationElement({
-  icono: Icono,
-  etiqueta,
-  valor,
+  icon: Icon,
+  label,
+  value,
 }: {
-  readonly icono: typeof Gauge;
-  readonly etiqueta: string;
-  readonly valor: string;
+  readonly icon: typeof Gauge;
+  readonly label: string;
+  readonly value: string;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Icono aria-hidden="true" className="text-on-surface-variant size-5 shrink-0" />
+      <Icon aria-hidden="true" className="text-on-surface-variant size-5 shrink-0" />
       <div className="flex flex-col">
-        <span className="text-on-surface-variant text-xs">{etiqueta}</span>
-        <span className="text-on-surface text-sm font-semibold">{valor}</span>
+        <span className="text-on-surface-variant text-xs">{label}</span>
+        <span className="text-on-surface text-sm font-semibold">{value}</span>
       </div>
     </div>
   );
@@ -38,14 +38,14 @@ function InformationElement({
 interface TelemetriaExtraCardProps {
   readonly viaje: ViajeEnCurso | undefined;
   /** Si el panel de detalle esta abierto: decide la etiqueta del boton. */
-  readonly mostrandoDetalle: boolean;
-  readonly onAlternarDetalle: () => void;
+  readonly showDetail: boolean;
+  readonly onToggleDetail: () => void;
 }
 
 export function TelemetriaExtraCard({
   viaje,
-  mostrandoDetalle,
-  onAlternarDetalle,
+  showDetail,
+  onToggleDetail,
 }: TelemetriaExtraCardProps) {
   if (viaje === undefined) {
     return (
@@ -64,29 +64,25 @@ export function TelemetriaExtraCard({
     >
       <div className="flex flex-wrap items-center gap-6">
         <InformationElement
-          icono={Gauge}
-          etiqueta="Velocidad Promedio"
-          valor={`${viaje.velocidadPromedioKmh} km/h`}
+          icon={Gauge}
+          label="Velocidad Promedio"
+          value={`${viaje.velocidadPromedioKmh} km/h`}
         />
         <InformationElement
-          icono={Thermometer}
-          etiqueta="Temp. Carga"
-          valor={`${viaje.temperaturaCargaC}°C`}
+          icon={Thermometer}
+          label="Temp. Carga"
+          value={`${viaje.temperaturaCargaC}°C`}
         />
-        <InformationElement
-          icono={Battery}
-          etiqueta="Batería GPS"
-          valor={`${viaje.bateriaGpsPct}%`}
-        />
+        <InformationElement icon={Battery} label="Batería GPS" value={`${viaje.bateriaGpsPct}%`} />
       </div>
 
       <button
         type="button"
-        onClick={onAlternarDetalle}
-        aria-pressed={mostrandoDetalle}
+        onClick={onToggleDetail}
+        aria-pressed={showDetail}
         className="bg-primary text-on-primary hover:bg-primary/90 rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition-colors"
       >
-        {mostrandoDetalle ? 'Volver a Viajes Activos' : 'Ver Detalles'}
+        {showDetail ? 'Volver a Viajes Activos' : 'Ver Detalles'}
       </button>
     </Card>
   );

@@ -10,12 +10,12 @@ import { useId, type ReactNode } from 'react';
 interface CampoFiltroProps {
   readonly label: string;
   /** Icono decorativo dentro del control, a la izquierda. */
-  readonly icono?: ReactNode;
+  readonly icon?: ReactNode;
   /** Render del control. Recibe el `id` que debe recibir el elemento de formulario. */
   readonly children: (id: string) => ReactNode;
 }
 
-export function CampoFiltro({ label, icono, children }: CampoFiltroProps) {
+export function CampoFiltro({ label, icon, children }: CampoFiltroProps) {
   const id = useId();
 
   return (
@@ -24,9 +24,9 @@ export function CampoFiltro({ label, icono, children }: CampoFiltroProps) {
         {label}
       </label>
       <div className="relative flex items-center">
-        {icono !== undefined && (
+        {icon !== undefined && (
           <span className="text-on-surface-variant pointer-events-none absolute left-3 flex items-center">
-            {icono}
+            {icon}
           </span>
         )}
         {children(id)}

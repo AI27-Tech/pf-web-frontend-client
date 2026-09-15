@@ -1,5 +1,5 @@
 /*
- * EL parser unico del payload de tracking.
+ * EL parser unico del payload de seguimiento.
  *
  * Esta es la contraparte cliente de la propiedad P4. En el backend, `bff` (ruta
  * pull) y `procesamiento` (ruta push) consumen la MISMA biblioteca pura
@@ -31,7 +31,7 @@ import type {
   EventoGeocerca,
   Fresco,
   Posicion,
-  TrackingPayload,
+  SeguimientoPayload,
 } from '../contracts';
 import { toDomainSeq } from '../contracts';
 import {
@@ -44,10 +44,10 @@ import {
 } from '../wire/readers';
 
 /** Error de forma del payload. Es 'roto', no 'degradado': el contrato no cuadra. */
-export class TrackingPayloadError extends Error {
+export class SeguimientoPayloadError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'TrackingPayloadError';
+    this.name = 'SeguimientoPayloadError';
   }
 }
 
@@ -110,14 +110,14 @@ function parseEtaFresco(raw: unknown): Fresco<Eta> {
  *
  * Misma entrada, misma salida. La prueba de contrato en tests/ lo verifica.
  *
- * Los fallos estructurales de `lib/wire/` se traducen a `TrackingPayloadError`: quien
+ * Los fallos estructurales de `lib/wire/` se traducen a `SeguimientoPayloadError`: quien
  * llama a este modulo trata con el error de este modulo, no con el detalle de como
  * esta implementada la lectura por dentro.
  */
-export function parseTrackingPayload(raw: unknown): TrackingPayload {
+export function parseSeguimientoPayload(raw: unknown): SeguimientoPayload {
   try {
     if (!isRecord(raw)) {
-      throw new TrackingPayloadError('El payload de tracking no es un objeto');
+      throw new SeguimientoPayloadError('El payload de seguimiento no es un objeto');
     }
 
     return {
@@ -132,7 +132,7 @@ export function parseTrackingPayload(raw: unknown): TrackingPayload {
     };
   } catch (cause) {
     if (cause instanceof WireError) {
-      throw new TrackingPayloadError(cause.message);
+      throw new SeguimientoPayloadError(cause.message);
     }
     throw cause;
   }

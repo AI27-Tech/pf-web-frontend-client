@@ -19,52 +19,52 @@ interface ReporteSeguridadCellProps {
   readonly reporte: ReporteSeguridad;
 }
 
-interface Presentacion {
-  readonly icono: ReactNode;
-  readonly texto: string;
-  readonly clase: string;
+interface Presentation {
+  readonly icon: ReactNode;
+  readonly text: string;
+  readonly className: string;
 }
 
-function presentacion(reporte: ReporteSeguridad): Presentacion {
+function presentation(reporte: ReporteSeguridad): Presentation {
   switch (reporte) {
     case 'SIN_INCIDENCIAS':
       return {
-        icono: <CircleCheck aria-hidden="true" className="size-5" />,
-        texto: 'Sin incidencias',
-        clase: 'bg-info-container text-info',
+        icon: <CircleCheck aria-hidden="true" className="size-5" />,
+        text: 'Sin incidencias',
+        className: 'bg-info-container text-info',
       };
     case 'CON_INCIDENCIAS':
       return {
-        icono: <TriangleAlert aria-hidden="true" className="size-5" />,
-        texto: 'Con incidencias',
-        clase: 'bg-error-container text-error',
+        icon: <TriangleAlert aria-hidden="true" className="size-5" />,
+        text: 'Con incidencias',
+        className: 'bg-error-container text-error',
       };
     case 'PENDIENTE':
       return {
-        icono: <CircleHelp aria-hidden="true" className="size-5" />,
-        texto: 'Reporte pendiente',
-        clase: 'bg-surface-container-high text-on-surface-variant',
+        icon: <CircleHelp aria-hidden="true" className="size-5" />,
+        text: 'Reporte pendiente',
+        className: 'bg-surface-container-high text-on-surface-variant',
       };
     default:
       // Union abierta: un valor desconocido se pinta en neutro con su codigo.
       return {
-        icono: <CircleHelp aria-hidden="true" className="size-5" />,
-        texto: reporte,
-        clase: 'bg-surface-container-high text-on-surface-variant',
+        icon: <CircleHelp aria-hidden="true" className="size-5" />,
+        text: reporte,
+        className: 'bg-surface-container-high text-on-surface-variant',
       };
   }
 }
 
 export function ReporteSeguridadCell({ reporte }: ReporteSeguridadCellProps) {
-  const { icono, texto, clase } = presentacion(reporte);
+  const { icon, text, className } = presentation(reporte);
 
   return (
     <span
-      title={texto}
-      className={cx('inline-flex size-8 items-center justify-center rounded-full', clase)}
+      title={text}
+      className={cx('inline-flex size-8 items-center justify-center rounded-full', className)}
     >
-      {icono}
-      <span className="sr-only">{texto}</span>
+      {icon}
+      <span className="sr-only">{text}</span>
     </span>
   );
 }

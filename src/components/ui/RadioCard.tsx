@@ -16,10 +16,10 @@ interface RadioCardProps {
   readonly value: string;
   readonly checked: boolean;
   readonly onChange: (value: string) => void;
-  readonly titulo: string;
-  readonly descripcion: string;
+  readonly title: string;
+  readonly description: string;
   /** Icono decorativo; debe traer `aria-hidden`. */
-  readonly icono: ReactNode;
+  readonly icon: ReactNode;
 }
 
 export function RadioCard({
@@ -27,9 +27,9 @@ export function RadioCard({
   value,
   checked,
   onChange,
-  titulo,
-  descripcion,
-  icono,
+  title,
+  description,
+  icon,
 }: RadioCardProps) {
   const id = useId();
 
@@ -58,9 +58,9 @@ export function RadioCard({
           'peer-checked:border-primary peer-checked:border-[5px]',
         )}
       />
-      <span className="text-primary">{icono}</span>
-      <span className="text-on-surface pr-6 text-sm font-semibold">{titulo}</span>
-      <span className="text-on-surface-variant text-xs">{descripcion}</span>
+      <span className="text-primary">{icon}</span>
+      <span className="text-on-surface pr-6 text-sm font-semibold">{title}</span>
+      <span className="text-on-surface-variant text-xs">{description}</span>
     </label>
   );
 }
