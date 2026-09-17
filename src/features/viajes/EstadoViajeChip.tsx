@@ -5,35 +5,18 @@
  * son datos del contrato. Hoy el unico estado que la documentacion
  * confirma es SOLICITADO.
  *
+ * Composicion de dominio sobre el `Badge` de `@ai27-tech/ui`: mapea el estado (y las
+ * condiciones superpuestas) a la senal tactica del `Badge`, que aporta la apariencia.
  */
 
+import { Badge, type BadgeVariant } from '@ai27-tech/ui';
 import type { CondicionActiva, EstadoViaje } from '@/lib/contracts';
-import { cx } from '@/lib/utils';
-
-type Tone = 'success' | 'warning' | 'info' | 'error' | 'neutral';
 
 interface EstadoViajeChipProps {
   readonly estado: EstadoViaje;
   /** Condiciones superpuestas al estado. La primera manda sobre la apariencia. */
   readonly condicionesActivas?: readonly CondicionActiva[];
 }
-
-/** Relleno suave + su par `on-*`. El punto usa el tono solido del mismo rol. */
-const toneClasses: Record<Tone, string> = {
-  success: 'bg-success-container text-on-success-container',
-  warning: 'bg-warning-container text-on-warning-container',
-  info: 'bg-info-container text-on-info-container',
-  error: 'bg-error-container text-on-error-container',
-  neutral: 'bg-surface-container-high text-on-surface-variant',
-};
-
-const dotClasses: Record<Tone, string> = {
-  success: 'bg-success',
-  warning: 'bg-warning',
-  info: 'bg-info',
-  error: 'bg-error',
-  neutral: 'bg-outline',
-};
 
 /** Etiquetas de los estados que el cliente conoce. Sin entrada por defecto. */
 const labelByEstado: Readonly<Record<string, string>> = {
@@ -43,29 +26,32 @@ const labelByEstado: Readonly<Record<string, string>> = {
   CANCELADO: 'Cancelado',
 };
 
-function toneForEstado(estado: EstadoViaje): Tone {
-  if (estado === 'EN_RUTA') return 'success';
-  if (estado === 'SOLICITADO') return 'info';
-  if (estado === 'COMPLETADO') return 'info';
-  if (estado === 'CANCELADO') return 'error';
+/**
+ * Estado del viaje -> senal tactica del `Badge` de la libreria (mismo criterio que
+ * `ViajesEnCursoTable`):
+ *   EN_RUTA               -> secure  (unidad en marcha, sin novedad)
+ *   SOLICITADO/COMPLETADO -> escort  (informativo)
+ *   CANCELADO             -> alert   (rojo)
+ *   otro                  -> neutral
+ */
+function variantForEstado(estado: EstadoViaje): BadgeVariant {
+  if (estado === 'EN_RUTA') return 'secure';
+  if (estado === 'SOLICITADO' || estado === 'COMPLETADO') return 'escort';
+  if (estado === 'CANCELADO') return 'alert';
   return 'neutral';
 }
 
 export function EstadoViajeChip({ estado, condicionesActivas = [] }: EstadoViajeChipProps) {
   const condicion = condicionesActivas[0];
 
-  const tone: Tone = condicion !== undefined ? 'warning' : toneForEstado(estado);
+  // Una condicion activa manda sobre el estado: se pinta en `warning` y con su
+  // descripcion, no con la etiqueta del estado.
+  const variant: BadgeVariant = condicion !== undefined ? 'warning' : variantForEstado(estado);
   const text = condicion?.descripcion ?? labelByEstado[estado] ?? estado;
 
   return (
-    <span
-      className={cx(
-        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold whitespace-nowrap',
-        toneClasses[tone],
-      )}
-    >
-      <span aria-hidden="true" className={cx('size-1.5 shrink-0 rounded-full', dotClasses[tone])} />
+    <Badge variant={variant} dot pill>
       {text}
-    </span>
+    </Badge>
   );
 }

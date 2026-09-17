@@ -8,7 +8,7 @@
  */
 
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@ai27-tech/ui';
 
 interface WizardFooterProps {
   /** Si se omite, no se muestra "Regresar" (primer paso). */
@@ -20,16 +20,22 @@ export function WizardFooter({ onRegresar, onContinuar }: WizardFooterProps) {
   return (
     <div className="flex items-center justify-between gap-3">
       {onRegresar !== undefined ? (
-        <Button variant="secondary" onClick={onRegresar}>
-          <ArrowLeft aria-hidden="true" className="mr-1.5 size-4" />
+        <Button
+          variant="secondary"
+          onClick={onRegresar}
+          startIcon={<ArrowLeft aria-hidden="true" className="size-4" />}
+        >
           Regresar
         </Button>
       ) : (
         <span />
       )}
-      <Button variant="primary" onClick={onContinuar}>
+      <Button
+        variant="primary"
+        onClick={onContinuar}
+        endIcon={<ArrowRight aria-hidden="true" className="size-4" />}
+      >
         Continuar
-        <ArrowRight aria-hidden="true" className="ml-1.5 size-4" />
       </Button>
     </div>
   );

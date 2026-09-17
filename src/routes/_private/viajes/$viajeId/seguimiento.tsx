@@ -12,7 +12,7 @@ import { useSeguimiento } from '@/features/seguimiento/useSeguimiento';
 import { SeguimientoDetalleSection } from '@/features/seguimiento/SeguimientoDetalleSection';
 import { ErrorState, Spinner } from '@/components/ui/Feedback';
 
-export const Route = createFileRoute('/_private/viajes/$viajeId/tracking')({
+export const Route = createFileRoute('/_private/viajes/$viajeId/seguimiento')({
   component: SeguimientoPage,
 });
 

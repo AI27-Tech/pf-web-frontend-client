@@ -10,10 +10,7 @@
 import type { Dispatch } from 'react';
 import { Boxes, Truck } from 'lucide-react';
 import type { DatosCarga, OpcionCatalogo } from '@/lib/contracts';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
-import { Textarea } from '@/components/ui/Textarea';
-import { Checkbox } from '@/components/ui/Checkbox';
+import { Checkbox, FormField, Input, Select, Textarea } from '@ai27-tech/ui';
 import type { AccionBorrador } from './borrador';
 import { SeccionCard } from './SeccionCard';
 import { DocumentacionCard } from './DocumentacionCard';
@@ -49,20 +46,28 @@ export function PasoDetalles({
         >
           <div className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <Select
-                label="Categoría de la carga"
-                options={categorias.map((option) => ({ value: option.id, label: option.nombre }))}
-                placeholder="Seleccione una categoría"
-                value={carga.categoria}
-                onChange={(event) => setCarga('categoria', event.target.value)}
-              />
-              <Select
-                label="Valor estimado (MXN)"
-                options={rangosValor.map((option) => ({ value: option.id, label: option.nombre }))}
-                placeholder="Seleccione un rango"
-                value={carga.valorEstimado}
-                onChange={(event) => setCarga('valorEstimado', event.target.value)}
-              />
+              <FormField label="Categoría de la carga">
+                <Select
+                  options={categorias.map((option) => ({
+                    value: option.id,
+                    label: option.nombre,
+                  }))}
+                  placeholder="Seleccione una categoría"
+                  value={carga.categoria}
+                  onChange={(event) => setCarga('categoria', event.target.value)}
+                />
+              </FormField>
+              <FormField label="Valor estimado (MXN)">
+                <Select
+                  options={rangosValor.map((option) => ({
+                    value: option.id,
+                    label: option.nombre,
+                  }))}
+                  placeholder="Seleccione un rango"
+                  value={carga.valorEstimado}
+                  onChange={(event) => setCarga('valorEstimado', event.target.value)}
+                />
+              </FormField>
             </div>
 
             <fieldset className="flex flex-col gap-2">
@@ -94,18 +99,20 @@ export function PasoDetalles({
           icon={<Truck aria-hidden="true" className="size-5" />}
         >
           <div className="flex flex-col gap-4">
-            <Input
-              label="Requerimientos del vehículo/unidad"
-              value={carga.requerimientosVehiculo}
-              onChange={(event) => setCarga('requerimientosVehiculo', event.target.value)}
-              placeholder="Ej. Caja seca 53 pies, termo, rabón…"
-            />
-            <Textarea
-              label="Instrucciones operativas adicionales"
-              value={carga.instruccionesOperativas}
-              onChange={(event) => setCarga('instruccionesOperativas', event.target.value)}
-              placeholder="Detalle cualquier instrucción específica para paradas, rutas alternas o requerimientos del operador…"
-            />
+            <FormField label="Requerimientos del vehículo/unidad">
+              <Input
+                value={carga.requerimientosVehiculo}
+                onChange={(event) => setCarga('requerimientosVehiculo', event.target.value)}
+                placeholder="Ej. Caja seca 53 pies, termo, rabón…"
+              />
+            </FormField>
+            <FormField label="Instrucciones operativas adicionales">
+              <Textarea
+                value={carga.instruccionesOperativas}
+                onChange={(event) => setCarga('instruccionesOperativas', event.target.value)}
+                placeholder="Detalle cualquier instrucción específica para paradas, rutas alternas o requerimientos del operador…"
+              />
+            </FormField>
           </div>
         </SeccionCard>
       </div>

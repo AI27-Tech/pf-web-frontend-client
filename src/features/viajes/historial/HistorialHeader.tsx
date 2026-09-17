@@ -6,7 +6,7 @@
  */
 
 import { Download } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
+import { Button } from '@ai27-tech/ui';
 
 /** Motivo del `title` del boton, para no repetirlo. */
 const EXPORT_DISABLED_REASON = 'La exportacion a CSV aun no esta disponible';
@@ -22,8 +22,13 @@ export function HistorialHeader() {
         </p>
       </div>
 
-      <Button variant="secondary" disabled title={EXPORT_DISABLED_REASON} className="shrink-0">
-        <Download aria-hidden="true" className="mr-2 size-4" />
+      <Button
+        variant="secondary"
+        disabled
+        title={EXPORT_DISABLED_REASON}
+        className="shrink-0"
+        startIcon={<Download aria-hidden="true" className="size-4" />}
+      >
         Exportar CSV
       </Button>
     </header>

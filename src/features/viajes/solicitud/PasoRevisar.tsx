@@ -11,9 +11,7 @@
 import { useState, type ReactNode } from 'react';
 import { CalendarDays, FileText, MessageSquareText, Package, Pencil, Route } from 'lucide-react';
 import type { BorradorSolicitud, OpcionCatalogo } from '@/lib/contracts';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Checkbox } from '@/components/ui/Checkbox';
+import { Button, Card, CardBody, Checkbox } from '@ai27-tech/ui';
 import { cx } from '@/lib/utils';
 import type { CatalogosSolicitud } from './pasos';
 import type { PasoVisible } from './pasos';
@@ -145,12 +143,14 @@ export function PasoRevisar({
         </p>
       </TarjetaResumen>
 
-      <Card className="p-4" ariaLabel="Confirmación">
-        <Checkbox
-          label="Confirmo que la información proporcionada es correcta y acepto los términos de servicio."
-          checked={confirmed}
-          onChange={(event) => setConfirmed(event.target.checked)}
-        />
+      <Card variant="outlined" padding="md" aria-label="Confirmación">
+        <CardBody>
+          <Checkbox
+            label="Confirmo que la información proporcionada es correcta y acepto los términos de servicio."
+            checked={confirmed}
+            onChange={(event) => setConfirmed(event.target.checked)}
+          />
+        </CardBody>
       </Card>
 
       <div className="flex items-center justify-end gap-3">
@@ -179,22 +179,24 @@ function TarjetaResumen({
   readonly children: ReactNode;
 }) {
   return (
-    <Card className="p-5" ariaLabel={title}>
-      <div className="mb-4 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-primary">{icon}</span>
-          <h2 className="text-on-surface text-base font-semibold">{title}</h2>
+    <Card variant="outlined" padding="lg" role="region" aria-label={title}>
+      <CardBody>
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-primary">{icon}</span>
+            <h2 className="text-on-surface text-base font-semibold">{title}</h2>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onEditar}
+            startIcon={<Pencil aria-hidden="true" className="size-3.5" />}
+          >
+            Editar
+          </Button>
         </div>
-        <button
-          type="button"
-          onClick={onEditar}
-          className="text-primary inline-flex items-center gap-1 text-sm font-medium"
-        >
-          <Pencil aria-hidden="true" className="size-3.5" />
-          Editar
-        </button>
-      </div>
-      {children}
+        {children}
+      </CardBody>
     </Card>
   );
 }

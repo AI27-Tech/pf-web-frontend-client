@@ -11,8 +11,7 @@ import { useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Button, Checkbox, FormField, Input } from '@ai27-tech/ui';
 import { isApiError } from '@/lib/api/errors';
 
 interface LoginSectionProps {
@@ -74,52 +73,50 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-4" noValidate>
-      <Input
-        label="Correo electronico empresarial"
-        type="text"
-        autoComplete="username"
-        placeholder="nombre@empresa.com"
-        leadingSlot={<Mail aria-hidden="true" className="size-4" />}
-        value={usuario}
-        onChange={(event) => setUsuario(event.target.value)}
-        required
-      />
+      <FormField label="Correo electronico empresarial">
+        <Input
+          type="text"
+          autoComplete="username"
+          placeholder="nombre@empresa.com"
+          startAdornment={<Mail aria-hidden="true" className="size-4" />}
+          value={usuario}
+          onChange={(event) => setUsuario(event.target.value)}
+          required
+        />
+      </FormField>
 
-      <Input
-        label="Contrasena"
-        type={showPassword ? 'text' : 'password'}
-        autoComplete="current-password"
-        leadingSlot={<Lock aria-hidden="true" className="size-4" />}
-        trailingSlot={
-          <button
-            type="button"
-            onClick={() => setShowPassword((value) => !value)}
-            aria-pressed={showPassword}
-            aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
-            className="text-slate-400 hover:text-slate-600"
-          >
-            {showPassword ? (
-              <EyeOff aria-hidden="true" className="size-4" />
-            ) : (
-              <Eye aria-hidden="true" className="size-4" />
-            )}
-          </button>
-        }
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        required
-      />
+      <FormField label="Contrasena">
+        <Input
+          type={showPassword ? 'text' : 'password'}
+          autoComplete="current-password"
+          startAdornment={<Lock aria-hidden="true" className="size-4" />}
+          endAdornment={
+            <button
+              type="button"
+              onClick={() => setShowPassword((value) => !value)}
+              aria-pressed={showPassword}
+              aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+              className="text-on-surface-variant hover:text-on-surface"
+            >
+              {showPassword ? (
+                <EyeOff aria-hidden="true" className="size-4" />
+              ) : (
+                <Eye aria-hidden="true" className="size-4" />
+              )}
+            </button>
+          }
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+        />
+      </FormField>
 
       <div className="flex items-center justify-between text-sm">
-        <label className="flex items-center gap-2 text-slate-600">
-          <input
-            type="checkbox"
-            checked={rememberMe}
-            onChange={(event) => setRememberMe(event.target.checked)}
-            className="focus:ring-brand-500 size-4 rounded border-slate-300"
-          />
-          Recordarme
-        </label>
+        <Checkbox
+          label="Recordarme"
+          checked={rememberMe}
+          onChange={(event) => setRememberMe(event.target.checked)}
+        />
 
         {/*
          * Enlace inerte: el diseno lo pide, pero no hay flujo de recuperacion de
@@ -132,18 +129,22 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
       </div>
 
       {error !== null && (
-        <p role="alert" className="text-sm text-red-600">
+        <p role="alert" className="text-error text-sm">
           {error}
         </p>
       )}
 
-      <Button type="submit" pending={pending} className="gap-2">
+      <Button
+        type="submit"
+        loading={pending}
+        fullWidth
+        endIcon={!pending ? <ArrowRight aria-hidden="true" className="size-4" /> : undefined}
+      >
         {pending ? 'Entrando' : 'Iniciar sesion'}
-        {!pending && <ArrowRight aria-hidden="true" className="size-4" />}
       </Button>
 
       {/* Nota de confianza del diseno. */}
-      <p className="flex items-center gap-1.5 text-xs text-slate-500">
+      <p className="text-on-surface-variant flex items-center gap-1.5 text-xs">
         <ShieldCheck aria-hidden="true" className="size-3.5" />
         Tu conexion es segura y esta protegida por los protocolos de seguridad de AI27.
       </p>

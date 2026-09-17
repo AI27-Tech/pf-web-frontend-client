@@ -11,8 +11,7 @@
 import type { Dispatch, ReactNode } from 'react';
 import { CalendarClock, MapPin, Radar, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import type { DatosServicio, OpcionCatalogo } from '@/lib/contracts';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { FormField, Input, Select } from '@ai27-tech/ui';
 import { RadioCard } from '@/components/ui/RadioCard';
 import type { AccionBorrador } from './borrador';
 import { SeccionCard } from './SeccionCard';
@@ -87,18 +86,20 @@ export function PasoServicioFecha({
         icon={<CalendarClock aria-hidden="true" className="size-5" />}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Fecha de salida *"
-            type="date"
-            value={datos.fechaSalida}
-            onChange={(event) => setField('fechaSalida', event.target.value)}
-          />
-          <Input
-            label="Hora de salida estimada *"
-            type="time"
-            value={datos.horaSalida}
-            onChange={(event) => setField('horaSalida', event.target.value)}
-          />
+          <FormField label="Fecha de salida *">
+            <Input
+              type="date"
+              value={datos.fechaSalida}
+              onChange={(event) => setField('fechaSalida', event.target.value)}
+            />
+          </FormField>
+          <FormField label="Hora de salida estimada *">
+            <Input
+              type="time"
+              value={datos.horaSalida}
+              onChange={(event) => setField('horaSalida', event.target.value)}
+            />
+          </FormField>
         </div>
       </SeccionCard>
 
@@ -107,31 +108,35 @@ export function PasoServicioFecha({
         icon={<SlidersHorizontal aria-hidden="true" className="size-5" />}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label="Prioridad del servicio"
-            options={prioridades.map((option) => ({ value: option.id, label: option.nombre }))}
-            placeholder="Seleccione una prioridad"
-            value={datos.prioridad}
-            onChange={(event) => setField('prioridad', event.target.value)}
-          />
-          <Input
-            label="Referencia / No. Orden de Compra (Opcional)"
-            value={datos.referenciaOrden}
-            onChange={(event) => setField('referenciaOrden', event.target.value)}
-            placeholder="Ej. PO-98273"
-          />
-          <Input
-            label="Nombre del contacto en sitio *"
-            value={datos.contactoNombre}
-            onChange={(event) => setField('contactoNombre', event.target.value)}
-            placeholder="Nombre completo"
-          />
-          <Input
-            label="Teléfono del contacto *"
-            value={datos.contactoTelefono}
-            onChange={(event) => setField('contactoTelefono', event.target.value)}
-            placeholder="+52 55 0000 0000"
-          />
+          <FormField label="Prioridad del servicio">
+            <Select
+              options={prioridades.map((option) => ({ value: option.id, label: option.nombre }))}
+              placeholder="Seleccione una prioridad"
+              value={datos.prioridad}
+              onChange={(event) => setField('prioridad', event.target.value)}
+            />
+          </FormField>
+          <FormField label="Referencia / No. Orden de Compra (Opcional)">
+            <Input
+              value={datos.referenciaOrden}
+              onChange={(event) => setField('referenciaOrden', event.target.value)}
+              placeholder="Ej. PO-98273"
+            />
+          </FormField>
+          <FormField label="Nombre del contacto en sitio *">
+            <Input
+              value={datos.contactoNombre}
+              onChange={(event) => setField('contactoNombre', event.target.value)}
+              placeholder="Nombre completo"
+            />
+          </FormField>
+          <FormField label="Teléfono del contacto *">
+            <Input
+              value={datos.contactoTelefono}
+              onChange={(event) => setField('contactoTelefono', event.target.value)}
+              placeholder="+52 55 0000 0000"
+            />
+          </FormField>
         </div>
       </SeccionCard>
     </div>

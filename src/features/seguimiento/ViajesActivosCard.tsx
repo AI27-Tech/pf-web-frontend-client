@@ -6,8 +6,8 @@
  * `estado === 'EN_RUTA'` en lugar de venir del wire.
  */
 
+import { Badge, Card, CardBody } from '@ai27-tech/ui';
 import type { ViajeEnCurso } from '@/lib/contracts';
-import { Card } from '@/components/ui/Card';
 import { EmptyState } from '@/components/ui/Feedback';
 import { ViajeActivoCard } from './ViajeActivoCard';
 
@@ -21,31 +21,39 @@ export function ViajesActivosCard({ viajes, selectedViajeId, onSelect }: ViajesA
   const enRutaCount = viajes.filter((viaje) => viaje.estado === 'EN_RUTA').length;
 
   return (
-    <Card className="flex h-full w-full flex-col gap-3 p-4" ariaLabel="Viajes activos">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-on-surface text-lg font-bold">Viajes Activos</h2>
-        <span className="bg-surface-container-high text-on-surface-variant rounded-full px-2.5 py-1 text-xs font-semibold">
-          {enRutaCount} En Ruta
-        </span>
-      </div>
+    <Card
+      variant="outlined"
+      padding="md"
+      role="region"
+      className="h-full w-full"
+      aria-label="Viajes activos"
+    >
+      <CardBody className="flex h-full w-full flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-on-surface text-lg font-bold">Viajes Activos</h2>
+          <Badge variant="neutral" pill>
+            {enRutaCount} En Ruta
+          </Badge>
+        </div>
 
-      {viajes.length === 0 ? (
-        <EmptyState title="No hay viajes activos">
-          Cuando un servicio se ponga en marcha aparecera aqui.
-        </EmptyState>
-      ) : (
-        <ul className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-          {viajes.map((viaje, index) => (
-            <ViajeActivoCard
-              key={viaje.viajeId}
-              viaje={viaje}
-              index={index}
-              selected={viaje.viajeId === selectedViajeId}
-              onSelect={() => onSelect(viaje.viajeId)}
-            />
-          ))}
-        </ul>
-      )}
+        {viajes.length === 0 ? (
+          <EmptyState title="No hay viajes activos">
+            Cuando un servicio se ponga en marcha aparecera aqui.
+          </EmptyState>
+        ) : (
+          <ul className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+            {viajes.map((viaje, index) => (
+              <ViajeActivoCard
+                key={viaje.viajeId}
+                viaje={viaje}
+                index={index}
+                selected={viaje.viajeId === selectedViajeId}
+                onSelect={() => onSelect(viaje.viajeId)}
+              />
+            ))}
+          </ul>
+        )}
+      </CardBody>
     </Card>
   );
 }

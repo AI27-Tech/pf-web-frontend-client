@@ -67,5 +67,5 @@ export function FreshnessMark<T>({
     );
   }
 
-  return <p className="text-sm text-slate-500">Sin {label} registrada.</p>;
+  return <p className="text-on-surface-variant text-sm">Sin {label} registrada.</p>;
 }

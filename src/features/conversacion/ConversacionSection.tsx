@@ -13,8 +13,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Mensaje } from '@/lib/contracts';
 import { findDomainSequenceGaps } from '@/lib/contracts';
 import { enviarMensaje } from '@/lib/api/conversaciones';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Button, FormField, Input } from '@ai27-tech/ui';
 import { EmptyState, ErrorState } from '@/components/ui/Feedback';
 import { formatDateTime } from '@/lib/utils';
 
@@ -52,12 +51,14 @@ export function ConversacionSection({
               key={mensaje.id}
               className={
                 mensaje.deCliente
-                  ? 'bg-brand-50 ml-auto max-w-[80%] rounded-lg px-3 py-2'
-                  : 'max-w-[80%] rounded-lg bg-white px-3 py-2 ring-1 ring-slate-200'
+                  ? 'bg-brand-50 text-on-surface ml-auto max-w-[80%] rounded-lg px-3 py-2'
+                  : 'bg-surface-container-lowest border-outline-variant text-on-surface max-w-[80%] rounded-lg border px-3 py-2'
               }
             >
               <p className="text-sm">{mensaje.cuerpo}</p>
-              <p className="mt-1 text-xs text-slate-500">{formatDateTime(mensaje.enviadoEn)}</p>
+              <p className="text-on-surface-variant mt-1 text-xs">
+                {formatDateTime(mensaje.enviadoEn)}
+              </p>
             </li>
           ))}
         </ol>
@@ -93,14 +94,12 @@ function MensajeComposer({ conversacionId }: { readonly conversacionId: string }
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-2">
-      <Input
-        label="Nuevo mensaje"
-        value={cuerpo}
-        onChange={(event) => setCuerpo(event.target.value)}
-      />
+      <FormField label="Nuevo mensaje">
+        <Input value={cuerpo} onChange={(event) => setCuerpo(event.target.value)} />
+      </FormField>
       {mutation.isError && <ErrorState error={mutation.error} />}
       <div>
-        <Button type="submit" pending={mutation.isPending}>
+        <Button type="submit" loading={mutation.isPending}>
           Enviar
         </Button>
       </div>
