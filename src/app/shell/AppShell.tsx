@@ -57,51 +57,70 @@ export function AppShell() {
   const claimedByExact = nav.some((item) => item.exact === true && pathname === item.to);
 
   return (
-    <div className="flex h-dvh">
-      <Sidebar
-        className="h-dv"
-        header={
-          <div className="flex items-center gap-3">
-            <ShieldHalf className="size-6 shrink-0" />
-            <div className="flex flex-col leading-tight">
-              <span className="text-base font-bold">AI27</span>
-              <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
+    // El documento scrollea de forma normal (`min-h-dvh`, sin recortar el overflow): el
+    // Sidebar se queda a la vista porque es `sticky`, no porque el shell fije la altura.
+    // Nada de overflow en el contenedor, o el `position: sticky` del sidebar no pegaria.
+    <div className="flex min-h-dvh">
+      {/*
+       * El STICKY y el alto viven en este wrapper, NO en el Sidebar. El Sidebar de la
+       * libreria trae `height:100%` en su CSS; si le pusieramos `h-dvh` competiria con
+       * esa regla (carrera de especificidad entre la utilidad y el CSS Module) y el alto
+       * quedaba indeterminado -> a veces media pantalla. En su lugar, el wrapper es quien
+       * define alto de viewport y pegado, y el Sidebar toma `h-full` (su `height:100%`
+       * resuelve contra el wrapper, que ya tiene alto real).
+       *
+       * `shrink-0`: el Sidebar fija `width:15rem` pero no trae `flex-shrink:0`; sin esto
+       * el <main> lo comprimiria dentro del flex-row.
+       */}
+      <div className="sticky top-0 h-dvh shrink-0 self-start">
+        <Sidebar
+          className="h-full"
+          header={
+            <div className="flex items-center gap-3">
+              <ShieldHalf className="size-6 shrink-0" />
+              <div className="flex flex-col leading-tight">
+                <span className="text-base font-bold">AI27</span>
+                <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
+              </div>
             </div>
-          </div>
-        }
-        footer={
-          <Button
-            variant="primary"
-            fullWidth
-            startIcon={<Plus />}
-            onClick={() => console.log('Redirect to new travel...')}
-          >
-            Nuevo viaje
-          </Button>
-        }
-      >
-        <SidebarGroup>
-          {nav.map(({ to, label, icon: Icon, exact = false }) => {
-            const active = isItemActive(pathname, to, exact) && (exact || !claimedByExact);
-            return (
-              <SidebarItem
-                key={to}
-                as={Link}
-                label={label}
-                active={active}
-                icon={<Icon className="size-full" />}
-                // `to` es una prop del Link de TanStack; SidebarItem la reenvia via `...props`
-                // pero su tipo no la declara, de ahi el cast puntual.
-                {...({ to } as { to: string })}
-              >
-                {label}
-              </SidebarItem>
-            );
-          })}
-        </SidebarGroup>
-      </Sidebar>
+          }
+          footer={
+            <Button
+              variant="primary"
+              fullWidth
+              startIcon={<Plus />}
+              onClick={() => console.log('Redirect to new travel...')}
+            >
+              Nuevo viaje
+            </Button>
+          }
+        >
+          <SidebarGroup>
+            {nav.map(({ to, label, icon: Icon, exact = false }) => {
+              const active = isItemActive(pathname, to, exact) && (exact || !claimedByExact);
+              return (
+                <SidebarItem
+                  key={to}
+                  as={Link}
+                  label={label}
+                  active={active}
+                  icon={<Icon className="size-full" />}
+                  // `to` es una prop del Link de TanStack; SidebarItem la reenvia via `...props`
+                  // pero su tipo no la declara, de ahi el cast puntual.
+                  {...({ to } as { to: string })}
+                >
+                  {label}
+                </SidebarItem>
+              );
+            })}
+          </SidebarGroup>
+        </Sidebar>
+      </div>
 
-      <main id="contenido" className="flex w-full flex-1 flex-col overflow-y-auto px-4 py-6">
+      {/* `min-w-0` deja que <main> se encoja dentro del flex-row (por defecto un item
+          flex no baja de su ancho de contenido). No lleva scroll propio: el scroll es el
+          del documento, y el sidebar lo acompaña como sticky. */}
+      <main id="contenido" className="flex w-full min-w-0 flex-1 flex-col px-4 py-6">
         <Outlet />
       </main>
     </div>

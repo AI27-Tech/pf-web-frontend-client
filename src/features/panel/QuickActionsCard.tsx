@@ -14,26 +14,39 @@
 
 import { Link } from '@tanstack/react-router';
 import { CirclePlus, FileText } from 'lucide-react';
-import { Card } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
+import { Card, CardBody, Button } from '@ai27-tech/ui';
 
 export function QuickActionsCard() {
   return (
-    <Card className="flex h-full flex-col gap-2 p-4" ariaLabel="Acciones rapidas">
-      <Link
-        to="/viajes/new"
-        search={{ paso: 'servicio' }}
-        className="bg-primary text-on-primary hover:bg-primary/90 flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-3 text-sm font-semibold transition-colors"
-      >
-        <CirclePlus aria-hidden="true" className="size-5 shrink-0" />
-        Solicitar Servicio
-      </Link>
+    <Card
+      variant="outlined"
+      padding="md"
+      className="h-full"
+      role="region"
+      aria-label="Acciones rapidas"
+    >
+      {/* `CardBody` aplica el padding de la prop; se restablece el `padding-top` (que la
+          libreria reduce al asumir un `CardHeader`) para que la tarjeta quede simetrica. */}
+      <CardBody className="flex h-full flex-col gap-2">
+        <Link
+          to="/viajes/new"
+          search={{ paso: 'servicio' }}
+          className="bg-primary text-on-primary hover:bg-primary/90 flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-3 text-sm font-semibold transition-colors"
+        >
+          <CirclePlus aria-hidden="true" className="size-5 shrink-0" />
+          Solicitar Servicio
+        </Link>
 
-      {/* TODO(producto): la generacion del reporte no esta definida. Sin handler. */}
-      <Button variant="secondary" className="flex-1 gap-2 py-3">
-        <FileText aria-hidden="true" className="size-5 shrink-0" />
-        Descargar Reporte
-      </Button>
+        {/* TODO(producto): la generacion del reporte no esta definida. Sin handler. */}
+        <Button
+          variant="secondary"
+          fullWidth
+          className="flex-1"
+          startIcon={<FileText aria-hidden="true" className="size-5 shrink-0" />}
+        >
+          Descargar Reporte
+        </Button>
+      </CardBody>
     </Card>
   );
 }

@@ -13,7 +13,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { Card } from '@/components/ui/Card';
+import { Card, CardBody } from '@ai27-tech/ui';
 import { cx } from '@/lib/utils';
 
 /** Tono del valor y del pie. El fondo de la tarjeta no cambia: la jerarquia la da el dato. */
@@ -51,19 +51,27 @@ const iconTone: Record<KpiTone, string> = {
 
 export function KpiCard({ label, value, footer, icon, tone = 'neutral' }: KpiCardProps) {
   return (
-    <Card className="flex h-full flex-col gap-3 p-4">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-on-surface-variant text-xs font-semibold tracking-wide uppercase">
-          {label}
-        </p>
-        {icon !== undefined && <span className={cx('shrink-0', iconTone[tone])}>{icon}</span>}
-      </div>
+    // El contenido va en `CardBody`: es el subcomponente que consume `--card-pad`, la
+    // variable que la prop `padding` del `Card` define. Sin el, el padding no aplica.
+    <Card variant="outlined" padding="md" className="h-full">
+      {/* `CardBody` reduce su `padding-top` porque asume un `CardHeader` encima; aqui va
+          solo, asi que se restablece al valor de `--card-pad` para que quede simetrico. */}
+      <CardBody className="flex h-full flex-col gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-on-surface-variant text-xs font-semibold tracking-wide uppercase">
+            {label}
+          </p>
+          {icon !== undefined && <span className={cx('shrink-0', iconTone[tone])}>{icon}</span>}
+        </div>
 
-      <p className={cx('text-3xl leading-tight font-bold', valueTone[tone])}>{value}</p>
+        <p className={cx('text-3xl leading-tight font-bold', valueTone[tone])}>{value}</p>
 
-      {footer !== undefined && (
-        <p className={cx('mt-auto flex items-center gap-1 text-xs', footerTone[tone])}>{footer}</p>
-      )}
+        {footer !== undefined && (
+          <p className={cx('mt-auto flex items-center gap-1 text-xs', footerTone[tone])}>
+            {footer}
+          </p>
+        )}
+      </CardBody>
     </Card>
   );
 }
