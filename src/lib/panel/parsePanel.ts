@@ -1,7 +1,7 @@
 /*
  * El parser del panel de control: forma de contrato -> modelo de la app.
  *
- * Es puro, como el de tracking: sin fetch, sin reloj, sin DOM. Y reutiliza los
+ * Es puro, como el de seguimiento: sin fetch, sin reloj, sin DOM. Y reutiliza los
  * lectores de `lib/wire/` en lugar de traer su propia version de "leer un campo
  * marcado", porque la regla "ausente por degradacion no es ausente" tiene que
  * cumplirse igual aqui que en el seguimiento — el ETA de la tabla y el ETA del mapa
@@ -20,7 +20,7 @@ import type {
   PanelDeControl,
   ViajeEnCurso,
 } from '../contracts';
-import { parseCondicionesWire, parseEtaWire } from '../tracking/parseTrackingPayload';
+import { parseCondicionesWire, parseEtaWire } from '../seguimiento/parseSeguimientoPayload';
 import {
   WireError,
   isRecord,
@@ -96,7 +96,7 @@ function parseLista<T>(raw: unknown, parseItem: (item: unknown) => T): readonly 
  * Convierte el cuerpo de `GET /api/v1/panel` en el modelo que consume la UI.
  *
  * Traduce los fallos estructurales de `lib/wire/` a `PanelPayloadError` por la misma
- * razon que el parser de tracking traduce a `TrackingPayloadError`: quien llama trata
+ * razon que el parser de seguimiento traduce a `SeguimientoPayloadError`: quien llama trata
  * con el error de este modulo, no con el detalle de la lectura.
  */
 export function parsePanel(raw: unknown): PanelDeControl {

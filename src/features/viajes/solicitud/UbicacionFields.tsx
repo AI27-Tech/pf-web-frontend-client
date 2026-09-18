@@ -6,14 +6,13 @@
  */
 
 import type { DatosUbicacion } from '@/lib/contracts';
-import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
+import { FormField, Input, Textarea } from '@ai27-tech/ui';
 
 interface UbicacionFieldsProps {
   readonly datos: DatosUbicacion;
-  readonly onCampo: (campo: keyof DatosUbicacion, valor: string) => void;
+  readonly onField: (field: keyof DatosUbicacion, value: string) => void;
   /** Ejemplos de placeholder que cambian entre origen y destino. */
-  readonly ejemplos: {
+  readonly examples: {
     readonly nombreLugar: string;
     readonly calleNumero: string;
     readonly ciudadEstado: string;
@@ -22,53 +21,60 @@ interface UbicacionFieldsProps {
   };
 }
 
-export function UbicacionFields({ datos, onCampo, ejemplos }: UbicacionFieldsProps) {
+export function UbicacionFields({ datos, onField, examples }: UbicacionFieldsProps) {
   return (
     <div className="flex flex-col gap-4">
-      <Input
-        label="Nombre del lugar o empresa *"
-        value={datos.nombreLugar}
-        onChange={(evento) => onCampo('nombreLugar', evento.target.value)}
-        placeholder={ejemplos.nombreLugar}
-      />
+      <FormField label="Nombre del lugar o empresa *">
+        <Input
+          value={datos.nombreLugar}
+          onChange={(event) => onField('nombreLugar', event.target.value)}
+          placeholder={examples.nombreLugar}
+        />
+      </FormField>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Input
-          label="Calle y número *"
-          value={datos.calleNumero}
-          onChange={(evento) => onCampo('calleNumero', evento.target.value)}
-          placeholder={ejemplos.calleNumero}
-        />
-        <Input
-          label="Ciudad y Estado *"
-          value={datos.ciudadEstado}
-          onChange={(evento) => onCampo('ciudadEstado', evento.target.value)}
-          placeholder={ejemplos.ciudadEstado}
-        />
-        <Input
-          label="Código Postal *"
-          value={datos.codigoPostal}
-          onChange={(evento) => onCampo('codigoPostal', evento.target.value)}
-          placeholder={ejemplos.codigoPostal}
-        />
-        <Input
-          label="Contacto en sitio"
-          value={datos.contactoSitio}
-          onChange={(evento) => onCampo('contactoSitio', evento.target.value)}
-          placeholder="Nombre completo"
-        />
+        <FormField label="Calle y número *">
+          <Input
+            value={datos.calleNumero}
+            onChange={(event) => onField('calleNumero', event.target.value)}
+            placeholder={examples.calleNumero}
+          />
+        </FormField>
+        <FormField label="Ciudad y Estado *">
+          <Input
+            value={datos.ciudadEstado}
+            onChange={(event) => onField('ciudadEstado', event.target.value)}
+            placeholder={examples.ciudadEstado}
+          />
+        </FormField>
+        <FormField label="Código Postal *">
+          <Input
+            value={datos.codigoPostal}
+            onChange={(event) => onField('codigoPostal', event.target.value)}
+            placeholder={examples.codigoPostal}
+          />
+        </FormField>
+        <FormField label="Contacto en sitio">
+          <Input
+            value={datos.contactoSitio}
+            onChange={(event) => onField('contactoSitio', event.target.value)}
+            placeholder="Nombre completo"
+          />
+        </FormField>
       </div>
-      <Input
-        label="Teléfono de contacto"
-        value={datos.telefonoContacto}
-        onChange={(evento) => onCampo('telefonoContacto', evento.target.value)}
-        placeholder="(00) 0000 0000"
-      />
-      <Textarea
-        label="Instrucciones de acceso"
-        value={datos.instruccionesAcceso}
-        onChange={(evento) => onCampo('instruccionesAcceso', evento.target.value)}
-        placeholder={ejemplos.instruccionesAcceso}
-      />
+      <FormField label="Teléfono de contacto">
+        <Input
+          value={datos.telefonoContacto}
+          onChange={(event) => onField('telefonoContacto', event.target.value)}
+          placeholder="(00) 0000 0000"
+        />
+      </FormField>
+      <FormField label="Instrucciones de acceso">
+        <Textarea
+          value={datos.instruccionesAcceso}
+          onChange={(event) => onField('instruccionesAcceso', event.target.value)}
+          placeholder={examples.instruccionesAcceso}
+        />
+      </FormField>
     </div>
   );
 }

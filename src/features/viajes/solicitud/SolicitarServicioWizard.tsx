@@ -44,10 +44,10 @@ export function SolicitarServicioWizard({
   /*
    * El borrador vive en memoria, asi que una recarga lo pierde.
    */
-  const flujoIniciado = useRef(false);
+  const flowStarted = useRef(false);
 
   function irAlPaso(destino: PasoSolicitud): void {
-    flujoIniciado.current = true;
+    flowStarted.current = true;
     navegarAPaso(destino);
   }
 
@@ -56,25 +56,25 @@ export function SolicitarServicioWizard({
    * (recarga o enlace directo), volvemos al primero.
    */
   useEffect(() => {
-    if (flujoIniciado.current) return;
-    const enPasoAvanzado = paso !== 'servicio' && esBorradorVacio(borrador);
-    const confirmacionSinId = paso === 'enviada' && idEnviado === null;
-    if (enPasoAvanzado || confirmacionSinId) {
+    if (flowStarted.current) return;
+    const isAdvancedStep = paso !== 'servicio' && esBorradorVacio(borrador);
+    const isConfirmationWithoutId = paso === 'enviada' && idEnviado === null;
+    if (isAdvancedStep || isConfirmationWithoutId) {
       navegarAPaso('servicio');
     }
   }, [paso, borrador, idEnviado, navegarAPaso]);
 
-  const indiceActual = PASOS_VISIBLES.indexOf(paso as PasoVisible);
+  const currentIndex = PASOS_VISIBLES.indexOf(paso as PasoVisible);
 
   function continuar(): void {
-    const siguiente = PASOS_VISIBLES[indiceActual + 1];
-    if (siguiente !== undefined) irAlPaso(siguiente);
+    const next = PASOS_VISIBLES[currentIndex + 1];
+    if (next !== undefined) irAlPaso(next);
     else irAlPaso('revisar');
   }
 
   function regresar(): void {
-    const anterior = PASOS_VISIBLES[indiceActual - 1];
-    if (anterior !== undefined) irAlPaso(anterior);
+    const previous = PASOS_VISIBLES[currentIndex - 1];
+    if (previous !== undefined) irAlPaso(previous);
   }
 
   function enviar(): void {
@@ -112,7 +112,7 @@ export function SolicitarServicioWizard({
         <>
           <PasoActual paso={paso} borrador={borrador} dispatch={dispatch} catalogos={_catalogos} />
           <WizardFooter
-            {...(indiceActual > 0 ? { onRegresar: regresar } : {})}
+            {...(currentIndex > 0 ? { onRegresar: regresar } : {})}
             onContinuar={continuar}
           />
         </>

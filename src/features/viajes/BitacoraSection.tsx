@@ -17,9 +17,9 @@ export function BitacoraSection({ entradas }: { readonly entradas: readonly Entr
   return (
     <ol className="flex flex-col gap-3">
       {entradas.map((entrada) => (
-        <li key={entrada.id} className="border-l-2 border-slate-200 pl-3">
-          <p className="text-sm">{entrada.descripcion}</p>
-          <p className="text-xs text-slate-500">{formatDateTime(entrada.ocurrioEn)}</p>
+        <li key={entrada.id} className="border-outline-variant border-l-2 pl-3">
+          <p className="text-on-surface text-sm">{entrada.descripcion}</p>
+          <p className="text-on-surface-variant text-xs">{formatDateTime(entrada.ocurrioEn)}</p>
         </li>
       ))}
     </ol>

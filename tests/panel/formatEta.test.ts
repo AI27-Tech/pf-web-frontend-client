@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { ETA_MAX_CHARS } from '@/lib/constants';
-import { formatEtaTexto } from '@/lib/tracking/formatEta';
+import { formatEtaText } from '@/lib/seguimiento/formatEta';
 import { truncate } from '@/lib/utils';
 
 /** Fecha de referencia fija: el formato es relativo, asi que el "ahora" importa. */
@@ -18,19 +18,19 @@ const AHORA = new Date('2026-09-09T12:00:00');
 
 describe('formatEtaTexto', () => {
   it('el mismo dia se dice "Hoy" con la hora', () => {
-    const texto = formatEtaTexto(new Date('2026-09-09T18:30:00').toISOString(), AHORA);
+    const texto = formatEtaText(new Date('2026-09-09T18:30:00').toISOString(), AHORA);
 
     expect(texto).toBe('Hoy, 18:30');
   });
 
   it('el dia siguiente se dice "Manana" con la hora', () => {
-    const texto = formatEtaTexto(new Date('2026-09-10T09:00:00').toISOString(), AHORA);
+    const texto = formatEtaText(new Date('2026-09-10T09:00:00').toISOString(), AHORA);
 
     expect(texto).toBe('Mañana, 09:00');
   });
 
   it('mas alla de manana se da la fecha abreviada, sin cero inicial en el dia', () => {
-    const texto = formatEtaTexto(new Date('2026-04-24T12:00:00').toISOString(), AHORA);
+    const texto = formatEtaText(new Date('2026-04-24T12:00:00').toISOString(), AHORA);
 
     // El formato acordado: dia sin cero inicial, mes de tres letras, ano completo.
     expect(texto).toBe('24 Abr 2026, 12:00');
@@ -38,7 +38,7 @@ describe('formatEtaTexto', () => {
 
   it('el caso mas largo del formato cabe justo en el limite', () => {
     // Dia de dos cifras: es el peor caso, todos los meses abreviados pesan igual.
-    const texto = formatEtaTexto(new Date('2026-09-17T18:30:00').toISOString(), AHORA);
+    const texto = formatEtaText(new Date('2026-09-17T18:30:00').toISOString(), AHORA);
 
     expect(texto).toBe('17 Sep 2026, 18:30');
     expect(texto).toHaveLength(ETA_MAX_CHARS);
@@ -47,7 +47,7 @@ describe('formatEtaTexto', () => {
   });
 
   it('el dia anterior no se disfraza de hoy', () => {
-    const texto = formatEtaTexto(new Date('2026-09-08T23:00:00').toISOString(), AHORA);
+    const texto = formatEtaText(new Date('2026-09-08T23:00:00').toISOString(), AHORA);
 
     // "Hoy" se decide por dia de calendario, no por diferencia de horas: un ETA de
     // hace trece horas es de ayer, y decir "Hoy" seria mentir sobre el dia.
@@ -55,7 +55,7 @@ describe('formatEtaTexto', () => {
   });
 
   it('un dia de una sola cifra no lleva cero inicial', () => {
-    const texto = formatEtaTexto(new Date('2026-04-05T09:00:00').toISOString(), AHORA);
+    const texto = formatEtaText(new Date('2026-04-05T09:00:00').toISOString(), AHORA);
 
     expect(texto).toBe('5 Abr 2026, 09:00');
   });

@@ -11,19 +11,19 @@ import { render, screen } from '@testing-library/react';
 import { FreshnessMark } from '@/components/ui/FreshnessMark';
 import { ausentePorDegradacion, presente, sinDato } from '@/lib/contracts';
 
-interface Valor {
-  readonly texto: string;
+interface Value {
+  readonly text: string;
 }
 
-const render1 = (valor: Valor) => <span>{valor.texto}</span>;
+const renderValue = (value: Value) => <span>{value.text}</span>;
 
 describe('FreshnessMark', () => {
   it('pinta el dato cuando esta presente y es reciente', () => {
     render(
       <FreshnessMark
-        dato={presente<Valor>({ texto: '19.4326, -99.1332' }, new Date().toISOString())}
-        etiqueta="posicion"
-        render={render1}
+        data={presente<Value>({ text: '19.4326, -99.1332' }, new Date().toISOString())}
+        label="posicion"
+        render={renderValue}
       />,
     );
 
@@ -34,9 +34,9 @@ describe('FreshnessMark', () => {
   it('marca la ausencia por degradacion en lugar de callarla', () => {
     render(
       <FreshnessMark
-        dato={ausentePorDegradacion<Valor>('procesamiento no disponible', '2026-09-07T14:30:00Z')}
-        etiqueta="posicion"
-        render={render1}
+        data={ausentePorDegradacion<Value>('procesamiento no disponible', '2026-09-07T14:30:00Z')}
+        label="posicion"
+        render={renderValue}
       />,
     );
 
@@ -49,21 +49,21 @@ describe('FreshnessMark', () => {
   });
 
   it('distingue "sin dato" de "degradado"', () => {
-    render(<FreshnessMark dato={sinDato<Valor>()} etiqueta="posicion" render={render1} />);
+    render(<FreshnessMark data={sinDato<Value>()} label="posicion" render={renderValue} />);
 
     expect(screen.getByText(/Sin posicion registrada/i)).toBeInTheDocument();
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('etiqueta un dato presente pero viejo', () => {
-    const hace5Minutos = new Date(Date.now() - 5 * 60_000).toISOString();
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60_000).toISOString();
 
     render(
       <FreshnessMark
-        dato={presente<Valor>({ texto: 'dato viejo' }, hace5Minutos)}
-        etiqueta="posicion"
-        umbralAntiguedadSeg={30}
-        render={render1}
+        data={presente<Value>({ text: 'dato viejo' }, fiveMinutesAgo)}
+        label="posicion"
+        staleThresholdSeconds={30}
+        render={renderValue}
       />,
     );
 

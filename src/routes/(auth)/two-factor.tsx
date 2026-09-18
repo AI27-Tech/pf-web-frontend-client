@@ -13,8 +13,7 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { Button, FormField, Input } from '@ai27-tech/ui';
 
 export const Route = createFileRoute('/(auth)/two-factor')({
   component: TwoFactorPage,
@@ -23,18 +22,20 @@ export const Route = createFileRoute('/(auth)/two-factor')({
 function TwoFactorPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-4">
-      <h1 className="mb-1 text-xl font-semibold">Verificacion</h1>
-      <p className="mb-6 text-sm text-slate-600">
+      <h1 className="text-on-surface mb-1 text-xl font-semibold">Verificacion</h1>
+      <p className="text-on-surface-variant mb-6 text-sm">
         Introduce el codigo que te enviamos para completar el acceso.
       </p>
 
       <form className="flex flex-col gap-4" onSubmit={(event) => event.preventDefault()}>
-        <Input label="Codigo" inputMode="numeric" autoComplete="one-time-code" maxLength={6} />
+        <FormField label="Codigo">
+          <Input inputMode="numeric" autoComplete="one-time-code" maxLength={6} />
+        </FormField>
         {/* TODO(ADR 13): cablear contra bff, o eliminar la ruta si el OTP es de Cognito. */}
         <Button type="submit" disabled>
           Verificar
         </Button>
-        <p className="text-xs text-slate-500">
+        <p className="text-on-surface-variant text-xs">
           Pendiente de ADR 13: aun no esta decidido si el OTP lo entrega Cognito o la plataforma.
         </p>
       </form>

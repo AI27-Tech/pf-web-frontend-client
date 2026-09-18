@@ -79,7 +79,7 @@ describe('EtaCell · los tres estados del ETA', () => {
   });
 
   it('un ETA que excede el maximo se trunca y conserva el completo en el title', () => {
-    render(<EtaCell eta={etaPresente(hoyALas(18, 30))} maxCaracteres={6} />);
+    render(<EtaCell eta={etaPresente(hoyALas(18, 30))} maxChars={6} />);
 
     const celda = screen.getByTitle('Hoy, 18:30');
     // "Hoy, " se queda sin el espacio final: la elipsis no cuelga de un hueco.

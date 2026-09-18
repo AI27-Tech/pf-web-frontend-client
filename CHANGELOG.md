@@ -4,6 +4,151 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:09:15 13:40
+
+**Resumen:** Se migró el tema de Tailwind del portal de cliente para que derive de los design tokens de la librería compartida AI27-tech (`@ai27-tech/ui`), que pasa a ser la única fuente de verdad del color, los radios y la tipografía. Los roles Material 3 que usan los componentes ahora referencian los tokens `--ui-*` con `var()`, sin duplicar valores, espejando el patrón ya aplicado en el frontend interno. No se tocaron componentes ni JSX: los mismos nombres de clase (`bg-primary`, `text-on-surface`, `border-outline`, …) apuntan ahora a los valores de AI27-tech. Build y typecheck en verde.
+
+**Cambios:**
+
+- Se agregó `@ai27-tech/ui@0.2.0-beta.1` como dependencia del portal (misma versión que el frontend interno) y se registró en el lockfile.
+- Se importó `@ai27-tech/ui/styles.css` en `src/main.tsx`, antes de `globals.css`, para que las variables `--ui-*` existan cuando el tema las referencia.
+- Se fijó `data-theme="light"` en el `<html>` de `index.html`: el portal corre en claro por defecto (no hay toggle de tema todavía) y así la librería no sigue la preferencia del sistema operativo.
+- Se reescribió `src/styles/globals.css`: la sección `@theme` (valores oklch de los antiguos design systems "Logistics Core" / "AI27 Command Portal") se reemplazó por un `@theme inline` en el que cada rol referencia su token `var(--ui-*)`. Mapeo aplicado: `surface`/`surface-*`→`--ui-color-surface`/`-muted`/`-raised`/`-container-*`; `on-surface`/`-variant`→`--ui-color-text`/`-muted`; `outline`/`outline-variant`→`--ui-color-border-strong`/`--ui-color-border`; `primary`/`on-primary`→`--ui-color-primary`/`--ui-color-on-primary`; `primary-container`→`--ui-color-primary-hover`; `secondary`/`on-secondary`→`--ui-color-secondary`/`--ui-color-on-secondary`; `secondary-container`→`--ui-color-secondary-hover`; `error`/`on-error`→`--ui-color-danger`/`--ui-color-on-danger`; `error-container`→`--ui-color-danger-container`; `success`/`warning`/`info`→`--ui-color-success`/`-warning`/`-info` (+ `-container`); `background`/`on-background`→`--ui-color-surface-muted`/`--ui-color-text`; radios→`--ui-radius-*`.
+- Se retiraron del tema los roles sin equivalente en AI27-tech que NO se usaban en componentes: `tertiary`/`on-tertiary`/`tertiary-container`/`on-tertiary-container`, `inverse-surface`, `inverse-on-surface`, `inverse-primary` y `surface-tint`.
+- Se conservaron como roles propios del portal (sin equivalente en AI27-tech pero EN USO en componentes; retirarlos exigiría tocar JSX, fuera de alcance): `sidebar`/`on-sidebar` (Sidebar), `brand-*` (login, chips de conversación) y `degradado-*` (banner y avisos de servicio degradado). Quedan pendientes de decisión para una fase que sí toque componentes.
+
+**Nota / conflicto reportado:** los archivos `PALETA_COLORES_LIGHT_MODE.md` y `PALETA_COLORES_DARK_MODE.md` de la raíz del monorepo describen otro sistema (Material 3, primary `#003595`, fuentes Plus Jakarta Sans/Hanken Grotesk) que NO coincide con el `tokens.css` real publicado por la librería (sistema "Nocturne", primary periwinkle `#7c9df0`, fuente Inter). Por decisión explícita, la fuente de verdad es `tokens.css`. En consecuencia, la migración cambia intencionadamente el azul de marca del portal a periwinkle: es una regresión visual esperada, no un defecto.
+
+**Archivos modificados:**
+
+- `package.json`
+- `pnpm-lock.yaml`
+- `src/main.tsx`
+- `index.html`
+- `src/styles/globals.css`
+- `CHANGELOG.md`
+
+## 2026:09:15 12:05
+
+**Resumen:** Continuación y cierre del barrido de la convención de nombres, sobre las piezas de tablas/paginación, frescura, Seguimiento en Vivo, helpers de fecha/ETA y mocks. Junto con la entrada de las 11:57, completa el barrido total: los identificadores técnicos en español pasaron a inglés y los sustantivos de dominio y comandos ubicuos se conservaron en español. Verificado con typecheck, la suite completa (206 pruebas) y lint, todo en verde.
+
+**Cambios:**
+
+- **Tablas y paginación:** `Pagination` (`pagina→page`, `totalPaginas→totalPages`, `totalRegistros→totalRecords`, `desde→rangeStart`, `hasta→rangeEnd`, `onCambiarPagina→onPageChange`, `hayAnterior/haySiguiente→hasPrevious/hasNext`) y `Table` (`porPagina→pageSize`, `paginaActual→currentPage`, `conMarco→bordered`, `paginado→paginated`, `filasVisibles→visibleRows`, `toggleSeleccion→toggleSelection`, `seleccionada→selected`, `tono→tone`, `esError→isError`, `indice→index`, `theadClase→theadClass`). Consumidores: `HistorialViajesTable` (`POR_PAGINA→PAGE_SIZE`, `porPagina→pageSize`) y `ViajesEnCursoTable` (`etaMaxCaracteres→etaMaxChars`, `columnas→buildColumns`, `porPagina→pageSize`).
+- **Frescura:** `FreshnessMark` (`dato→data`, `render(valor)→render(value)`, `etiqueta→label`, `umbralAntiguedadSeg→staleThresholdSeconds`, `edad→ageSeconds`, `esVieja→isStale`).
+- **Helpers ETA/fecha:** `formatEtaTexto→formatEtaText` (renombre propagado a sus consumidores) con `daysBetween`/`target`/`reference`/`now`/`days`/`date`/`time`/`month`/`TIME_FORMAT`/`SHORT_MONTHS`; `EtaCell` (`maxCaracteres→maxChars`, `completo→full`, `visible→truncated`, `ultimo→lastKnown`); `PanelSection` (`conSigno→withSign`).
+- **Seguimiento en Vivo:** `rutaAccent.ts→accentClass.ts` (`accentoDeRuta→routeAccentClass`, `ROLES_DE_ACENTO→ACCENT_ROLES`, `RolDeAcento→AccentRole`, `BORDE_POR_ROL→BORDER_BY_ROLE`); `ViajeActivoCard` (`indice→index`, `seleccionada→selected`, `onSeleccionar→onSelect`, `progresoPctAcotado→clampProgressPct`, `EtaTexto→EtaText`); `ViajesActivosCard` (`viajeSeleccionadoId→selectedViajeId`, `onSeleccionar→onSelect`, `enRuta→enRutaCount`); `SeguimientoSection` (`viajeSeleccionadoId→selectedViajeId`, `mostrandoDetalle→showDetail`, `viajeSeleccionado→selectedViaje`); `TelemetriaExtraCard` (`InformationElement` con `icon`/`label`/`value`; `mostrandoDetalle→showDetail`, `onAlternarDetalle→onToggleDetail`); `EstadoSeguimientoBadge` (`Tono→Tone`, `tonoConocido→knownTone`, `iconoPorClave→iconByKey`, `textoClases→textClasses`, `Icono→Icon`).
+- **Wizard:** `SolicitarServicioWizard` (`indiceActual→currentIndex`, `siguiente→next`, `anterior→previous`, `enPasoAvanzado→isAdvancedStep`, `confirmacionSinId→isConfirmationWithoutId`, `flujoIniciado→flowStarted`); `StepperSolicitud` (`indiceActual→currentIndex`, `indice→index`, `completado→completed`, `activo→active`); `SolicitudEnviada` (`texto→orFallback`, `formatFecha→formatDate`, `SIN_DATO→NO_DATA`); parámetro `evento→event` en los handlers de `UbicacionFields`, `PasoServicioFecha`, `PasoDetalles`, `PasoRevisar`, `DocumentacionCard` e `HistorialFiltros` (se conservó el `evento` de geocerca, que es dominio).
+- **Filtros:** `HistorialFiltros` (`MOTIVO_SIN_FILTRO→NO_FILTER_REASON`, `claseControl→controlClass`, `rango→range`, `busqueda→search`; `estado` se conserva por ser dominio) y `CampoFiltro` (`icono→icon`).
+- **wire/mocks:** `wire/readers.ts` (parámetro `parseValor→parseValue` y variable local `valor→value`; la clave de contrato `raw['valor']` se conserva); `mocks/data.ts` (`ahora→now`, `haceMinutos→minutesAgo`, `hoyALas→todayAt`, `mananaALas→tomorrowAt`, `enDiasALas→inDaysAt`, y `fecha/hora/minuto/dias` a inglés).
+- **Conservado en español a propósito:** el reducer del borrador (`reducerBorrador`, `AccionBorrador`, `esBorradorVacio`, `generarIdSolicitud`, y las claves `tipo`/`campo`/`valor`/`codigo`/`activo` de la acción), los comandos del asistente (`continuar`, `regresar`, `enviar`, `onEditar`, `onRegresar`, `onEnviar`, `onVolverAlInicio`, `navegarAPaso`, `irAlPaso`) y de sesión, los campos del wire/contrato (`estado_seguimiento.tono/.icono/.etiqueta`, `Fresco.valor/.observadoEn`, `NotificacionPanel.titulo/.cuerpo`, `snake_case`), y todos los sustantivos de dominio. Las rutas HTTP, la URL del navegador `/viajes/$viajeId/tracking` y las clases Tailwind `tracking-wide` no se tocaron.
+- **Verificación:** `pnpm typecheck`, `pnpm test` (29 archivos, 206 pruebas) y `pnpm lint`, todo en verde.
+
+**Archivos modificados:**
+
+- `src/components/ui/Pagination.tsx`
+- `src/components/ui/Table.tsx`
+- `src/components/ui/FreshnessMark.tsx`
+- `src/lib/seguimiento/formatEta.ts`
+- `src/lib/wire/readers.ts`
+- `src/features/panel/EtaCell.tsx`
+- `src/features/panel/ViajesEnCursoTable.tsx`
+- `src/features/panel/PanelSection.tsx`
+- `src/features/seguimiento/accentClass.ts` (renombrado desde `rutaAccent.ts`)
+- `src/features/seguimiento/ViajeActivoCard.tsx`
+- `src/features/seguimiento/ViajesActivosCard.tsx`
+- `src/features/seguimiento/SeguimientoSection.tsx`
+- `src/features/seguimiento/TelemetriaExtraCard.tsx`
+- `src/features/seguimiento/EstadoSeguimientoBadge.tsx`
+- `src/features/viajes/solicitud/SolicitarServicioWizard.tsx`
+- `src/features/viajes/solicitud/StepperSolicitud.tsx`
+- `src/features/viajes/solicitud/SolicitudEnviada.tsx`
+- `src/features/viajes/historial/HistorialFiltros.tsx`
+- `src/features/viajes/historial/CampoFiltro.tsx`
+- `src/features/viajes/historial/HistorialViajesTable.tsx`
+- `src/mocks/data.ts`
+- `tests/ui/Pagination.test.tsx`
+- `tests/ui/Table.test.tsx`
+- `tests/ui/FreshnessMark.test.tsx`
+- `tests/panel/ViajesEnCursoTable.test.tsx`
+- `tests/seguimiento/ViajeActivoCard.test.tsx`
+- `tests/seguimiento/TelemetriaExtraCard.test.tsx`
+
+## 2026:09:15 11:57
+
+**Resumen:** Se aplicó la convención de nombres (`.kiro/steering/naming-conventions.md`) a un lote de componentes y helpers presentacionales: los identificadores técnicos genéricos que estaban en español se pasaron a inglés, conservando los sustantivos de dominio en español. No se tocaron textos visibles de UI (siguen en español), comentarios, rutas HTTP, claves `snake_case` del wire, valores string de dominio, ni el reducer del borrador (`AccionBorrador`, `reducerBorrador`, etc.). Cuando un identificador de dominio o de contrato quedaba enlazado (p. ej. `campo`/`valor` del reducer, `comentarios`, o `estadoSeguimiento {etiqueta,tono,icono}` del wire), se conservó y se mapeó desde parámetros en inglés.
+
+**Cambios:**
+
+- **UI compartida:** `RadioCard` (`titulo→title`, `descripcion→description`, `icono→icon`); `Select` (`OpcionSelect→SelectOption`, `opciones→options`, `opcion→option`); `FileDropzone` (`formatos→formats`). `Input`, `Textarea`, `Checkbox`, `Card`, `Modal`, `Button`, `Feedback` ya cumplían y no se tocaron.
+- **Wizard de solicitud:** `SeccionCard` (`titulo→title`, `icono→icon`); `PasoServicioFecha` (`PRESENTACION_TIPO→PRESENTATION_TYPE`, `PRESENTACION_NEUTRA→PRESENTATION_NEUTRAL`, `presentacion→presentation`, `descripcion→description`, `icono→icon` en el record, `setCampo→setField`, `campo→field`, `valor→value`); `PasoRuta` (`resumen→summary`, `ubicacion→location`); `UbicacionFields` (`onCampo→onField`, `ejemplos→examples`); `PasoDetalles` (params de `setCarga`: `campo→field`, `valor→value`; `opciones→options`); `DocumentacionCard` (`formatos→formats`, callback `valor→value`); `PasoRevisar` (`SIN_DATO→NO_DATA`, `etiqueta()→labelFor`, `formatFecha→formatDate`, `textoOSinDato→textOrNoData`, `confirmado→confirmed`, `esAltoValor→isHighValue`, `requisitosTexto→requisitosText`, props internas `titulo→title`/`icono→icon`/`etiqueta→label`/`alineado→aligned`, `esUrgente→isUrgent`, `clases→classes`). Se conservaron `carga`, `onEditar/onRegresar/onEnviar`, `comentarios`, `prioridad`, `catalogo`, `requisito` y demás dominio.
+- **Panel:** `KpiCard` (`etiqueta→label`, `valor→value`, `pie→footer`, `icono→icon`, `tono→tone`; `TonoKpi→KpiTone`, `valorTono→valueTone`, `pieTono→footerTone`, `iconoTono→iconTone`); `PanelSection` (consumidor, `etiquetaRiesgo→riesgoLabel`); `NotificacionesCard` (campos de `EstiloSeveridad`: `etiqueta→label`, `contenedor→container`, `borde→border`, `icono→icon`; local `Icono→Icon`).
+- **Viajes / Historial:** `EstadoViajeChip` (`Tono→Tone`, `tonoClases→toneClasses`, `puntoClases→dotClasses`, `etiquetaPorEstado→labelByEstado`, `tonoDeEstado→toneForEstado`, `tono→tone`, `texto→text`); `ReporteSeguridadCell` (`Presentacion→Presentation`, `icono→icon`, `texto→text`, `clase→className`, `presentacion()→presentation()`); `HistorialHeader` (`MOTIVO_SIN_EXPORTAR→EXPORT_DISABLED_REASON`).
+- **Sesión / Conversación / Mocks:** `LoginSection` (`mostrarPassword→showPassword`, `recordarme→rememberMe` y sus setters, callback `valor→value`); `ConversacionSection` (`huecos→gaps`); `mocks/handlers.ts` (`LATENCIA_MS→LATENCY_MS`, `existentes→existing`, `siguienteSeq→nextSeq`, `creado→created`).
+- **Pruebas (ajuste forzado por renombrado de props):** `tests/ui/primitivas.test.tsx` y `tests/panel/KpiCard.test.tsx` actualizadas a los nuevos nombres de props.
+- **Verificación:** `pnpm typecheck` en verde; suite afectada `pnpm vitest run` (6 archivos, 39 pruebas) en verde.
+
+**Archivos modificados:**
+
+- `src/components/ui/RadioCard.tsx`
+- `src/components/ui/Select.tsx`
+- `src/components/ui/FileDropzone.tsx`
+- `src/features/viajes/solicitud/SeccionCard.tsx`
+- `src/features/viajes/solicitud/PasoServicioFecha.tsx`
+- `src/features/viajes/solicitud/PasoRuta.tsx`
+- `src/features/viajes/solicitud/UbicacionFields.tsx`
+- `src/features/viajes/solicitud/PasoDetalles.tsx`
+- `src/features/viajes/solicitud/DocumentacionCard.tsx`
+- `src/features/viajes/solicitud/PasoRevisar.tsx`
+- `src/features/panel/KpiCard.tsx`
+- `src/features/panel/PanelSection.tsx`
+- `src/features/panel/NotificacionesCard.tsx`
+- `src/features/viajes/EstadoViajeChip.tsx`
+- `src/features/viajes/historial/ReporteSeguridadCell.tsx`
+- `src/features/viajes/historial/HistorialHeader.tsx`
+- `src/features/sesion/LoginSection.tsx`
+- `src/features/conversacion/ConversacionSection.tsx`
+- `src/mocks/handlers.ts`
+- `tests/ui/primitivas.test.tsx`
+- `tests/panel/KpiCard.test.tsx`
+
+## 2026:09:15 11:20
+
+**Resumen:** Se aplicó la convención de nombres (`.kiro/steering/naming-conventions.md`) al sustantivo de dominio `seguimiento`, que estaba en inglés como `tracking` en identificadores internos del frontend. Se renombraron carpetas, tipos, hooks, funciones y prosa a su forma canónica en español (Nivel A). No se tocó la frontera del contrato: la ruta HTTP `GET /api/v1/viajes/{id}/tracking`, la URL del navegador `/viajes/$viajeId/tracking` ni la biblioteca backend `packages/tracking-payload` se mantienen intactas hasta que el contrato las cambie. Las clases de Tailwind `tracking-wide` no son de dominio y se conservan.
+
+**Cambios:**
+
+- **Contrato interno (provisional):** `lib/contracts/tracking.ts` → `lib/contracts/seguimiento.ts`; el tipo `TrackingPayload` → `SeguimientoPayload` (actualizado el barrel `lib/contracts/index.ts` y el import de `Eta` en `lib/contracts/panel.ts`).
+- **Parser:** `lib/tracking/parseTrackingPayload.ts` → `lib/seguimiento/parseSeguimientoPayload.ts`; función `parseTrackingPayload` → `parseSeguimientoPayload` y error `TrackingPayloadError` → `SeguimientoPayloadError`. Se movió también `lib/tracking/formatEta.ts` → `lib/seguimiento/formatEta.ts` (dominio de seguimiento). Se actualizaron las referencias en `lib/wire/readers.ts` y `lib/panel/parsePanel.ts`.
+- **Feature:** los archivos de `features/tracking/` se fusionaron en `features/seguimiento/`: `TrackingSection.tsx` → `SeguimientoDetalleSection.tsx`, `TrackingMap.tsx` → `MapaSeguimiento.tsx`, `useTracking.ts` → `useSeguimiento.ts`. Símbolos renombrados: `useTracking` → `useSeguimiento`, `TrackingSection` → `SeguimientoDetalleSection`, `TrackingMap` → `MapaSeguimiento`, `TIPOS_DE_TRACKING` → `TIPOS_DE_SEGUIMIENTO`, `trackingQueryKey` → `seguimientoQueryKey` (clave de cache `['tracking']` → `['seguimiento']`).
+- **Disciplina de color:** al entrar en `features/seguimiento/`, los dos archivos movidos quedaron sujetos al barrido de color de esa carpeta. Se sustituyeron los colores crudos por roles semánticos: `bg-brand-50 text-brand-700` → `bg-primary-container text-on-primary-container` (badge de estado en `SeguimientoDetalleSection`) y `bg-slate-200 text-slate-600` → `bg-surface-container-high text-on-surface-variant` (placeholder de `MapaSeguimiento`).
+- **API:** en `lib/api/viajes.ts`, `getTracking` → `getSeguimiento` (la URL HTTP `/viajes/{id}/tracking` se conserva).
+- **Ruta:** `routes/_private/viajes/$viajeId/tracking.tsx` conserva su nombre y URL (Nivel B, no tocado); se actualizaron sus imports y el componente interno `TrackingPage` → `SeguimientoPage`.
+- **Mocks:** en `mocks/data.ts` la función `trackingWire` → `seguimientoWire`; actualizadas las referencias en `mocks/handlers.ts` y `mocks/stream.ts` (la URL del handler mock se conserva). Prosa de comentarios de "tracking" (dominio) → "seguimiento".
+- **Pruebas:** `tests/tracking/parseTrackingPayload.test.ts` → `tests/seguimiento/parseSeguimientoPayload.test.ts` y `tests/fixtures/trackingWire.ts` → `tests/fixtures/seguimientoWire.ts`, con símbolos y prosa actualizados; ajuste menor de prosa en `tests/fixtures/panelWire.ts`.
+- **Verificación:** `pnpm typecheck`, `pnpm test` (29 archivos, 206 pruebas en verde) y `pnpm lint` sin errores.
+
+**Archivos modificados:**
+
+- `src/lib/contracts/seguimiento.ts` (renombrado desde `tracking.ts`)
+- `src/lib/contracts/index.ts`
+- `src/lib/contracts/panel.ts`
+- `src/lib/seguimiento/parseSeguimientoPayload.ts` (renombrado desde `lib/tracking/parseTrackingPayload.ts`)
+- `src/lib/seguimiento/formatEta.ts` (movido desde `lib/tracking/formatEta.ts`)
+- `src/lib/wire/readers.ts`
+- `src/lib/panel/parsePanel.ts`
+- `src/lib/api/viajes.ts`
+- `src/features/seguimiento/SeguimientoDetalleSection.tsx` (renombrado desde `features/tracking/TrackingSection.tsx`)
+- `src/features/seguimiento/MapaSeguimiento.tsx` (renombrado desde `features/tracking/TrackingMap.tsx`)
+- `src/features/seguimiento/useSeguimiento.ts` (renombrado desde `features/tracking/useTracking.ts`)
+- `src/routes/_private/viajes/$viajeId/tracking.tsx`
+- `src/mocks/data.ts`
+- `src/mocks/handlers.ts`
+- `src/mocks/stream.ts`
+- `tests/seguimiento/parseSeguimientoPayload.test.ts` (renombrado desde `tests/tracking/parseTrackingPayload.test.ts`)
+- `tests/fixtures/seguimientoWire.ts` (renombrado desde `tests/fixtures/trackingWire.ts`)
+- `tests/fixtures/panelWire.ts`
+
 ## 2026:09:11 16:10
 
 **Resumen:** Se rediseñó "Solicitar nuevo servicio" (`/viajes/new`) reemplazando el formulario único por un asistente de cuatro pasos (Servicio y Fecha → Ruta → Detalles → Revisar) más una pantalla de confirmación, siguiendo el diseño. Sin backend: el borrador se conserva en memoria entre pasos y "Enviar solicitud" NO crea ningún registro — solo genera un ID simulado y muestra el acuse.

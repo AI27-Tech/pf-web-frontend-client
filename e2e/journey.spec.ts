@@ -34,10 +34,10 @@ test.describe('sesion', () => {
   });
 });
 
-test.describe('tracking · las dos rutas de datos', () => {
+test.describe('seguimiento · las dos rutas de datos', () => {
   test('la posicion se actualiza por push sin recargar', async ({ page }) => {
     await login(page);
-    await page.goto('/viajes/viaje-1/tracking');
+    await page.goto('/viajes/viaje-1/seguimiento');
     await expect(page.getByRole('heading', { name: 'Seguimiento' })).toBeVisible();
 
     const posicion = page.locator('section', { hasText: 'Posicion' }).first();
@@ -56,10 +56,10 @@ test.describe('tracking · las dos rutas de datos', () => {
   });
 });
 
-test.describe('tracking · ausente por degradacion no es ausente', () => {
+test.describe('seguimiento · ausente por degradacion no es ausente', () => {
   test('un payload degradado marca la ausencia y conserva el estado', async ({ page }) => {
     await login(page);
-    await page.goto('/viajes/viaje-2/tracking');
+    await page.goto('/viajes/viaje-2/seguimiento');
 
     // El estado del viaje sigue sirviendose: el payload es parcial, no vacio.
     await expect(page.getByText('EN_RUTA')).toBeVisible();
@@ -76,7 +76,7 @@ test.describe('tracking · ausente por degradacion no es ausente', () => {
 
   test('"sin dato" no se presenta como degradacion', async ({ page }) => {
     await login(page);
-    await page.goto('/viajes/viaje-3/tracking');
+    await page.goto('/viajes/viaje-3/seguimiento');
 
     await expect(page.getByText(/Sin posicion registrada/i)).toBeVisible();
     // Ni una sola marca de degradacion: nunca hubo dato, y eso es otra cosa.

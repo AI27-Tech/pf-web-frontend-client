@@ -1,5 +1,5 @@
 /*
- * Viajes y tracking, contra `bff`.
+ * Viajes y seguimiento, contra `bff`.
  *
  * El listado va con alcance de tenant, y ese alcance lo deriva bff del claim del
  * token — nunca de un parametro que mandemos nosotros (P9, P10). Si alguna vez
@@ -7,9 +7,14 @@
  */
 
 import { api } from './client';
-import type { EntradaBitacora, SolicitudViaje, TrackingPayload, ViajeDetalle } from '../contracts';
+import type {
+  EntradaBitacora,
+  SolicitudViaje,
+  SeguimientoPayload,
+  ViajeDetalle,
+} from '../contracts';
 import type { ViajeResumen } from '../contracts';
-import { parseTrackingPayload } from '../tracking/parseTrackingPayload';
+import { parseSeguimientoPayload } from '../seguimiento/parseSeguimientoPayload';
 
 export async function listViajes(signal?: AbortSignal): Promise<readonly ViajeResumen[]> {
   return api.get<readonly ViajeResumen[]>('/viajes', signal !== undefined ? { signal } : {});
@@ -27,15 +32,18 @@ export async function solicitarViaje(solicitud: SolicitudViaje): Promise<{ reado
 /**
  * LA RUTA PULL. Es a la vez la carga inicial y la ruta de degradacion.
  *
- * Devuelve `TrackingPayload` porque pasa por el parser unico: es la misma salida que
+ * Devuelve `SeguimientoPayload` porque pasa por el parser unico: es la misma salida que
  * produce el handler del stream con el payload del sobre (P4).
  */
-export async function getTracking(viajeId: string, signal?: AbortSignal): Promise<TrackingPayload> {
+export async function getSeguimiento(
+  viajeId: string,
+  signal?: AbortSignal,
+): Promise<SeguimientoPayload> {
   const raw = await api.get<unknown>(
     `/viajes/${viajeId}/tracking`,
     signal !== undefined ? { signal } : {},
   );
-  return parseTrackingPayload(raw);
+  return parseSeguimientoPayload(raw);
 }
 
 export async function getBitacora(

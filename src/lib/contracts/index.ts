@@ -28,7 +28,7 @@ export {
   findDomainSequenceGaps,
 } from './sequences';
 
-export type { Posicion, Eta, EventoGeocerca, TrackingPayload } from './tracking';
+export type { Posicion, Eta, EventoGeocerca, SeguimientoPayload } from './seguimiento';
 
 export type {
   IndicadorViajesActivos,

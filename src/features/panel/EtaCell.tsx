@@ -16,21 +16,22 @@
  * mapa que miente.
  */
 
+import { Badge } from '@ai27-tech/ui';
 import type { Eta, Fresco } from '@/lib/contracts';
 import { ETA_MAX_CHARS } from '@/lib/constants';
-import { formatEtaTexto } from '@/lib/tracking/formatEta';
+import { formatEtaText } from '@/lib/seguimiento/formatEta';
 import { formatDateTime, truncate } from '@/lib/utils';
 
 interface EtaCellProps {
   readonly eta: Fresco<Eta>;
   /** Ancho maximo en caracteres. Por defecto, el del design system. */
-  readonly maxCaracteres?: number;
+  readonly maxChars?: number;
 }
 
-export function EtaCell({ eta, maxCaracteres = ETA_MAX_CHARS }: EtaCellProps) {
+export function EtaCell({ eta, maxChars = ETA_MAX_CHARS }: EtaCellProps) {
   if (eta.estado === 'presente') {
-    const completo = formatEtaTexto(eta.valor.estimadoEn);
-    const visible = truncate(completo, maxCaracteres);
+    const full = formatEtaText(eta.valor.estimadoEn);
+    const truncated = truncate(full, maxChars);
 
     return (
       /*
@@ -38,31 +39,37 @@ export function EtaCell({ eta, maxCaracteres = ETA_MAX_CHARS }: EtaCellProps) {
        * no tiene que razonar sobre si recorto, y el dato entero esta siempre a un
        * hover de distancia.
        */
-      <span title={completo} className="text-on-surface whitespace-nowrap">
-        {visible}
+      <span title={full} className="text-on-surface whitespace-nowrap">
+        {truncated}
       </span>
     );
   }
 
   if (eta.estado === 'ausente-por-degradacion') {
-    const ultimo =
+    const lastKnown =
       eta.ultimoDatoEn !== null
         ? ` Ultimo dato conocido: ${formatDateTime(eta.ultimoDatoEn)} (no actualizado).`
         : '';
 
     return (
       /*
-       * role="status" igual que en FreshnessMark: la ausencia se ANUNCIA. Una celda
-       * vacia no le dice nada a un lector de pantalla, y "no lo sabemos ahora" es
-       * informacion, no falta de informacion.
+       * `Badge` de la libreria (@ai27-tech/ui) como senal del estado degradado. La
+       * variante `warning` es la mas cercana en la paleta de la libreria a la antigua
+       * pastilla `degradado-*` del portal; la libreria no expone hoy una senal propia
+       * de "dato stale". TODO(ui-lib): variante o token `degradado`/`stale` en la
+       * libreria para no reutilizar `warning`.
+       *
+       * Se conservan `role="status"` y el `title` con motivo + ultimo dato: la ausencia
+       * se ANUNCIA. Una celda que no dice nada seria "el mapa que miente".
        */
-      <span
+      <Badge
+        variant="warning"
         role="status"
-        title={`${eta.motivo}.${ultimo}`}
-        className="text-degradado-800 bg-degradado-50 inline-flex items-center rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap"
+        title={`${eta.motivo}.${lastKnown}`}
+        className="whitespace-nowrap"
       >
         ETA no disponible
-      </span>
+      </Badge>
     );
   }
 

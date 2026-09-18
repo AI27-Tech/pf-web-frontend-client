@@ -105,13 +105,26 @@ describe('PanelSection · contenido', () => {
     expect(await screen.findByText('ELEVADO_POR_CLIMA')).toBeInTheDocument();
   });
 
-  it('monta las cuatro zonas del panel', async () => {
+  it('monta las zonas del panel', async () => {
     renderConRouter(<PanelSection panel={panel} />);
 
     expect(await screen.findByRole('heading', { name: 'Viajes en Curso' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Notificaciones Recientes' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Vista de mapa' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Acciones rapidas' })).toBeInTheDocument();
+  });
+
+  it('las notificaciones se presentan como toasts de la libreria, no como tarjeta', async () => {
+    renderConRouter(<PanelSection panel={panel} />);
+
+    // El aviso vive ahora en un toast: se muestra su titulo y su cuerpo, y ya NO existe
+    // la tarjeta "Notificaciones Recientes" en el layout.
+    expect(await screen.findByText('Desvio de ruta detectado')).toBeInTheDocument();
+    expect(
+      screen.getByText('La unidad del viaje AI27-000102 salio de la geocerca.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Notificaciones Recientes' }),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -138,18 +151,18 @@ describe('PanelSection · layout responsive', () => {
     expect(cuerpo?.querySelector('.xl\\:col-span-2')).not.toBeNull();
   });
 
-  it('la tabla precede al mapa y a las notificaciones en el orden de lectura', async () => {
+  it('la tabla precede al mapa en el orden de lectura', async () => {
     renderConRouter(<PanelSection panel={panel} />);
 
     const tabla = await screen.findByRole('heading', { name: 'Viajes en Curso' });
-    const notificaciones = screen.getByRole('heading', { name: 'Notificaciones Recientes' });
+    const mapa = screen.getByRole('region', { name: 'Vista de mapa' });
 
     /*
      * El orden del DOM es el orden de lectura en movil. Si alguien recolocara con
      * `order-*`, lo que se ve y lo que se lee dejarian de coincidir y este test lo
      * detecta: DOCUMENT_POSITION_FOLLOWING deja de cumplirse.
      */
-    expect(tabla.compareDocumentPosition(notificaciones)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(tabla.compareDocumentPosition(mapa)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 });
 
@@ -199,6 +212,6 @@ describe('disciplina de color · solo roles, nunca escalas crudas', () => {
 
   it('el barrido cubre todo el directorio del panel', () => {
     // Si el comodin dejara de resolver, el barrido pasaria en verde sin revisar nada.
-    expect(Object.keys(fuentesDelPanel).length).toBeGreaterThanOrEqual(7);
+    expect(Object.keys(fuentesDelPanel).length).toBeGreaterThanOrEqual(6);
   });
 });

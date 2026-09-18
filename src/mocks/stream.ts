@@ -16,7 +16,7 @@
  */
 
 import { HttpResponse } from 'msw';
-import { trackingWire } from './data';
+import { seguimientoWire } from './data';
 import { STREAM_TIMINGS } from '@/lib/constants';
 
 /** Cadencia de las posiciones. `posicion.actualizada` es prioridad baja, TTL 30 s. */
@@ -34,7 +34,7 @@ function sobreDePosicion(viajeId: string, transportSeq: number, domainSeq: numbe
     dedup_key: `posicion:${viajeId}`,
     ts: new Date().toISOString(),
     // El payload es el MISMO que sirve la ruta pull. Ahi esta la gracia (P4).
-    payload: trackingWire(viajeId, domainSeq),
+    payload: seguimientoWire(viajeId, domainSeq),
   };
 
   return `id: ${transportSeq}\ndata: ${JSON.stringify(sobre)}\n\n`;

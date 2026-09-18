@@ -10,13 +10,13 @@ import { cx } from '@/lib/utils';
 import { ETIQUETA_PASO, PASOS_VISIBLES, type PasoVisible } from './pasos';
 
 export function StepperSolicitud({ pasoActual }: { readonly pasoActual: PasoVisible }) {
-  const indiceActual = PASOS_VISIBLES.indexOf(pasoActual);
+  const currentIndex = PASOS_VISIBLES.indexOf(pasoActual);
 
   return (
     <ol className="flex items-center gap-2">
-      {PASOS_VISIBLES.map((paso, indice) => {
-        const completado = indice < indiceActual;
-        const activo = indice === indiceActual;
+      {PASOS_VISIBLES.map((paso, index) => {
+        const completed = index < currentIndex;
+        const active = index === currentIndex;
 
         return (
           <li key={paso} className="flex flex-1 items-center gap-2 last:flex-none">
@@ -25,30 +25,30 @@ export function StepperSolicitud({ pasoActual }: { readonly pasoActual: PasoVisi
                 aria-hidden="true"
                 className={cx(
                   'flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
-                  completado || activo
+                  completed || active
                     ? 'bg-primary text-on-primary'
                     : 'bg-surface-container-high text-on-surface-variant',
                 )}
               >
-                {completado ? <Check className="size-4" /> : indice + 1}
+                {completed ? <Check className="size-4" /> : index + 1}
               </span>
               <span
-                aria-current={activo ? 'step' : undefined}
+                aria-current={active ? 'step' : undefined}
                 className={cx(
                   'text-center text-xs font-medium whitespace-nowrap',
-                  activo ? 'text-primary' : 'text-on-surface-variant',
+                  active ? 'text-primary' : 'text-on-surface-variant',
                 )}
               >
                 {ETIQUETA_PASO[paso]}
               </span>
             </div>
             {/* Conector hacia el siguiente paso; el ultimo no lo lleva. */}
-            {indice < PASOS_VISIBLES.length - 1 && (
+            {index < PASOS_VISIBLES.length - 1 && (
               <span
                 aria-hidden="true"
                 className={cx(
                   'mb-5 h-0.5 flex-1 rounded-full',
-                  completado ? 'bg-primary' : 'bg-outline-variant',
+                  completed ? 'bg-primary' : 'bg-outline-variant',
                 )}
               />
             )}

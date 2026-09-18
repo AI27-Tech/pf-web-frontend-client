@@ -15,7 +15,7 @@ import { renderConRouter } from '../support/router';
 
 describe('KpiCard', () => {
   it('presenta etiqueta, valor y pie como texto legible', () => {
-    render(<KpiCard etiqueta="Viajes activos" valor={24} pie="+3 desde ayer" tono="success" />);
+    render(<KpiCard label="Viajes activos" value={24} footer="+3 desde ayer" tone="success" />);
 
     expect(screen.getByText('Viajes activos')).toBeInTheDocument();
     expect(screen.getByText('24')).toBeInTheDocument();
@@ -25,9 +25,9 @@ describe('KpiCard', () => {
   it('el icono es decorativo y no se anuncia', () => {
     render(
       <KpiCard
-        etiqueta="Viajes activos"
-        valor={24}
-        icono={<Truck aria-hidden="true" className="size-5" data-testid="icono" />}
+        label="Viajes activos"
+        value={24}
+        icon={<Truck aria-hidden="true" className="size-5" data-testid="icono" />}
       />,
     );
 
@@ -40,14 +40,14 @@ describe('KpiCard', () => {
     // string, y la tarjeta no interpreta lo que recibe.
     render(
       <KpiCard
-        etiqueta="Nivel de riesgo global"
-        valor={
+        label="Nivel de riesgo global"
+        value={
           <>
             Bajo /<br />
             Normal
           </>
         }
-        tono="primary"
+        tone="primary"
       />,
     );
 

@@ -4,27 +4,27 @@
  */
 
 import type { ViajeEnCurso } from '@/lib/contracts';
-import { formatEtaTexto } from '@/lib/tracking/formatEta';
+import { formatEtaText } from '@/lib/seguimiento/formatEta';
 import { cx } from '@/lib/utils';
 import { EstadoSeguimientoBadge } from './EstadoSeguimientoBadge';
-import { accentoDeRuta } from './rutaAccent';
+import { routeAccentClass } from './accentClass';
 
 interface ViajeActivoCardProps {
   readonly viaje: ViajeEnCurso;
-  readonly indice: number;
-  readonly seleccionada: boolean;
-  readonly onSeleccionar: () => void;
+  readonly index: number;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
 }
 
 /** Acota el progreso a 0–100. */
-function progresoPctAcotado(progresoPct: number): number {
+function clampProgressPct(progresoPct: number): number {
   return Math.min(100, Math.max(0, progresoPct));
 }
 
-function EtaTexto({ eta }: { readonly eta: ViajeEnCurso['eta'] }) {
+function EtaText({ eta }: { readonly eta: ViajeEnCurso['eta'] }) {
   if (eta.estado === 'presente') {
     return (
-      <span className="text-on-surface font-semibold">{formatEtaTexto(eta.valor.estimadoEn)}</span>
+      <span className="text-on-surface font-semibold">{formatEtaText(eta.valor.estimadoEn)}</span>
     );
   }
 
@@ -35,22 +35,17 @@ function EtaTexto({ eta }: { readonly eta: ViajeEnCurso['eta'] }) {
   return <span className="text-on-surface-variant font-semibold">Pendiente</span>;
 }
 
-export function ViajeActivoCard({
-  viaje,
-  indice,
-  seleccionada,
-  onSeleccionar,
-}: ViajeActivoCardProps) {
+export function ViajeActivoCard({ viaje, index, selected, onSelect }: ViajeActivoCardProps) {
   return (
     <li>
       <button
         type="button"
-        onClick={onSeleccionar}
-        aria-pressed={seleccionada}
+        onClick={onSelect}
+        aria-pressed={selected}
         className={cx(
           'w-full rounded-md border-l-4 p-3 text-left transition-colors',
-          accentoDeRuta(indice),
-          seleccionada
+          routeAccentClass(index),
+          selected
             ? 'bg-surface-container-high'
             : 'bg-surface-container hover:bg-surface-container-high',
         )}
@@ -75,14 +70,14 @@ export function ViajeActivoCard({
           </div>
           <div>
             <p className="text-on-surface-variant font-semibold tracking-wide uppercase">ETA</p>
-            <EtaTexto eta={viaje.eta} />
+            <EtaText eta={viaje.eta} />
           </div>
         </div>
 
         <div className="mt-3 flex items-center justify-between text-xs">
           <p className="text-on-surface-variant font-semibold tracking-wide uppercase">Progreso</p>
           <span className="text-on-surface font-semibold">
-            {progresoPctAcotado(viaje.progresoPct)}%
+            {clampProgressPct(viaje.progresoPct)}%
           </span>
         </div>
       </button>

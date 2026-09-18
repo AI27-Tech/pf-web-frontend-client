@@ -6,6 +6,7 @@
  */
 
 import { Link } from '@tanstack/react-router';
+import { Badge } from '@ai27-tech/ui';
 import type { ConversacionResumen } from '@/lib/contracts';
 import { EmptyState } from '@/components/ui/Feedback';
 import { formatDateTime } from '@/lib/utils';
@@ -20,24 +21,26 @@ export function ConversacionesListSection({
   }
 
   return (
-    <ul className="divide-y divide-slate-200 overflow-hidden rounded-lg bg-white ring-1 ring-slate-200">
+    <ul className="divide-outline-variant bg-surface-container-lowest border-outline-variant divide-y overflow-hidden rounded-lg border">
       {conversaciones.map((conversacion) => (
         <li key={conversacion.id}>
           <Link
             to="/conversaciones/$conversacionId"
             params={{ conversacionId: conversacion.id }}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-slate-50"
+            className="hover:bg-surface-container flex items-center gap-3 px-4 py-3"
           >
-            <span className="flex-1 text-sm font-medium">{conversacion.asunto}</span>
+            <span className="text-on-surface flex-1 text-sm font-medium">
+              {conversacion.asunto}
+            </span>
 
             {conversacion.noLeidos > 0 && (
-              <span className="bg-brand-600 rounded-full px-2 py-0.5 text-xs text-white">
+              <Badge variant="escort" pill>
                 {conversacion.noLeidos}
-              </span>
+              </Badge>
             )}
 
             {conversacion.ultimoMensajeEn !== null && (
-              <span className="text-xs text-slate-500">
+              <span className="text-on-surface-variant text-xs">
                 {formatDateTime(conversacion.ultimoMensajeEn)}
               </span>
             )}

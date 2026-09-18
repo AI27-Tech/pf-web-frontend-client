@@ -9,29 +9,28 @@
 import { Link } from '@tanstack/react-router';
 import type { ViajeDetalle } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
+import { EstadoViajeChip } from './EstadoViajeChip';
 
 export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeDetalle }) {
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-xl font-semibold">Viaje {viaje.folio}</h1>
-        <span className="bg-brand-50 text-brand-700 rounded-full px-2.5 py-1 text-xs font-medium">
-          {viaje.estado}
-        </span>
+        <h1 className="text-on-surface text-xl font-semibold">Viaje {viaje.folio}</h1>
+        <EstadoViajeChip estado={viaje.estado} condicionesActivas={viaje.condicionesActivas} />
       </header>
 
       <dl className="grid gap-4 sm:grid-cols-2">
         <div>
-          <dt className="text-xs font-medium text-slate-500">Origen</dt>
-          <dd className="text-sm">{viaje.origen}</dd>
+          <dt className="text-on-surface-variant text-xs font-medium">Origen</dt>
+          <dd className="text-on-surface text-sm">{viaje.origen}</dd>
         </div>
         <div>
-          <dt className="text-xs font-medium text-slate-500">Destino</dt>
-          <dd className="text-sm">{viaje.destino}</dd>
+          <dt className="text-on-surface-variant text-xs font-medium">Destino</dt>
+          <dd className="text-on-surface text-sm">{viaje.destino}</dd>
         </div>
         <div>
-          <dt className="text-xs font-medium text-slate-500">Solicitado</dt>
-          <dd className="text-sm">{formatDateTime(viaje.solicitadoEn)}</dd>
+          <dt className="text-on-surface-variant text-xs font-medium">Solicitado</dt>
+          <dd className="text-on-surface text-sm">{formatDateTime(viaje.solicitadoEn)}</dd>
         </div>
       </dl>
 
@@ -56,7 +55,7 @@ export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeDetalle }) 
 
       <nav className="flex gap-3 text-sm">
         <Link
-          to="/viajes/$viajeId/tracking"
+          to="/viajes/$viajeId/seguimiento"
           params={{ viajeId: viaje.id }}
           className="text-brand-700 hover:underline"
         >

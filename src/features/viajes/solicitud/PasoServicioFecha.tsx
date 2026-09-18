@@ -11,8 +11,7 @@
 import type { Dispatch, ReactNode } from 'react';
 import { CalendarClock, MapPin, Radar, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import type { DatosServicio, OpcionCatalogo } from '@/lib/contracts';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { FormField, Input, Select } from '@ai27-tech/ui';
 import { RadioCard } from '@/components/ui/RadioCard';
 import type { AccionBorrador } from './borrador';
 import { SeccionCard } from './SeccionCard';
@@ -25,26 +24,26 @@ interface PasoServicioFechaProps {
 }
 
 /** Descripcion e icono por tipo de servicio conocido.*/
-const PRESENTACION_TIPO: Readonly<
-  Record<string, { readonly descripcion: string; readonly icono: ReactNode }>
+const PRESENTATION_TYPE: Readonly<
+  Record<string, { readonly description: string; readonly icon: ReactNode }>
 > = {
   'monitoreo-activo': {
-    descripcion: 'Seguimiento en tiempo real con inteligencia artificial preventiva.',
-    icono: <Radar aria-hidden="true" className="size-6" />,
+    description: 'Seguimiento en tiempo real con inteligencia artificial preventiva.',
+    icon: <Radar aria-hidden="true" className="size-6" />,
   },
   'custodia-armada': {
-    descripcion: 'Escolta física altamente capacitada para rutas de alto riesgo.',
-    icono: <ShieldCheck aria-hidden="true" className="size-6" />,
+    description: 'Escolta física altamente capacitada para rutas de alto riesgo.',
+    icon: <ShieldCheck aria-hidden="true" className="size-6" />,
   },
   'localizacion-gps': {
-    descripcion: 'Dispositivos de rastreo autónomos de alta precisión.',
-    icono: <MapPin aria-hidden="true" className="size-6" />,
+    description: 'Dispositivos de rastreo autónomos de alta precisión.',
+    icon: <MapPin aria-hidden="true" className="size-6" />,
   },
 };
 
-const PRESENTACION_NEUTRA = {
-  descripcion: 'Servicio de protección logística.',
-  icono: <ShieldCheck aria-hidden="true" className="size-6" />,
+const PRESENTATION_NEUTRAL = {
+  description: 'Servicio de protección logística.',
+  icon: <ShieldCheck aria-hidden="true" className="size-6" />,
 } as const;
 
 export function PasoServicioFecha({
@@ -53,28 +52,28 @@ export function PasoServicioFecha({
   prioridades,
   dispatch,
 }: PasoServicioFechaProps) {
-  const setCampo = (campo: keyof DatosServicio, valor: string): void => {
-    dispatch({ tipo: 'servicio', campo, valor });
+  const setField = (field: keyof DatosServicio, value: string): void => {
+    dispatch({ tipo: 'servicio', campo: field, valor: value });
   };
 
   return (
     <div className="flex flex-col gap-6">
-      <SeccionCard titulo="1. Tipo de Servicio">
+      <SeccionCard title="1. Tipo de Servicio">
         <fieldset>
           <legend className="sr-only">Tipo de servicio</legend>
           <div className="grid gap-4 sm:grid-cols-3">
             {tiposServicio.map((tipo) => {
-              const presentacion = PRESENTACION_TIPO[tipo.id] ?? PRESENTACION_NEUTRA;
+              const presentation = PRESENTATION_TYPE[tipo.id] ?? PRESENTATION_NEUTRAL;
               return (
                 <RadioCard
                   key={tipo.id}
                   name="tipo-servicio"
                   value={tipo.id}
                   checked={datos.tipoServicio === tipo.id}
-                  onChange={(valor) => setCampo('tipoServicio', valor)}
-                  titulo={tipo.nombre}
-                  descripcion={presentacion.descripcion}
-                  icono={presentacion.icono}
+                  onChange={(value) => setField('tipoServicio', value)}
+                  title={tipo.nombre}
+                  description={presentation.description}
+                  icon={presentation.icon}
                 />
               );
             })}
@@ -83,55 +82,61 @@ export function PasoServicioFecha({
       </SeccionCard>
 
       <SeccionCard
-        titulo="2. Programación de Salida"
-        icono={<CalendarClock aria-hidden="true" className="size-5" />}
+        title="2. Programación de Salida"
+        icon={<CalendarClock aria-hidden="true" className="size-5" />}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Fecha de salida *"
-            type="date"
-            value={datos.fechaSalida}
-            onChange={(evento) => setCampo('fechaSalida', evento.target.value)}
-          />
-          <Input
-            label="Hora de salida estimada *"
-            type="time"
-            value={datos.horaSalida}
-            onChange={(evento) => setCampo('horaSalida', evento.target.value)}
-          />
+          <FormField label="Fecha de salida *">
+            <Input
+              type="date"
+              value={datos.fechaSalida}
+              onChange={(event) => setField('fechaSalida', event.target.value)}
+            />
+          </FormField>
+          <FormField label="Hora de salida estimada *">
+            <Input
+              type="time"
+              value={datos.horaSalida}
+              onChange={(event) => setField('horaSalida', event.target.value)}
+            />
+          </FormField>
         </div>
       </SeccionCard>
 
       <SeccionCard
-        titulo="3. Detalles Operativos"
-        icono={<SlidersHorizontal aria-hidden="true" className="size-5" />}
+        title="3. Detalles Operativos"
+        icon={<SlidersHorizontal aria-hidden="true" className="size-5" />}
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label="Prioridad del servicio"
-            opciones={prioridades.map((opcion) => ({ value: opcion.id, label: opcion.nombre }))}
-            placeholder="Seleccione una prioridad"
-            value={datos.prioridad}
-            onChange={(evento) => setCampo('prioridad', evento.target.value)}
-          />
-          <Input
-            label="Referencia / No. Orden de Compra (Opcional)"
-            value={datos.referenciaOrden}
-            onChange={(evento) => setCampo('referenciaOrden', evento.target.value)}
-            placeholder="Ej. PO-98273"
-          />
-          <Input
-            label="Nombre del contacto en sitio *"
-            value={datos.contactoNombre}
-            onChange={(evento) => setCampo('contactoNombre', evento.target.value)}
-            placeholder="Nombre completo"
-          />
-          <Input
-            label="Teléfono del contacto *"
-            value={datos.contactoTelefono}
-            onChange={(evento) => setCampo('contactoTelefono', evento.target.value)}
-            placeholder="+52 55 0000 0000"
-          />
+          <FormField label="Prioridad del servicio">
+            <Select
+              options={prioridades.map((option) => ({ value: option.id, label: option.nombre }))}
+              placeholder="Seleccione una prioridad"
+              value={datos.prioridad}
+              onChange={(event) => setField('prioridad', event.target.value)}
+            />
+          </FormField>
+          <FormField label="Referencia / No. Orden de Compra (Opcional)">
+            <Input
+              value={datos.referenciaOrden}
+              onChange={(event) => setField('referenciaOrden', event.target.value)}
+              placeholder="Ej. PO-98273"
+            />
+          </FormField>
+          <FormField label="Nombre del contacto en sitio *">
+            <Input
+              value={datos.contactoNombre}
+              onChange={(event) => setField('contactoNombre', event.target.value)}
+              placeholder="Nombre completo"
+            />
+          </FormField>
+          <FormField label="Teléfono del contacto *">
+            <Input
+              value={datos.contactoTelefono}
+              onChange={(event) => setField('contactoTelefono', event.target.value)}
+              placeholder="+52 55 0000 0000"
+            />
+          </FormField>
         </div>
       </SeccionCard>
     </div>

@@ -7,8 +7,8 @@
  */
 
 import type { ReactNode } from 'react';
+import { Button } from '@ai27-tech/ui';
 import { isApiError } from '@/lib/api/errors';
-import { Button } from './Button';
 
 export function Spinner({ label = 'Cargando' }: { readonly label?: string }) {
   return (

@@ -3,7 +3,7 @@
  *
  * PROVISIONAL: los nombres de campo son los que asume `src/lib/panel/parsePanel.ts`
  * y NO estan confirmados por contracts/openapi/bff.yaml — que no existe todavia.
- * Igual que en las fixtures de tracking, la documentacion fija el requisito de que la
+ * Igual que en las fixtures de seguimiento, la documentacion fija el requisito de que la
  * ausencia por degradacion viaje marcada, no su serializacion.
  *
  * Los tres viajes en curso cubren a proposito los tres estados de `Fresco`:

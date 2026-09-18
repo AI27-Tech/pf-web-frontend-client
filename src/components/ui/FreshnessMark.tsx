@@ -20,52 +20,52 @@ import type { Fresco } from '@/lib/contracts';
 import { ageInSeconds, formatDateTime } from '@/lib/utils';
 
 interface FreshnessMarkProps<T> {
-  readonly dato: Fresco<T>;
-  readonly render: (valor: T) => ReactNode;
+  readonly data: Fresco<T>;
+  readonly render: (value: T) => ReactNode;
   /** Nombre del dato, para los mensajes: "posicion", "ETA"… */
-  readonly etiqueta: string;
+  readonly label: string;
   /** Segundos por encima de los cuales un dato presente se marca como viejo. */
-  readonly umbralAntiguedadSeg?: number;
+  readonly staleThresholdSeconds?: number;
 }
 
 export function FreshnessMark<T>({
-  dato,
+  data,
   render,
-  etiqueta,
-  umbralAntiguedadSeg = 60,
+  label,
+  staleThresholdSeconds = 60,
 }: FreshnessMarkProps<T>) {
-  if (dato.estado === 'presente') {
-    const edad = ageInSeconds(dato.observadoEn);
-    const esVieja = edad > umbralAntiguedadSeg;
+  if (data.estado === 'presente') {
+    const ageSeconds = ageInSeconds(data.observadoEn);
+    const isStale = ageSeconds > staleThresholdSeconds;
 
     return (
       <div className="flex flex-col gap-0.5">
-        <div>{render(dato.valor)}</div>
-        {esVieja && (
+        <div>{render(data.valor)}</div>
+        {isStale && (
           <p className="text-degradado-800 text-xs">
-            Observado hace {edad}s — puede no reflejar la situacion actual.
+            Observado hace {ageSeconds}s — puede no reflejar la situacion actual.
           </p>
         )}
       </div>
     );
   }
 
-  if (dato.estado === 'ausente-por-degradacion') {
+  if (data.estado === 'ausente-por-degradacion') {
     return (
       <div
         role="status"
         className="bg-degradado-50 text-degradado-800 flex flex-col gap-0.5 rounded-md px-2 py-1.5 text-sm"
       >
-        <p className="font-medium">Sin {etiqueta} en este momento</p>
-        <p className="text-xs">{dato.motivo}</p>
-        {dato.ultimoDatoEn !== null && (
+        <p className="font-medium">Sin {label} en este momento</p>
+        <p className="text-xs">{data.motivo}</p>
+        {data.ultimoDatoEn !== null && (
           <p className="text-xs">
-            Ultimo dato conocido: {formatDateTime(dato.ultimoDatoEn)} (no actualizado)
+            Ultimo dato conocido: {formatDateTime(data.ultimoDatoEn)} (no actualizado)
           </p>
         )}
       </div>
     );
   }
 
-  return <p className="text-sm text-slate-500">Sin {etiqueta} registrada.</p>;
+  return <p className="text-on-surface-variant text-sm">Sin {label} registrada.</p>;
 }
