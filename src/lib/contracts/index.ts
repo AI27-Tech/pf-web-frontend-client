@@ -28,7 +28,7 @@ export {
   findDomainSequenceGaps,
 } from './sequences';
 
-export type { Posicion, Eta, EventoGeocerca, SeguimientoPayload } from './seguimiento';
+export type { Eta } from './eta';
 
 export type {
   IndicadorViajesActivos,
@@ -41,11 +41,6 @@ export type {
   NotificacionPanel,
   PanelDeControl,
 } from './panel';
-
-export type { Canal } from './canales';
-export { canalViaje, canalConversacion, canalesToQuery } from './canales';
-
-export type { Prioridad, TipoSobre, Sobre, SenalIngestaDegradada } from './envelope';
 
 export type {
   UnidadAsignada,

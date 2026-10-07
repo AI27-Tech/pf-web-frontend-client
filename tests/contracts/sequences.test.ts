@@ -5,6 +5,9 @@
  * cuya secuencia de dominio dice otro. Ordenar por llegada —o por el `seq` del
  * sobre— produce mensajes bien ordenados en la conexion y mal ordenados en la
  * pantalla, que es exactamente el bug que estos tipos existen para impedir.
+ *
+ * Esta prueba se queda en V1: `orderByDomainSequence` y `findDomainSequenceGaps` los
+ * usa la conversacion de negocio (mensajeria), no el seguimiento vivo V2.
  */
 
 import { describe, expect, it } from 'vitest';

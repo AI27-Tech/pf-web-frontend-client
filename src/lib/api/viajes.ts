@@ -7,14 +7,8 @@
  */
 
 import { api } from './client';
-import type {
-  EntradaBitacora,
-  SolicitudViaje,
-  SeguimientoPayload,
-  ViajeDetalle,
-} from '../contracts';
+import type { EntradaBitacora, SolicitudViaje, ViajeDetalle } from '../contracts';
 import type { ViajeResumen } from '../contracts';
-import { parseSeguimientoPayload } from '../seguimiento/parseSeguimientoPayload';
 
 export async function listViajes(signal?: AbortSignal): Promise<readonly ViajeResumen[]> {
   return api.get<readonly ViajeResumen[]>('/viajes', signal !== undefined ? { signal } : {});
@@ -29,22 +23,14 @@ export async function solicitarViaje(solicitud: SolicitudViaje): Promise<{ reado
   return api.post<{ readonly id: string }>('/viajes', solicitud);
 }
 
-/**
- * LA RUTA PULL. Es a la vez la carga inicial y la ruta de degradacion.
- *
- * Devuelve `SeguimientoPayload` porque pasa por el parser unico: es la misma salida que
- * produce el handler del stream con el payload del sobre (P4).
+/*
+ * NOTA (E9-T10 / F-06): aqui vivia `getSeguimiento`, la ruta pull de
+ * `GET /viajes/{id}/tracking`. Ese endpoint es V2 y NO aparece en el tracer (ver
+ * contracts/openapi/bff.yaml). El seguimiento vivo —posicion, senal, stream— quedo
+ * aislado del release path de V1 en `prototipos-v2/seguimiento-vivo/`. El ETA
+ * estimado de V1 (E2-HU-012) no se lee por aqui: viaja en el panel y en el detalle
+ * del viaje.
  */
-export async function getSeguimiento(
-  viajeId: string,
-  signal?: AbortSignal,
-): Promise<SeguimientoPayload> {
-  const raw = await api.get<unknown>(
-    `/viajes/${viajeId}/tracking`,
-    signal !== undefined ? { signal } : {},
-  );
-  return parseSeguimientoPayload(raw);
-}
 
 export async function getBitacora(
   viajeId: string,

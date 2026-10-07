@@ -19,6 +19,13 @@
  *
  * Por eso aqui no existe —y no debe existir— ninguna funcion que convierta una en
  * otra, ni un tipo comun del que ambas deriven. La ausencia es el mecanismo (P5).
+ *
+ * NOTA (E9-T10 / F-06): la `DomainSeq` y el ordenado por secuencia de dominio son V1
+ * —los usa la conversacion de negocio (mensajeria)—, asi que este modulo se queda en
+ * `src/`. La `TransportSeq` y su `transportSeqToLastEventId` solo los consumia el
+ * cliente SSE, que es V2 y quedo aislado en `prototipos-v2/seguimiento-vivo/`; se
+ * conservan aqui porque documentan POR QUE existe la secuencia de dominio: son la
+ * mitad de la invariante de las dos secuencias.
  */
 
 declare const transportSeqBrand: unique symbol;

@@ -59,6 +59,9 @@ export default tseslint.config(
       'test-results',
       'src/routeTree.gen.ts',
       'src/lib/api/generated/**',
+      // Prototipo V2 aislado del release path de V1 (E9-T10 / F-06): no se compila
+      // ni se lintea, es aprendizaje congelado. Ver prototipos-v2/seguimiento-vivo/.
+      'prototipos-v2/**',
       // Worker vendido por msw: no es nuestro codigo.
       'public/mockServiceWorker.js',
     ],

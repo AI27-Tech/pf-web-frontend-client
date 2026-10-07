@@ -2,19 +2,23 @@
  * Dataset de los mocks, en FORMA DE CONTRATO ("wire"), no en forma de app.
  *
  * Esta es la decision que hace que estos mocks valgan algo: devuelven `snake_case` y
- * los envoltorios de frescura tal como los espera `parseSeguimientoPayload`, asi que la
- * app corre su parser de verdad. Si los mocks devolvieran `SeguimientoPayload` ya
- * construido, saltarian la unica pieza que de verdad hay que ejercitar y solo
- * probariamos que React renderiza objetos.
+ * los envoltorios de frescura tal como los esperan los parsers de la app (p. ej. el
+ * del panel), asi que la app corre su parser de verdad. Si los mocks devolvieran los
+ * modelos ya construidos, saltarian la unica pieza que de verdad hay que ejercitar y
+ * solo probariamos que React renderiza objetos.
  *
  * Cuando exista contracts/openapi/bff.yaml, estos ejemplos son lo primero que hay que
  * validar contra el: si el contrato real usa otros nombres de campo, estos mocks
  * fallan y el parser tambien — que es exactamente la senal que se quiere.
  *
- * Los tres viajes cubren a proposito los tres estados de `Fresco<T>`:
- *   viaje-1  posicion y ETA presentes        -> el camino feliz, y el que recibe push
- *   viaje-2  ausente por degradacion         -> `procesamiento` caido, payload marcado
- *   viaje-3  sin dato                        -> recien solicitado, nunca hubo posicion
+ * El ETA del panel cubre a proposito los tres estados de `Fresco<Eta>`:
+ *   viaje-1  ETA presente                 -> el camino feliz
+ *   viaje-2  ausente por degradacion      -> `procesamiento` caido, ETA marcado
+ *   viaje-3  sin dato                      -> recien solicitado, nunca hubo ETA
+ *
+ * El seguimiento vivo (posicion, geocercas, senal, stream) era V2 y se retiro del
+ * release path de V1 (E9-T10 / F-06); su dataset de mentira vive ahora en
+ * `prototipos-v2/seguimiento-vivo/`.
  */
 
 export const DEV_USER = {
@@ -165,86 +169,6 @@ export const viajeDetalleWire: Record<string, Json> = {
     rutaId: 'ruta-19',
   },
 };
-
-/** Payload de seguimiento en forma de contrato. Lo consumen la ruta pull Y el stream. */
-export function seguimientoWire(viajeId: string, secuenciaDominio: number): Json {
-  if (viajeId === 'viaje-2') {
-    /*
-     * El caso que mas importa demostrar: `procesamiento` no responde, asi que bff
-     * sirve el payload PARCIAL Y MARCADO. Estado si, posicion y ETA ausentes con
-     * marca explicita — no como null, no como cero, no interpolado.
-     */
-    return {
-      viaje_id: viajeId,
-      estado: 'EN_RUTA',
-      condiciones_activas: [
-        {
-          codigo: 'SIN_SENAL',
-          descripcion: 'Sin senal del dispositivo',
-          desde: '2026-09-07T14:20:00Z',
-        },
-      ],
-      posicion: {
-        estado: 'ausente_por_degradacion',
-        motivo: 'procesamiento no disponible',
-        ultimo_dato_en: '2026-09-07T14:20:00Z',
-      },
-      eta: {
-        estado: 'ausente_por_degradacion',
-        motivo: 'procesamiento no disponible',
-        ultimo_dato_en: null,
-      },
-      geocercas: [],
-      secuencia_dominio: secuenciaDominio,
-    };
-  }
-
-  if (viajeId === 'viaje-3') {
-    // Recien solicitado: nunca hubo posicion. Distinto de no poder alcanzarla.
-    return {
-      viaje_id: viajeId,
-      estado: 'SOLICITADO',
-      condiciones_activas: [],
-      posicion: null,
-      eta: null,
-      geocercas: [],
-      secuencia_dominio: secuenciaDominio,
-    };
-  }
-
-  // Camino feliz. La posicion avanza un poco con cada secuencia para que el push se vea.
-  const deriva = secuenciaDominio * 0.002;
-
-  return {
-    viaje_id: viajeId,
-    estado: 'EN_RUTA',
-    condiciones_activas: [],
-    posicion: {
-      estado: 'presente',
-      observado_en: new Date().toISOString(),
-      valor: {
-        lat: 19.9 + deriva,
-        lon: -99.6 + deriva,
-        rumbo: 315,
-        velocidad_kmh: 84,
-      },
-    },
-    eta: {
-      estado: 'presente',
-      observado_en: new Date().toISOString(),
-      valor: { objetivo: 'destino', estimado_en: '2026-09-07T18:10:00Z' },
-    },
-    geocercas: [
-      {
-        id: 'geo-1',
-        zona: 'Patio Vallejo',
-        tipo: 'salida',
-        ocurrio_en: '2026-09-07T09:02:00Z',
-      },
-    ],
-    secuencia_dominio: secuenciaDominio,
-  };
-}
 
 export const bitacoraWire: Record<string, Json> = {
   'viaje-1': [

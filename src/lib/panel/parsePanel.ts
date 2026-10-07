@@ -20,7 +20,7 @@ import type {
   PanelDeControl,
   ViajeEnCurso,
 } from '../contracts';
-import { parseCondicionesWire, parseEtaWire } from '../seguimiento/parseSeguimientoPayload';
+import { parseCondicionesWire, parseEtaWire } from '../seguimiento/parseEtaWire';
 import {
   WireError,
   isRecord,

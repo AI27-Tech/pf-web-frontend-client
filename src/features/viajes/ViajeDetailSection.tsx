@@ -53,14 +53,11 @@ export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeDetalle }) 
         </section>
       )}
 
+      {/*
+        El enlace "Seguimiento en vivo" se retiro con la superficie de tracking V2
+        (E9-T10 / F-06): la ruta /viajes/$viajeId/seguimiento ya no existe en V1.
+      */}
       <nav className="flex gap-3 text-sm">
-        <Link
-          to="/viajes/$viajeId/seguimiento"
-          params={{ viajeId: viaje.id }}
-          className="text-brand-700 hover:underline"
-        >
-          Seguimiento en vivo
-        </Link>
         <Link
           to="/viajes/$viajeId/bitacora"
           params={{ viajeId: viaje.id }}

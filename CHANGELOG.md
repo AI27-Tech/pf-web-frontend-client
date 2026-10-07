@@ -4,6 +4,36 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:06 00:00
+
+**Resumen:** Se implementó **E9-T10** (cierra el hallazgo **F-06**) con la decisión **(a)**: se aisló la superficie de seguimiento en vivo V2 —posición, señal, geocercas y stream SSE— como **prototipo no productivo e inalcanzable**, fuera del release path de V1. El seguimiento vivo lo excluye `DEC-001`; `ADR 27` fija que los hitos y el ETA de V1 van por polling HTTP (no SSE), y `ADR 28` cerró el contrato V1 de `realtime` sin sobres de posición/tracking. Lo que V1 sí necesita —`Fresco<T>`, `FreshnessMark` y el ETA— se conservó intacto. `typecheck`, `test` (24 archivos, 167 pruebas), `lint` y `build` en verde; una búsqueda del bundle de producción no encuentra `maplibre-gl` ni la superficie de posición/stream.
+
+**Cambios:**
+
+- **Prototipo congelado:** se creó `prototipos-v2/seguimiento-vivo/` (fuera de `src/` y `tests/`, ignorado por ESLint y por `tsconfig.app.json`, no lo compila ni lo enruta nada) con el hook `useSeguimiento`, `SeguimientoDetalleSection`, `MapaSeguimiento`, el cliente SSE `streamClient`, el parser `parseSeguimientoPayload`, los contratos V2 (`seguimiento`, `canales`, `envelope`), la degradación (`mode`/`DegradationContext`/`DegradationBanner`), el `realtime` simulado (`mocks/stream` + fixtures), la ruta `/viajes/$viajeId/seguimiento` y sus pruebas. Lleva un `README.md` que explica por qué se aisló y qué aprendizaje preserva.
+- **Se retiró del release path de V1:** la ruta `/viajes/$viajeId/seguimiento`, su enlace de navegación en `ViajeDetailSection`, el endpoint pull `getSeguimiento` (`GET /viajes/{id}/tracking`), los handlers mock `GET /stream` y `GET /viajes/:id/tracking`, el dataset `seguimientoWire`, el `DegradationProvider` de `providers.tsx`, las constantes de stream de `constants.ts`, la env `VITE_STREAM_BASE_URL` (de `vite-env.d.ts`, `.env.mock`, `.env.example`) y la dependencia `maplibre-gl` de `package.json`. Se quitaron del e2e `journey.spec.ts` los recorridos de seguimiento vivo.
+- **Se conservó en V1:** `Fresco<T>` (`contracts/freshness.ts`) y `FreshnessMark`, el tipo `Eta` (movido a `contracts/eta.ts`), el formato `formatEta`, y los parsers puros `parseEtaWire`/`parseCondicionesWire` (movidos a `lib/seguimiento/parseEtaWire.ts`, que usa el panel). La invariante de las dos secuencias (`contracts/sequences.ts`) **se quedó en V1** porque la conversación de negocio ya la usa (`orderByDomainSequence`, `findDomainSequenceGaps`, `DomainSeq`).
+- **Fuera de alcance (deliberado):** el renombre de la entrada «Seguimiento en Vivo» y la reconciliación de la pantalla de lista `/seguimiento` son E9-T1/E9-T5; esta historia no los toca. La superficie que F-06 señala —`maplibre-gl` y el stream de posición— sí se retiró.
+
+**Archivos modificados:**
+
+- `package.json`
+- `eslint.config.js`
+- `src/app/providers.tsx`
+- `src/features/viajes/ViajeDetailSection.tsx`
+- `src/lib/api/viajes.ts`
+- `src/lib/constants.ts`
+- `src/vite-env.d.ts`
+- `src/lib/contracts/index.ts` · `src/lib/contracts/panel.ts` · `src/lib/contracts/eta.ts` (nuevo) · `src/lib/contracts/sequences.ts`
+- `src/lib/seguimiento/parseEtaWire.ts` (nuevo)
+- `src/lib/panel/parsePanel.ts`
+- `src/mocks/handlers.ts` · `src/mocks/data.ts`
+- `tests/contracts/sequences.test.ts`
+- `e2e/journey.spec.ts`
+- `.env.mock` · `.env.example`
+- `prototipos-v2/seguimiento-vivo/**` (nuevo)
+- `CHANGELOG.md`
+
 ## 2026:09:15 13:40
 
 **Resumen:** Se migró el tema de Tailwind del portal de cliente para que derive de los design tokens de la librería compartida AI27-tech (`@ai27-tech/ui`), que pasa a ser la única fuente de verdad del color, los radios y la tipografía. Los roles Material 3 que usan los componentes ahora referencian los tokens `--ui-*` con `var()`, sin duplicar valores, espejando el patrón ya aplicado en el frontend interno. No se tocaron componentes ni JSX: los mismos nombres de clase (`bg-primary`, `text-on-surface`, `border-outline`, …) apuntan ahora a los valores de AI27-tech. Build y typecheck en verde.

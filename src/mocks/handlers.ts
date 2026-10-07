@@ -7,9 +7,13 @@
  * autenticado; no sirve para validar reglas de negocio.
  *
  * Lo unico que se imita con rigor es lo que la UI tiene que saber leer:
- *   - la forma del payload de seguimiento, incluida la ausencia MARCADA
- *   - la forma del sobre SSE, con su `seq` de transporte separado del de dominio
- *   - la taxonomia de errores: 401 para credenciales, 503 para degradacion
+ *   - la forma del listado, el detalle y el panel de viajes
+ *   - la forma de la conversacion, con su secuencia DE DOMINIO
+ *   - la taxonomia de errores: 401 para credenciales
+ *
+ * El seguimiento vivo —la ruta pull `/viajes/{id}/tracking` y el stream SSE `/stream`—
+ * era V2 y se retiro del release path de V1 (E9-T10 / F-06). Su `realtime` simulado
+ * vive ahora en `prototipos-v2/seguimiento-vivo/mocks/stream.ts` y ya no se registra.
  *
  * Los patrones empiezan por `*` para casar con cualquier origen: asi da igual si la
  * app apunta a localhost, a un origen falso o a una URL relativa.
@@ -23,11 +27,9 @@ import {
   conversacionesWire,
   mensajesWire,
   panelWire,
-  seguimientoWire,
   viajeDetalleWire,
   viajesWire,
 } from './data';
-import { streamResponse } from './stream';
 
 /** Latencia artificial: sin ella los estados de carga nunca se ven. */
 const LATENCY_MS = 250;
@@ -101,19 +103,6 @@ export const handlers = [
     return HttpResponse.json(detalle);
   }),
 
-  /*
-   * LA RUTA PULL. Es la carga inicial y tambien la ruta de degradacion: cuando el
-   * stream no entrega, la app hace polling contra aqui con el mismo parser.
-   */
-  http.get('*/api/v1/viajes/:viajeId/tracking', async ({ params }) => {
-    await delay(LATENCY_MS);
-    const viajeId = String(params.viajeId);
-    if (viajeDetalleWire[viajeId] === undefined) {
-      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
-    }
-    return HttpResponse.json(seguimientoWire(viajeId, 1));
-  }),
-
   http.get('*/api/v1/viajes/:viajeId/bitacora', async ({ params }) => {
     await delay(LATENCY_MS);
     return HttpResponse.json(bitacoraWire[String(params.viajeId)] ?? []);
@@ -165,7 +154,4 @@ export const handlers = [
     await delay(LATENCY_MS);
     return new HttpResponse(null, { status: 204 });
   }),
-
-  // --- El stream de `realtime` --------------------------------------------------
-  http.get('*/api/v1/stream', ({ request }) => streamResponse(request)),
 ];

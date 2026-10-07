@@ -19,7 +19,8 @@
  * defecto es como se cuela la mentira. TODO(diseno): cerrarlas antes de implementar.
  */
 
-import type { Fresco, Posicion } from '@/lib/contracts';
+import type { Fresco } from './contracts/freshness';
+import type { Posicion } from './contracts/seguimiento';
 
 export function MapaSeguimiento({ posicion }: { readonly posicion: Fresco<Posicion> }) {
   return (
