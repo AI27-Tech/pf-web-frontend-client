@@ -9,16 +9,6 @@ import { ausentePorDegradacion, presente, sinDato } from '@/lib/contracts';
 import { PanelSection } from '@/features/panel/PanelSection';
 import { renderConRouter } from '../support/router';
 
-/** Campos de seguimiento en vivo que el panel no pinta, pero que el tipo exige. */
-const telemetriaDePrueba = {
-  operadorNombre: 'Operador de prueba',
-  progresoPct: 50,
-  estadoSeguimiento: { etiqueta: 'Ruta Segura', tono: 'success', icono: 'ruta-segura' } as const,
-  velocidadPromedioKmh: 70,
-  temperaturaCargaC: 0,
-  bateriaGpsPct: 90,
-};
-
 const panel: PanelDeControl = {
   viajesActivos: { total: 24, deltaDesdeAyer: 3 },
   riesgoGlobal: { nivel: 'BAJO_NORMAL', unidadesSegurasPct: 98 },
@@ -35,7 +25,6 @@ const panel: PanelDeControl = {
         { objetivo: 'destino', estimadoEn: '2026-09-09T18:30:00Z' },
         '2026-09-09T12:00:00Z',
       ),
-      ...telemetriaDePrueba,
     },
     {
       viajeId: 'viaje-2',
@@ -51,7 +40,6 @@ const panel: PanelDeControl = {
         },
       ],
       eta: ausentePorDegradacion<Eta>('procesamiento no disponible', '2026-09-09T10:20:00Z'),
-      ...telemetriaDePrueba,
     },
     {
       viajeId: 'viaje-3',
@@ -61,7 +49,6 @@ const panel: PanelDeControl = {
       estado: 'SOLICITADO',
       condicionesActivas: [],
       eta: sinDato<Eta>(),
-      ...telemetriaDePrueba,
     },
   ],
   notificaciones: [

@@ -1,10 +1,9 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import {
   LayoutDashboard,
-  Map,
+  MessageSquare,
   Plus,
   RotateCcwClock,
-  Settings,
   ShieldHalf,
   SquarePlus,
   type LucideIcon,
@@ -23,14 +22,28 @@ type NavItem = {
   readonly exact?: boolean;
 };
 
+/*
+ * La navegacion V1 del portal del cliente. Cada entrada lleva a una capacidad real de
+ * V1 (criterio de aceptacion de E9-T1): ninguna nombra una capacidad diferida a V2.
+ *
+ * Lo que cambio respecto al scaffold (E9-T1 / E9-T10):
+ *   - Se agrego "Mensajes" (`/conversaciones`): la conversacion por viaje (E3-HU-014)
+ *     es una capacidad V1 cuyas dos rutas ya existian pero eran inalcanzables por menu.
+ *   - Se retiro "Seguimiento en Vivo" (`/seguimiento`): era una pantalla de telemetria
+ *     viva (posicion, mapa, velocidad, señal) que DEC-001 excluye de V1. Se saco del
+ *     release path en E9-T10 (F-06); lo que V1 sabe de un viaje en curso ya lo muestran
+ *     el Panel de Control y el Historial de Viajes.
+ *   - Se retiro "Configuración" (`/configuracion`): era un placeholder sin HU que lo
+ *     respalde en V1. La ruta ya no se ofrece por navegacion.
+ */
 const nav: readonly NavItem[] = [
   { to: '/', label: 'Panel de Control', icon: LayoutDashboard, exact: true },
-  { to: '/seguimiento', label: 'Seguimiento en Vivo', icon: Map },
   // `exact: false` a proposito: activo tambien en el detalle `/viajes/$viajeId`.
   { to: '/viajes', label: 'Historial de Viajes', icon: RotateCcwClock, exact: false },
   // `exact: true`: es hijo de `/viajes`, no debe activar tambien a Historial.
   { to: '/viajes/new', label: 'Solicitar Servicio', icon: SquarePlus, exact: true },
-  { to: '/configuracion', label: 'Configuración', icon: Settings },
+  // `exact: false`: activo tambien en el detalle `/conversaciones/$conversacionId`.
+  { to: '/conversaciones', label: 'Mensajes', icon: MessageSquare, exact: false },
 ];
 
 /**

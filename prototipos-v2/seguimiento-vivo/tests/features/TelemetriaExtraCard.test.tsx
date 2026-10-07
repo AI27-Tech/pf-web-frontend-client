@@ -1,32 +1,17 @@
 /*
  * La barra de telemetria inferior de Seguimiento en Vivo.
+ *
+ * PROTOTIPO V2 (NO productivo): archivado con la superficie de seguimiento en vivo en
+ * E9-T10 / F-06. Vitest no corre `prototipos-v2/`.
  */
 
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Eta, ViajeEnCurso } from '@/lib/contracts';
-import { presente } from '@/lib/contracts';
-import { TelemetriaExtraCard } from '@/features/seguimiento/TelemetriaExtraCard';
+import { TelemetriaExtraCard } from '../../features/TelemetriaExtraCard';
+import { viajeBase } from './fixtures';
 
-const viaje: ViajeEnCurso = {
-  viajeId: 'viaje-1',
-  folio: 'AI27-000101',
-  origen: 'CDMX',
-  destino: 'Monterrey',
-  estado: 'EN_RUTA',
-  condicionesActivas: [],
-  eta: presente<Eta>(
-    { objetivo: 'destino', estimadoEn: '2026-09-09T18:30:00Z' },
-    '2026-09-09T12:00:00Z',
-  ),
-  operadorNombre: 'Carlos R.',
-  progresoPct: 65,
-  estadoSeguimiento: { etiqueta: 'Ruta Segura', tono: 'success', icono: 'ruta-segura' },
-  velocidadPromedioKmh: 78,
-  temperaturaCargaC: -4,
-  bateriaGpsPct: 92,
-};
+const viaje = viajeBase;
 
 describe('TelemetriaExtraCard', () => {
   it('muestra velocidad, temperatura y bateria del viaje seleccionado', () => {

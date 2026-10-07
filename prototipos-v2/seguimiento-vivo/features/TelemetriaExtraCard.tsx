@@ -9,11 +9,13 @@
  * Es una barra ancha a proposito, mas ancha que la lista de tarjetas: el diseno le da
  * todo el ancho disponible porque son tres lecturas puntuales, no una lista.
  *
+ * PROTOTIPO V2 (NO productivo): esta es la superficie de telemetría viva que DEC-001
+ * excluye de V1. Se retiró del release path en E9-T10 / F-06.
  */
 
 import { Battery, Gauge, Thermometer } from 'lucide-react';
 import { Button, Card, CardBody } from '@ai27-tech/ui';
-import type { ViajeEnCurso } from '@/lib/contracts';
+import type { ViajeEnCurso } from './viaje-activo';
 
 function InformationElement({
   icon: Icon,

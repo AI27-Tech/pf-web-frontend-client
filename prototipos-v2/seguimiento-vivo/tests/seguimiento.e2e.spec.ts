@@ -1,13 +1,18 @@
 /*
  * Seguimiento en Vivo, contra el `bff` simulado.
  *
- * Cubre que las tarjetas de "Viajes Activos" pintan datos reales del mock, que seleccionar otra tarjeta
- * cambia la barra de telemetria, que "Ver Detalles" alterna el detalle sin navegar a otra pantalla, tema
- *  y que el oscuro cambia los colores sin tocar ningun componente.
+ * PROTOTIPO V2 (NO productivo): esta prueba e2e se archivó con la superficie de
+ * seguimiento en vivo en E9-T10 / F-06. Playwright NO la ejecuta: `playwright.config.ts`
+ * solo recoge `e2e/`, y `prototipos-v2/` queda fuera. Se conserva como referencia del
+ * comportamiento que tenía la pantalla (telemetría, mapa, selección) para un eventual
+ * seguimiento V2, no como parte del release path.
+ *
+ * La ruta `/seguimiento` ya no está registrada, así que `irASeguimiento` no resolvería
+ * contra el build de V1.
  */
 
 import { expect, test } from '@playwright/test';
-import { login } from './support/login';
+import { login } from '../../../e2e/support/login';
 
 async function irASeguimiento(page: Parameters<typeof login>[0]): Promise<void> {
   await login(page);
@@ -22,22 +27,17 @@ test.describe('seguimiento · contenido', () => {
     await expect(page.getByRole('heading', { name: 'Viajes Activos' })).toBeVisible();
     await expect(page.getByRole('region', { name: 'Vista de mapa' })).toBeVisible();
 
-    // Datos del mock: folio, ruta, operador y estado de seguimiento de viaje-1.
     await expect(page.getByText('AI27-000101')).toBeVisible();
     await expect(page.getByText('Carlos R.')).toBeVisible();
 
-    // "Ruta Segura" se repite (viaje-1 y viaje-4): basta con que aparezca.
     await expect(page.getByText('Ruta Segura').first()).toBeVisible();
 
-    // El estado de seguimiento distinto de viaje-2, autorado directo en el mock.
     await expect(page.getByText('Desvío Detectado')).toBeVisible();
   });
 
   test('cuenta cuantos viajes activos estan EN_RUTA', async ({ page }) => {
     await irASeguimiento(page);
 
-    // El dataset del panel trae 4 viajes en EN_RUTA (viaje-1, 2, 4) mas viaje-5 con
-    // un estado sin mapear; viaje-3 esta SOLICITADO.
     await expect(page.getByText(/\d+ En Ruta/)).toBeVisible();
   });
 
@@ -46,7 +46,6 @@ test.describe('seguimiento · contenido', () => {
 
     const telemetria = page.getByRole('region', { name: 'Telemetria del viaje seleccionado' });
     await expect(telemetria).toBeVisible();
-    // Viaje-1 es el seleccionado por defecto: sus valores del mock.
     await expect(telemetria.getByText('78 km/h')).toBeVisible();
     await expect(telemetria.getByText('-4°C')).toBeVisible();
     await expect(telemetria.getByText('92%')).toBeVisible();
@@ -60,7 +59,6 @@ test.describe('seguimiento · seleccion', () => {
     const telemetria = page.getByRole('region', { name: 'Telemetria del viaje seleccionado' });
     await expect(telemetria.getByText('78 km/h')).toBeVisible();
 
-    // viaje-2 en el mock: velocidad_promedio_kmh 64.
     await page.getByRole('button', { name: /AI27-000102/ }).click();
 
     await expect(telemetria.getByText('64 km/h')).toBeVisible();
@@ -87,7 +85,6 @@ test.describe('seguimiento · Ver Detalles', () => {
     const telemetria = page.getByRole('region', { name: 'Telemetria del viaje seleccionado' });
     await telemetria.getByRole('button', { name: 'Ver Detalles' }).click();
 
-    // No navega: sigue en /seguimiento.
     await expect(page).toHaveURL(/\/seguimiento$/);
     await expect(page.getByRole('region', { name: 'Viajes activos' })).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Detalle del viaje' })).toBeVisible();

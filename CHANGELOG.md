@@ -4,6 +4,33 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:07 13:22
+
+**Resumen:** Se implementó **E9-T1** (shell del portal y navegación) y se **completó E9-T10**, cerrando el hueco que la entrada anterior había dejado explícito. El corte del 2026-10-06 retiró el mapa de MapLibre y el stream SSE, pero dejó viva en el release path la pantalla `/seguimiento` («Seguimiento en Vivo»), que seguía renderizando **telemetría viva ficticia** (mapa, velocidad, temperatura, batería del GPS) alimentada por seis campos de telemetría en el contrato compartido `ViajeEnCurso`. Esa superficie —que `DEC-001` excluye de V1— se movió al prototipo y se depuró el contrato. `typecheck`, `lint`, `test` (20 archivos, 131 pruebas) y `build` en verde; el bundle de producción no contiene `maplibre-gl` ni la superficie de telemetría/stream.
+
+**Cambios (E9-T10, completar el aislamiento):**
+
+- **Movido al prototipo** `prototipos-v2/seguimiento-vivo/features/`: las siete piezas de `features/seguimiento/*` (`SeguimientoSection`, `ViajesActivosCard`, `ViajeActivoCard`, `TelemetriaExtraCard`, `EstadoSeguimientoBadge`, `DetalleViajePlaceholderCard`, `accentClass`) con un tipo local `viaje-activo.ts`, la ruta archivada `route-seguimiento-en-vivo.tsx`, y las pruebas (`tests/features/` + `tests/seguimiento.e2e.spec.ts`).
+- **Retirado del release path:** la ruta `/seguimiento` (`routes/_private/seguimiento/`) y su e2e `e2e/seguimiento.spec.ts`.
+- **Contrato depurado:** `ViajeEnCurso` (`lib/contracts/panel.ts`) quedó con solo `viajeId`, `folio`, `origen`, `destino`, `estado`, `condicionesActivas`, `eta`. Se eliminaron la interfaz `EstadoSeguimiento`, su export en `contracts/index.ts`, los seis campos de telemetría del tipo, del parser (`parsePanel.ts`), de los mocks (`mocks/data.ts`) y de las fixtures (`tests/fixtures/panelWire.ts`). Se ajustaron las pruebas del panel (`parsePanel.test.ts`, `PanelSection.test.tsx`, `ViajesEnCursoTable.test.tsx`).
+
+**Cambios (E9-T1, navegación):**
+
+- `app/shell/AppShell.tsx`: la navegación quedó en cuatro entradas V1 —Panel de Control, Historial de Viajes, Solicitar Servicio y **Mensajes** (`/conversaciones`, icono `MessageSquare`)—. Se retiraron «Seguimiento en Vivo» (vía E9-T10) y «Configuración» (placeholder sin HU; la ruta sigue existiendo pero fuera del menú). El botón «Nuevo viaje» del footer se dejó intacto.
+
+**Pendiente señalado (no se tocó):** el Panel de Control aún monta un `MapPlaceholderCard` («Vista de mapa»); su destino en V1 (sin mapa) es decisión de **E9-T11**.
+
+**Archivos modificados:**
+
+- `src/app/shell/AppShell.tsx`
+- `src/lib/contracts/panel.ts` · `src/lib/contracts/index.ts`
+- `src/lib/panel/parsePanel.ts`
+- `src/mocks/data.ts`
+- `tests/fixtures/panelWire.ts` · `tests/panel/parsePanel.test.ts` · `tests/panel/PanelSection.test.tsx` · `tests/panel/ViajesEnCursoTable.test.tsx`
+- `README.md`
+- (eliminados) `src/features/seguimiento/*` · `src/routes/_private/seguimiento/*` · `tests/seguimiento/*` · `e2e/seguimiento.spec.ts`
+- (nuevos) `prototipos-v2/seguimiento-vivo/features/*` · `prototipos-v2/seguimiento-vivo/tests/features/*` · `prototipos-v2/seguimiento-vivo/tests/seguimiento.e2e.spec.ts`
+
 ## 2026:10:06 00:00
 
 **Resumen:** Se implementó **E9-T10** (cierra el hallazgo **F-06**) con la decisión **(a)**: se aisló la superficie de seguimiento en vivo V2 —posición, señal, geocercas y stream SSE— como **prototipo no productivo e inalcanzable**, fuera del release path de V1. El seguimiento vivo lo excluye `DEC-001`; `ADR 27` fija que los hitos y el ETA de V1 van por polling HTTP (no SSE), y `ADR 28` cerró el contrato V1 de `realtime` sin sobres de posición/tracking. Lo que V1 sí necesita —`Fresco<T>`, `FreshnessMark` y el ETA— se conservó intacto. `typecheck`, `test` (24 archivos, 167 pruebas), `lint` y `build` en verde; una búsqueda del bundle de producción no encuentra `maplibre-gl` ni la superficie de posición/stream.

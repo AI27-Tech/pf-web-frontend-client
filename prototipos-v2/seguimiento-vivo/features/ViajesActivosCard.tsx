@@ -4,11 +4,13 @@
  * Presentacional: recibe los viajes, cual esta seleccionado y el callback de
  * seleccion por props. El contador "N En Ruta" se calcula aqui mismo contando
  * `estado === 'EN_RUTA'` en lugar de venir del wire.
+ *
+ * PROTOTIPO V2 (NO productivo): retirado del release path de V1 en E9-T10 / F-06.
  */
 
 import { Badge, Card, CardBody } from '@ai27-tech/ui';
-import type { ViajeEnCurso } from '@/lib/contracts';
 import { EmptyState } from '@/components/ui/Feedback';
+import type { ViajeEnCurso } from './viaje-activo';
 import { ViajeActivoCard } from './ViajeActivoCard';
 
 interface ViajesActivosCardProps {
