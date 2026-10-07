@@ -1,11 +1,8 @@
 /*
- * El recorrido autenticado, contra el `bff` y el `realtime` simulados de src/mocks/.
+ * El recorrido autenticado, contra el `bff` simulado de src/mocks/.
  *
  * Estas pruebas no cubren funcionalidad: cubren las INVARIANTES que la arquitectura
  * exige y que solo se pueden observar de punta a punta.
- *
- * Nota de mecanica: en las rutas con stream no se puede esperar a 'networkidle' — el
- * SSE nunca deja la red quieta. Se espera a elementos concretos.
  */
 
 import { expect, test } from '@playwright/test';
@@ -34,55 +31,13 @@ test.describe('sesion', () => {
   });
 });
 
-test.describe('seguimiento · las dos rutas de datos', () => {
-  test('la posicion se actualiza por push sin recargar', async ({ page }) => {
-    await login(page);
-    await page.goto('/viajes/viaje-1/seguimiento');
-    await expect(page.getByRole('heading', { name: 'Seguimiento' })).toBeVisible();
-
-    const posicion = page.locator('section', { hasText: 'Posicion' }).first();
-    await expect(posicion).toBeVisible();
-
-    const inicial = await posicion.innerText();
-
-    /*
-     * El mock emite una posicion nueva cada 2 s, con la secuencia de dominio
-     * avanzando. Si el texto cambia sin navegar, la ruta push esta entregando y el
-     * parser la esta leyendo — con el mismo codigo que la ruta pull.
-     */
-    await expect(async () => {
-      expect(await posicion.innerText()).not.toBe(inicial);
-    }).toPass({ timeout: 15_000 });
-  });
-});
-
-test.describe('seguimiento · ausente por degradacion no es ausente', () => {
-  test('un payload degradado marca la ausencia y conserva el estado', async ({ page }) => {
-    await login(page);
-    await page.goto('/viajes/viaje-2/seguimiento');
-
-    // El estado del viaje sigue sirviendose: el payload es parcial, no vacio.
-    await expect(page.getByText('EN_RUTA')).toBeVisible();
-
-    // Y la ausencia viaja MARCADA: con motivo, y con el ultimo dato etiquetado.
-    const marca = page.getByRole('status').first();
-    await expect(marca).toContainText(/Sin posicion en este momento/i);
-    await expect(marca).toContainText(/procesamiento no disponible/i);
-    await expect(marca).toContainText(/no actualizado/i);
-
-    // El mapa se calla en lugar de dibujar un marcador viejo.
-    await expect(page.getByText(/Sin posicion que dibujar/i)).toBeVisible();
-  });
-
-  test('"sin dato" no se presenta como degradacion', async ({ page }) => {
-    await login(page);
-    await page.goto('/viajes/viaje-3/seguimiento');
-
-    await expect(page.getByText(/Sin posicion registrada/i)).toBeVisible();
-    // Ni una sola marca de degradacion: nunca hubo dato, y eso es otra cosa.
-    await expect(page.getByRole('status')).toHaveCount(0);
-  });
-});
+/*
+ * El seguimiento vivo —las dos rutas de datos (pull + SSE), la posicion marcada por
+ * degradacion y el "sin dato"— era V2 y se retiro del release path de V1 (E9-T10 /
+ * F-06). Sus pruebas e2e se archivaron con el prototipo en
+ * `prototipos-v2/seguimiento-vivo/`. La marca de frescura del ETA, que V1 si usa,
+ * se sigue cubriendo en la prueba unitaria de FreshnessMark.
+ */
 
 test.describe('conversacion · orden por secuencia de dominio', () => {
   test('ordena por secuencia de dominio y no por orden de llegada', async ({ page }) => {

@@ -19,7 +19,7 @@
 
 import type { CondicionActiva, EstadoViaje } from './estados';
 import type { Fresco } from './freshness';
-import type { Eta } from './seguimiento';
+import type { Eta } from './eta';
 
 /** Viajes en curso ahora mismo, y la variacion respecto al dia anterior. */
 export interface IndicadorViajesActivos {

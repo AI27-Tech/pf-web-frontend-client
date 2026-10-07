@@ -14,9 +14,7 @@
 interface ImportMetaEnv {
   /** Base URL de `bff`. Vacio = mismo origen. */
   readonly VITE_API_BASE_URL?: string;
-  /** Base URL de `realtime`. Vacio = la app corre pull-only (ver ADR 10). */
-  readonly VITE_STREAM_BASE_URL?: string;
-  /** `'true'` activa el bff y realtime simulados de src/mocks/. */
+  /** `'true'` activa el bff simulado de src/mocks/. */
   readonly VITE_ENABLE_MOCKS?: string;
   readonly VITE_COGNITO_USER_POOL_ID?: string;
   readonly VITE_COGNITO_CLIENT_ID?: string;
