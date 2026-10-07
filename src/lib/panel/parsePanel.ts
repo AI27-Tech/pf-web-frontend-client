@@ -12,14 +12,7 @@
  * en "no hay viajes activos", que es una afirmacion que el panel no puede hacer.
  */
 
-import type {
-  EstadoSeguimiento,
-  Eta,
-  Fresco,
-  NotificacionPanel,
-  PanelDeControl,
-  ViajeEnCurso,
-} from '../contracts';
+import type { Eta, Fresco, NotificacionPanel, PanelDeControl, ViajeEnCurso } from '../contracts';
 import { parseCondicionesWire, parseEtaWire } from '../seguimiento/parseEtaWire';
 import {
   WireError,
@@ -42,17 +35,6 @@ function parseEtaFresco(raw: unknown): Fresco<Eta> {
   return parseFrescoWire(raw, parseEtaWire);
 }
 
-function parseEstadoSeguimiento(raw: unknown): EstadoSeguimiento {
-  const estadoSeguimiento = requireRecord(raw, '"estado_seguimiento"');
-
-  return {
-    etiqueta: requireString(estadoSeguimiento, 'etiqueta'),
-    // Uniones abiertas: un tono o icono que la UI no reconoce se pinta en neutro.
-    tono: requireString(estadoSeguimiento, 'tono'),
-    icono: requireString(estadoSeguimiento, 'icono'),
-  };
-}
-
 function parseViajeEnCurso(raw: unknown): ViajeEnCurso {
   const viaje = requireRecord(raw, 'un viaje en curso');
 
@@ -64,12 +46,6 @@ function parseViajeEnCurso(raw: unknown): ViajeEnCurso {
     estado: requireString(viaje, 'estado'),
     condicionesActivas: parseCondicionesWire(viaje['condiciones_activas']),
     eta: parseEtaFresco(viaje['eta']),
-    operadorNombre: requireString(viaje, 'operador_nombre'),
-    progresoPct: requireNumber(viaje, 'progreso_pct'),
-    estadoSeguimiento: parseEstadoSeguimiento(viaje['estado_seguimiento']),
-    velocidadPromedioKmh: requireNumber(viaje, 'velocidad_promedio_kmh'),
-    temperaturaCargaC: requireNumber(viaje, 'temperatura_carga_c'),
-    bateriaGpsPct: requireNumber(viaje, 'bateria_gps_pct'),
   };
 }
 

@@ -4,11 +4,13 @@
  * `estadoSeguimiento` ya trae su tono e icono desde el wire este componente no decide nada,
  * solo traduce esos dos valores a clases y a un icono de `lucide-react`. Un tono o icono
  * que la UI no reconoce cae en un valor neutro en lugar de romper.
+ *
+ * PROTOTIPO V2 (NO productivo): retirado del release path de V1 en E9-T10 / F-06.
  */
 
 import { CircleCheck, MapPin, TriangleAlert, type LucideIcon } from 'lucide-react';
-import type { EstadoSeguimiento } from '@/lib/contracts';
 import { cx } from '@/lib/utils';
+import type { EstadoSeguimiento } from './viaje-activo';
 
 type Tone = 'success' | 'warning' | 'info' | 'neutral';
 

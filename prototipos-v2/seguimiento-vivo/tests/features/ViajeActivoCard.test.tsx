@@ -1,37 +1,21 @@
 /*
  * Las tarjetas de "Viajes Activos": badge de estado, porcentaje de progreso, acento
  * de ruta y la lista que las compone.
+ *
+ * PROTOTIPO V2 (NO productivo): archivado con la superficie de seguimiento en vivo en
+ * E9-T10 / F-06. Vitest no corre `prototipos-v2/`.
  */
 
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Eta, ViajeEnCurso } from '@/lib/contracts';
-import { ausentePorDegradacion, presente, sinDato } from '@/lib/contracts';
-import { EstadoSeguimientoBadge } from '@/features/seguimiento/EstadoSeguimientoBadge';
-import { ViajeActivoCard } from '@/features/seguimiento/ViajeActivoCard';
-import { ViajesActivosCard } from '@/features/seguimiento/ViajesActivosCard';
-import { routeAccentClass } from '@/features/seguimiento/accentClass';
-import { renderConRouter } from '../support/router';
-
-const viajeBase: ViajeEnCurso = {
-  viajeId: 'viaje-1',
-  folio: 'AI27-000101',
-  origen: 'CDMX',
-  destino: 'Monterrey',
-  estado: 'EN_RUTA',
-  condicionesActivas: [],
-  eta: presente<Eta>(
-    { objetivo: 'destino', estimadoEn: '2026-09-09T18:30:00Z' },
-    '2026-09-09T12:00:00Z',
-  ),
-  operadorNombre: 'Carlos R.',
-  progresoPct: 65,
-  estadoSeguimiento: { etiqueta: 'Ruta Segura', tono: 'success', icono: 'ruta-segura' },
-  velocidadPromedioKmh: 78,
-  temperaturaCargaC: -4,
-  bateriaGpsPct: 92,
-};
+import type { ViajeEnCurso } from '../../features/viaje-activo';
+import { EstadoSeguimientoBadge } from '../../features/EstadoSeguimientoBadge';
+import { ViajeActivoCard } from '../../features/ViajeActivoCard';
+import { ViajesActivosCard } from '../../features/ViajesActivosCard';
+import { routeAccentClass } from '../../features/accentClass';
+import { renderConRouter } from './router';
+import { ausentePorDegradacion, sinDato, viajeBase } from './fixtures';
 
 describe('EstadoSeguimientoBadge', () => {
   it('pinta la etiqueta que trae el wire', () => {
@@ -115,10 +99,7 @@ describe('ViajeActivoCard', () => {
   });
 
   it('un ETA ausente por degradacion se anuncia como tal, no como una hora', () => {
-    const viaje = {
-      ...viajeBase,
-      eta: ausentePorDegradacion<Eta>('procesamiento no disponible', null),
-    };
+    const viaje = { ...viajeBase, eta: ausentePorDegradacion() };
     render(
       <ul>
         <ViajeActivoCard viaje={viaje} index={0} selected={false} onSelect={() => {}} />
@@ -129,7 +110,7 @@ describe('ViajeActivoCard', () => {
   });
 
   it('un viaje recien solicitado muestra "Pendiente" y no una hora inventada', () => {
-    const viaje = { ...viajeBase, eta: sinDato<Eta>() };
+    const viaje = { ...viajeBase, eta: sinDato() };
     render(
       <ul>
         <ViajeActivoCard viaje={viaje} index={0} selected={false} onSelect={() => {}} />

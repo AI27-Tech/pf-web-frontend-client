@@ -47,27 +47,13 @@ export interface IndicadorAlertas {
 }
 
 /**
- * Estado de seguimiento de un viaje, tal como lo pinta la pantalla de Seguimiento en
- * Vivo ("Ruta Segura", "Desvío Detectado", "En Tránsito").
+ * Una fila de "Viajes en Curso" del panel de control.
  *
- * `tono` e `icono` son uniones abiertas, igual que el resto de catalogos del panel.
- * Un valor que la UI no reconoce se pinta en neutro en lugar de romper.
- */
-export interface EstadoSeguimiento {
-  readonly etiqueta: string;
-  readonly tono: 'success' | 'warning' | 'info' | (string & {});
-  readonly icono: 'ruta-segura' | 'desvio-detectado' | 'en-transito' | (string & {});
-}
-
-/**
- * Una fila de "Viajes en Curso", y tambien la tarjeta de "Viajes Activos" de
- * Seguimiento en Vivo: las dos pantallas comparten el mismo viaje en curso, asi que
- * comparten el mismo contrato en lugar de tener uno cada una.
- *
- * `progresoPct`, `estadoSeguimiento`, `velocidadPromedioKmh`, `temperaturaCargaC` y
- * `bateriaGpsPct` son campos que la tabla del panel no pinta pero que Seguimiento en
- * Vivo si necesita: viven aqui y no en un contrato aparte porque describen el mismo
- * viaje, no una vista distinta de el.
+ * Trae solo lo que V1 muestra de un viaje en curso: ruta, estado, condiciones y el ETA
+ * con su marca de frescura. La telemetría viva (posición, velocidad, temperatura, señal
+ * del GPS) NO vive aquí: era superficie de seguimiento en vivo, que DEC-001 excluye de
+ * V1, y se retiró del release path en E9-T10 / F-06. El prototipo congelado conserva
+ * esa forma en `prototipos-v2/seguimiento-vivo/`.
  */
 export interface ViajeEnCurso {
   readonly viajeId: string;
@@ -77,15 +63,6 @@ export interface ViajeEnCurso {
   readonly estado: EstadoViaje;
   readonly condicionesActivas: readonly CondicionActiva[];
   readonly eta: Fresco<Eta>;
-  /** Nombre del operador asignado a la unidad. */
-  readonly operadorNombre: string;
-  /** Avance del trayecto, 0–100. */
-  readonly progresoPct: number;
-  readonly estadoSeguimiento: EstadoSeguimiento;
-  readonly velocidadPromedioKmh: number;
-  readonly temperaturaCargaC: number;
-  /** Carga de bateria del dispositivo GPS, 0–100. */
-  readonly bateriaGpsPct: number;
 }
 
 export type SeveridadNotificacion = 'critica' | 'informativa' | (string & {});

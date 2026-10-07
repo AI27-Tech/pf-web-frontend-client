@@ -1,5 +1,7 @@
 /*
  * El espacio de detalle de un viaje en Seguimiento en Vivo.
+ *
+ * PROTOTIPO V2 (NO productivo): retirado del release path de V1 en E9-T10 / F-06.
  */
 
 import { Info } from 'lucide-react';

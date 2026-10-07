@@ -41,38 +41,6 @@ describe('parsePanel · viajes en curso y los tres estados del ETA', () => {
     expect(primero?.condicionesActivas).toStrictEqual([]);
   });
 
-  it('mapea los campos de seguimiento en vivo (progreso, operador, telemetria)', () => {
-    const [primero] = parsePanel(panelWireCompleto).viajesEnCurso;
-
-    expect(primero).toMatchObject({
-      operadorNombre: 'Carlos R.',
-      progresoPct: 65,
-      estadoSeguimiento: { etiqueta: 'Ruta Segura', tono: 'success', icono: 'ruta-segura' },
-      velocidadPromedioKmh: 78,
-      temperaturaCargaC: -4,
-      bateriaGpsPct: 92,
-    });
-  });
-
-  it('deja pasar un tono o icono de seguimiento desconocido en lugar de romper', () => {
-    const wire = {
-      ...panelWireCompleto,
-      viajes_en_curso: [
-        {
-          ...panelWireCompleto.viajes_en_curso[0],
-          estado_seguimiento: { etiqueta: 'Aviso Nuevo', tono: 'urgente', icono: 'sirena' },
-        },
-      ],
-    };
-
-    const [primero] = parsePanel(wire).viajesEnCurso;
-    expect(primero?.estadoSeguimiento).toStrictEqual({
-      etiqueta: 'Aviso Nuevo',
-      tono: 'urgente',
-      icono: 'sirena',
-    });
-  });
-
   it('el ETA presente conserva su valor y su marca de observacion', () => {
     const [primero] = parsePanel(panelWireCompleto).viajesEnCurso;
 
@@ -176,17 +144,9 @@ describe('parsePanel · forma invalida', () => {
     expect(() => parsePanel(sinIndicador)).toThrow(PanelPayloadError);
   });
 
-  it('rechaza un viaje en curso sin el progreso de seguimiento en lugar de asumir cero', () => {
+  it('rechaza un viaje en curso sin folio en lugar de omitir la fila', () => {
     const primerViaje: Record<string, unknown> = { ...panelWireCompleto.viajes_en_curso[0] };
-    delete primerViaje['progreso_pct'];
-    const wire = { ...panelWireCompleto, viajes_en_curso: [primerViaje] };
-
-    expect(() => parsePanel(wire)).toThrow(PanelPayloadError);
-  });
-
-  it('rechaza un viaje en curso sin estado_seguimiento en lugar de omitir la tarjeta', () => {
-    const primerViaje: Record<string, unknown> = { ...panelWireCompleto.viajes_en_curso[0] };
-    delete primerViaje['estado_seguimiento'];
+    delete primerViaje['folio'];
     const wire = { ...panelWireCompleto, viajes_en_curso: [primerViaje] };
 
     expect(() => parsePanel(wire)).toThrow(PanelPayloadError);

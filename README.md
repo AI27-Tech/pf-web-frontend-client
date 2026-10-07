@@ -144,40 +144,29 @@ Cuando exista `contracts/openapi/bff.yaml`, `src/mocks/data.ts` es lo primero qu
 validar contra él: si el contrato usa otros nombres de campo, los mocks fallan y el parser
 también — que es exactamente la señal que se busca.
 
-### Seguimiento en Vivo: mismo contrato que el Panel de Control
+### Seguimiento en Vivo: retirado de V1 (E9-T10 / F-06)
 
-`routes/_private/seguimiento/index.tsx` carga `getPanel()` — el mismo `loader` que usa el
-Panel de Control — y le pasa `panel.viajesEnCurso` a `features/seguimiento/SeguimientoSection`.
-No existe un endpoint ni un contrato propios de esta pantalla: las dos vistas leen el mismo
-`ViajeEnCurso` de `lib/contracts/panel.ts`, porque describen el mismo viaje desde dos
-ángulos, no dos datos distintos.
+La pantalla «Seguimiento en Vivo» (`/seguimiento`) **ya no forma parte de V1**. Reusaba
+`getPanel()` para renderizar telemetría viva —mapa, velocidad, temperatura de carga y
+batería del GPS—, superficie que `DEC-001` excluye del alcance V1 (sin marcador de
+posición, sin señal, sin ETA continua). Se retiró del release path en **E9-T10** (cierra el
+hallazgo **F-06**) y vive aislada, congelada y no productiva, en
+`prototipos-v2/seguimiento-vivo/` (fuera de `tsconfig.app.json` y de ESLint; no se compila,
+no se enruta, no entra en el bundle).
 
-`ViajeEnCurso` trae seis campos que la tabla del panel no pinta pero que Seguimiento en Vivo
-sí necesita, todos **PROVISIONALES** igual que el resto de `lib/contracts/`:
+Como consecuencia, el contrato compartido `ViajeEnCurso` (`lib/contracts/panel.ts`) quedó
+depurado: trae **solo** lo que el Panel de Control y el Historial muestran de un viaje en
+curso (`viajeId`, `folio`, `origen`, `destino`, `estado`, `condicionesActivas`, `eta`). Los
+seis campos de telemetría (`operadorNombre`, `progresoPct`, `estadoSeguimiento`,
+`velocidadPromedioKmh`, `temperaturaCargaC`, `bateriaGpsPct`) y la interfaz
+`EstadoSeguimiento` se movieron al prototipo. Lo que V1 **sí** conserva en `src/` es
+`Fresco<T>` y `FreshnessMark` (para el ETA obsoleto, E9-T5): la marca de frescura no es
+telemetría.
 
-| Campo                  | Wire (`snake_case`)      | Para qué lo usa Seguimiento en Vivo                                                                                              |
-| ---------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `operadorNombre`       | `operador_nombre`        | Fila "OPERADOR" de la tarjeta                                                                                                    |
-| `progresoPct`          | `progreso_pct`           | `ProgresoBar` (0–100)                                                                                                            |
-| `estadoSeguimiento`    | `estado_seguimiento`     | `EstadoSeguimientoBadge`: etiqueta, tono e icono **autorados en el wire**, no derivados de `EstadoViaje` ni de `CondicionActiva` |
-| `velocidadPromedioKmh` | `velocidad_promedio_kmh` | Barra de telemetría inferior                                                                                                     |
-| `temperaturaCargaC`    | `temperatura_carga_c`    | Barra de telemetría inferior                                                                                                     |
-| `bateriaGpsPct`        | `bateria_gps_pct`        | Barra de telemetría inferior                                                                                                     |
-
-`estadoSeguimiento.tono` e `icono` son uniones abiertas (`'success' | 'warning' | 'info' |
-(string & {})` y equivalente para el icono): un valor que la UI no reconoce se pinta en
-neutro en `EstadoSeguimientoBadge`, la misma disciplina que ya sigue `EstadoViajeChip` con
-los estados de viaje.
-
-Cuando exista el contrato real, confirmar contra él si estos seis campos viajan en
-`GET /panel` o si terminan en un endpoint de telemetría aparte; si es lo segundo,
-`ViajeEnCurso` se separaría en dos tipos y `parsePanel.ts` dejaría de leerlos directamente.
-Hasta entonces, vivir juntos evita inventar una frontera que el contrato no ha confirmado.
-
-El acento de color de la barra izquierda de cada tarjeta (`features/seguimiento/rutaAccent.ts`)
-es puramente decorativo y no viene del wire: rota entre los roles M3 `primary` /
-`secondary` / `tertiary` por posición en la lista, así que respeta el tema oscuro sin
-necesitar un rol de color nuevo.
+Lo que V1 sabe de un viaje en curso se ve en el **Panel de Control** (`/`) y el **Historial
+de Viajes** (`/viajes`). Para revivir el seguimiento en V2 habrá que reintroducir las piezas
+del prototipo de forma deliberada, confirmadas contra el contrato de `realtime` de ese
+momento, no reconectando la carpeta tal cual.
 
 ### Historial de Viajes: listado enriquecido y paginado en cliente
 

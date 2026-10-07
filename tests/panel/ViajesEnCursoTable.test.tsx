@@ -21,16 +21,6 @@ function hoyALas(hora: number, minuto: number): string {
   return fecha.toISOString();
 }
 
-/** Campos de seguimiento en vivo que esta tabla no pinta, pero que el tipo exige. */
-const telemetriaDePrueba = {
-  operadorNombre: 'Operador de prueba',
-  progresoPct: 50,
-  estadoSeguimiento: { etiqueta: 'Ruta Segura', tono: 'success', icono: 'ruta-segura' } as const,
-  velocidadPromedioKmh: 70,
-  temperaturaCargaC: 0,
-  bateriaGpsPct: 90,
-};
-
 const viajes: readonly ViajeEnCurso[] = [
   {
     viajeId: 'viaje-1',
@@ -40,7 +30,6 @@ const viajes: readonly ViajeEnCurso[] = [
     estado: 'EN_RUTA',
     condicionesActivas: [],
     eta: etaPresente(hoyALas(18, 30)),
-    ...telemetriaDePrueba,
   },
   {
     viajeId: 'viaje-2',
@@ -56,7 +45,6 @@ const viajes: readonly ViajeEnCurso[] = [
       },
     ],
     eta: ausentePorDegradacion<Eta>('procesamiento no disponible', '2026-09-09T10:20:00Z'),
-    ...telemetriaDePrueba,
   },
   {
     viajeId: 'viaje-3',
@@ -66,7 +54,6 @@ const viajes: readonly ViajeEnCurso[] = [
     estado: 'SOLICITADO',
     condicionesActivas: [],
     eta: sinDato<Eta>(),
-    ...telemetriaDePrueba,
   },
 ];
 

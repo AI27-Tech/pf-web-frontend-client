@@ -35,7 +35,6 @@ export type {
   IndicadorRiesgoGlobal,
   IndicadorAlertas,
   NivelRiesgo,
-  EstadoSeguimiento,
   ViajeEnCurso,
   SeveridadNotificacion,
   NotificacionPanel,

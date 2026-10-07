@@ -1,39 +1,21 @@
 /*
  * La composicion de Seguimiento en Vivo: seleccion de tarjeta y ubicacion del mapa.
+ *
+ * PROTOTIPO V2 (NO productivo): archivado con la superficie de seguimiento en vivo en
+ * E9-T10 / F-06. Vitest no corre `prototipos-v2/`.
  */
 
 import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Eta, ViajeEnCurso } from '@/lib/contracts';
-import { presente } from '@/lib/contracts';
-import { SeguimientoSection } from '@/features/seguimiento/SeguimientoSection';
-import { renderConRouter } from '../support/router';
-
-function viajeDePrueba(id: string, folio: string): ViajeEnCurso {
-  return {
-    viajeId: id,
-    folio,
-    origen: 'CDMX',
-    destino: 'Monterrey',
-    estado: 'EN_RUTA',
-    condicionesActivas: [],
-    eta: presente<Eta>(
-      { objetivo: 'destino', estimadoEn: '2026-09-09T18:30:00Z' },
-      '2026-09-09T12:00:00Z',
-    ),
-    operadorNombre: 'Carlos R.',
-    progresoPct: 65,
-    estadoSeguimiento: { etiqueta: 'Ruta Segura', tono: 'success', icono: 'ruta-segura' },
-    velocidadPromedioKmh: 78,
-    temperaturaCargaC: -4,
-    bateriaGpsPct: 92,
-  };
-}
+import type { ViajeEnCurso } from '../../features/viaje-activo';
+import { SeguimientoSection } from '../../features/SeguimientoSection';
+import { renderConRouter } from './router';
+import { viajeBase } from './fixtures';
 
 const viajes: readonly ViajeEnCurso[] = [
-  { ...viajeDePrueba('viaje-1', 'AI27-000101'), velocidadPromedioKmh: 78 },
-  { ...viajeDePrueba('viaje-2', 'AI27-000102'), velocidadPromedioKmh: 64 },
+  { ...viajeBase, viajeId: 'viaje-1', folio: 'AI27-000101', velocidadPromedioKmh: 78 },
+  { ...viajeBase, viajeId: 'viaje-2', folio: 'AI27-000102', velocidadPromedioKmh: 64 },
 ];
 
 describe('SeguimientoSection', () => {
