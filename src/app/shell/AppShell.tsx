@@ -1,6 +1,5 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import {
-  LayoutDashboard,
   MessageSquare,
   Plus,
   RotateCcwClock,
@@ -35,9 +34,13 @@ type NavItem = {
  *     el Panel de Control y el Historial de Viajes.
  *   - Se retiro "Configuración" (`/configuracion`): era un placeholder sin HU que lo
  *     respalde en V1. La ruta ya no se ofrece por navegacion.
+ *   - Se retiro "Panel de Control" (`/`): su pantalla pegaba a `GET /api/v1/panel`, un
+ *     endpoint que no existe en el contrato (se construyo contra un mock mas rico que
+ *     V1). Mientras la decision de §9 del plan sigue diferida, se cierra el acceso: la
+ *     home (`_private/index.tsx`) redirige a `/viajes`. El codigo del panel queda
+ *     congelado, no borrado.
  */
 const nav: readonly NavItem[] = [
-  { to: '/', label: 'Panel de Control', icon: LayoutDashboard, exact: true },
   // `exact: false` a proposito: activo tambien en el detalle `/viajes/$viajeId`.
   { to: '/viajes', label: 'Historial de Viajes', icon: RotateCcwClock, exact: false },
   // `exact: true`: es hijo de `/viajes`, no debe activar tambien a Historial.

@@ -4,6 +4,26 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:08 11:05
+
+**Resumen:** Se **cerró el acceso al Panel de Control** del portal, la pantalla que servía de home de la sesión autenticada. Su `loader` pegaba a `GET /api/v1/panel`, un endpoint que **no existe en el contrato** (`contracts/openapi/bff.yaml`: las únicas rutas del `bff` son `/api/v1/sesion`, `/api/v1/sesion/refresh`, `/api/v1/viajes` y `/api/v1/viajes/{id}`). La pantalla se construyó contra un mock más rico de lo que V1 sabe, así que contra el `bff` real la home se rompería al cargar. Mientras la decisión de fondo sigue diferida —congelar `/panel` como superficie de composición del `bff`, o recomponer el panel con las superficies que V1 sí tiene (`PLAN-EJECUCION-V1.md` §9; es el pendiente que la entrada del 2026-10-07 señaló como **E9-T11**)— se cierra el acceso para no dejar en producción una pantalla rota. **No se borró el panel:** su código (`features/panel/`, `lib/api/panel.ts`, `lib/panel/parsePanel.ts`, `lib/contracts/panel.ts`, el mock handler) queda congelado para cuando se tome esa decisión. `typecheck`, `lint` (0 warnings) y `test` (20 archivos, 131 pruebas) en verde. En e2e, el delta no introduce fallos nuevos: los 8 fallos actuales de la suite son preexistentes al commit `ccb00ec` (se verificó corriendo la suite sobre el árbol limpio).
+
+**Cambios:**
+
+- `src/routes/_private/index.tsx`: la home deja de montar el panel; el `loader` ahora hace `redirect({ to: '/viajes' })` (Historial de Viajes, ruta real del contrato). Comentario con la causa y el apunte a §9.
+- `src/app/shell/AppShell.tsx`: se retiró la entrada «Panel de Control» (`/`) del menú y el import huérfano `LayoutDashboard`. El comentario del `nav` registra el porqué.
+- `e2e/support/login.ts`: el helper de login espera el nuevo aterrizaje («Historial de Viajes», heading nivel 1) en vez de «Panel de Control».
+- `e2e/journey.spec.ts`: el test de sesión afirma el redirect a `/viajes`, no el panel en `/`.
+- `e2e/panel.spec.ts`: las cuatro suites del panel quedaron congeladas (`describe.skip`), con comentario que apunta a la decisión diferida de §9. Se reactivan cuando el panel vuelva.
+
+**Archivos modificados:**
+
+- `src/routes/_private/index.tsx`
+- `src/app/shell/AppShell.tsx`
+- `e2e/support/login.ts` · `e2e/journey.spec.ts` · `e2e/panel.spec.ts`
+
+**Señalado (no se tocó):** la suite e2e del repo tiene 8 fallos preexistentes en `ccb00ec` (historial, journey›viajes›detalle, solicitud), varios de «tema oscuro». Quedan para investigación aparte; son ajenos a este cambio.
+
 ## 2026:10:07 13:22
 
 **Resumen:** Se implementó **E9-T1** (shell del portal y navegación) y se **completó E9-T10**, cerrando el hueco que la entrada anterior había dejado explícito. El corte del 2026-10-06 retiró el mapa de MapLibre y el stream SSE, pero dejó viva en el release path la pantalla `/seguimiento` («Seguimiento en Vivo»), que seguía renderizando **telemetría viva ficticia** (mapa, velocidad, temperatura, batería del GPS) alimentada por seis campos de telemetría en el contrato compartido `ViajeEnCurso`. Esa superficie —que `DEC-001` excluye de V1— se movió al prototipo y se depuró el contrato. `typecheck`, `lint`, `test` (20 archivos, 131 pruebas) y `build` en verde; el bundle de producción no contiene `maplibre-gl` ni la superficie de telemetría/stream.

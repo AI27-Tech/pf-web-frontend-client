@@ -1,33 +1,23 @@
 /*
- * Panel de Control. La home de la sesion autenticada.
+ * La home de la sesion autenticada redirige al Historial de Viajes.
  *
- * El fetch va en el `loader`, no en el componente: es la frontera de la ruta.
- * `pendingComponent` y `errorComponent` sustituyen a los estados de carga y error
- * escritos a mano — son el equivalente de loading.tsx / error.tsx.
+ * El Panel de Control vivia aqui y pegaba a `GET /api/v1/panel`, un endpoint que NO
+ * existe en el contrato (`contracts/openapi/bff.yaml`): se construyo contra un mock mas
+ * rico de lo que V1 sabe. Mientras la decision de §9 del plan sigue diferida —congelar
+ * `/panel` como superficie de composicion del `bff`, o recomponer el panel con las
+ * superficies que V1 si tiene— se cierra el acceso a esa pantalla para no dejar en
+ * produccion una home que se rompe contra el `bff` real.
  *
- * El listado completo de viajes sigue viviendo en `/viajes`: esta pantalla muestra
- * solo los que estan en curso, que es una vista distinta y no una version recortada.
+ * No se borra el panel: `features/panel/`, `lib/api/panel.ts`, `lib/panel/parsePanel.ts`
+ * y `lib/contracts/panel.ts` quedan congelados para cuando se tome esa decision. Esta
+ * ruta solo deja de cablear el acceso y manda a `/viajes`, que SI es una ruta real del
+ * contrato (`GET /api/v1/viajes`).
  */
 
-import { createFileRoute } from '@tanstack/react-router';
-import { getPanel } from '@/lib/api/panel';
-import { PanelSection } from '@/features/panel/PanelSection';
-import { ErrorState, Spinner } from '@/components/ui/Feedback';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/_private/')({
-  loader: () => getPanel(),
-  component: PanelPage,
-  pendingComponent: () => <Spinner label="Cargando el panel" />,
-  errorComponent: ({ error }) => <ErrorState error={error} />,
+  loader: () => {
+    throw redirect({ to: '/viajes' });
+  },
 });
-
-function PanelPage() {
-  const panel = Route.useLoaderData();
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 lg:gap-6">
-      <h1 className="text-on-surface text-2xl font-bold sm:text-3xl">Panel de Control</h1>
-      <PanelSection panel={panel} />
-    </div>
-  );
-}

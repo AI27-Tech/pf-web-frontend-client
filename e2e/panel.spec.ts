@@ -1,7 +1,16 @@
 /*
- * El Panel de Control, contra el `bff` simulado.
+ * El Panel de Control, contra el `bff` simulado. SUITE CONGELADA (`describe.skip`).
  *
- * Cubre lo que solo se puede comprobar con un navegador de verdad:
+ * El acceso al panel se cerro: su pantalla pegaba a `GET /api/v1/panel`, un endpoint
+ * que no existe en el contrato (`contracts/openapi/bff.yaml`), y la home ahora redirige
+ * a `/viajes` (ver src/routes/_private/index.tsx y AppShell). Estas pruebas asumen que
+ * `login()` deja al usuario viendo el panel en `/`, cosa que ya no ocurre, asi que se
+ * congelan junto con el panel en lugar de reescribirse para una ubicacion que no existe
+ * en producto. Se reactivan cuando se resuelva la decision diferida de §9 del plan:
+ * congelar `/panel` como superficie del `bff`, o recomponer el panel con las superficies
+ * que V1 si tiene. El codigo del panel sigue en el repo (`features/panel/`), no se borro.
+ *
+ * Lo que cubrian y seguira importando cuando el panel vuelva:
  *   - que la ruta agregada `/api/v1/panel` llega, se parsea y se pinta
  *   - que el grid recoloca de verdad en tres anchos distintos (jsdom no aplica media
  *     queries, asi que la prueba unitaria solo puede mirar las clases)
@@ -30,7 +39,7 @@ async function columnasDe(page: Page, selector: string): Promise<number> {
     });
 }
 
-test.describe('panel · contenido', () => {
+test.describe.skip('panel · contenido', () => {
   test('muestra los indicadores, la tabla, el mapa y las notificaciones', async ({ page }) => {
     await login(page);
 
@@ -86,7 +95,7 @@ test.describe('panel · contenido', () => {
   });
 });
 
-test.describe('panel · acciones', () => {
+test.describe.skip('panel · acciones', () => {
   test('"Solicitar Servicio" lleva al formulario de solicitud', async ({ page }) => {
     await login(page);
 
@@ -116,7 +125,7 @@ test.describe('panel · acciones', () => {
   });
 });
 
-test.describe('panel · responsive', () => {
+test.describe.skip('panel · responsive', () => {
   test('los indicadores pasan de una a dos y a cuatro columnas', async ({ page }) => {
     await login(page);
 
@@ -164,7 +173,7 @@ test.describe('panel · responsive', () => {
   });
 });
 
-test.describe('panel · tema oscuro', () => {
+test.describe.skip('panel · tema oscuro', () => {
   test('el tema oscuro cambia los colores sin tocar ningun componente', async ({ page }) => {
     await login(page);
 

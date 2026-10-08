@@ -9,12 +9,14 @@ import { expect, test } from '@playwright/test';
 import { login } from './support/login';
 
 test.describe('sesion', () => {
-  test('entra con el usuario de desarrollo y aterriza en el panel', async ({ page }) => {
+  test('entra con el usuario de desarrollo y aterriza en el historial', async ({ page }) => {
     await login(page);
-    await expect(page).toHaveURL('/');
-    await expect(page.getByRole('heading', { name: 'Viajes en Curso' })).toBeVisible();
-    // La tabla del panel pagina a 3 por pagina: 5 viajes en curso, 3 en la primera.
-    await expect(page.locator('tbody tr')).toHaveCount(3);
+    // La home redirige a `/viajes`: el Panel de Control se cerro mientras
+    // `GET /api/v1/panel` no exista en el contrato (ver AppShell / panel.spec.ts).
+    await expect(page).toHaveURL('/viajes');
+    await expect(
+      page.getByRole('heading', { name: 'Historial de Viajes', level: 1 }),
+    ).toBeVisible();
   });
 
   test('credenciales incorrectas se reportan como credenciales, no como otra cosa', async ({
