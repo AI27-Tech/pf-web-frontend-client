@@ -1,0 +1,61 @@
+/*
+ * "Viajes Activos": la lista de tarjetas de Seguimiento en Vivo.
+ *
+ * Presentacional: recibe los viajes, cual esta seleccionado y el callback de
+ * seleccion por props. El contador "N En Ruta" se calcula aqui mismo contando
+ * `estado === 'EN_RUTA'` en lugar de venir del wire.
+ *
+ * PROTOTIPO V2 (NO productivo): retirado del release path de V1 en E9-T10 / F-06.
+ */
+
+import { Badge, Card, CardBody } from '@ai27-tech/ui';
+import { EmptyState } from '@/components/ui/Feedback';
+import type { ViajeEnCurso } from './viaje-activo';
+import { ViajeActivoCard } from './ViajeActivoCard';
+
+interface ViajesActivosCardProps {
+  readonly viajes: readonly ViajeEnCurso[];
+  readonly selectedViajeId: string | undefined;
+  readonly onSelect: (viajeId: string) => void;
+}
+
+export function ViajesActivosCard({ viajes, selectedViajeId, onSelect }: ViajesActivosCardProps) {
+  const enRutaCount = viajes.filter((viaje) => viaje.estado === 'EN_RUTA').length;
+
+  return (
+    <Card
+      variant="outlined"
+      padding="md"
+      role="region"
+      className="h-full w-full"
+      aria-label="Viajes activos"
+    >
+      <CardBody className="flex h-full w-full flex-col gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-on-surface text-lg font-bold">Viajes Activos</h2>
+          <Badge variant="neutral" pill>
+            {enRutaCount} En Ruta
+          </Badge>
+        </div>
+
+        {viajes.length === 0 ? (
+          <EmptyState title="No hay viajes activos">
+            Cuando un servicio se ponga en marcha aparecera aqui.
+          </EmptyState>
+        ) : (
+          <ul className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+            {viajes.map((viaje, index) => (
+              <ViajeActivoCard
+                key={viaje.viajeId}
+                viaje={viaje}
+                index={index}
+                selected={viaje.viajeId === selectedViajeId}
+                onSelect={() => onSelect(viaje.viajeId)}
+              />
+            ))}
+          </ul>
+        )}
+      </CardBody>
+    </Card>
+  );
+}
