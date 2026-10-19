@@ -6,7 +6,9 @@ Es la superficie que usa el _cliente de una transportista_ para solicitar un ser
 
 > La autoridad arquitectónica vive en [`docs/arquitectura/`](../../docs/arquitectura/_index.md) del workspace padre. Este README no la reexplica y no reabre las decisiones cerradas. Empieza por [`services/bff.md`](../../docs/arquitectura/services/bff.md) y [`services/realtime.md`](../../docs/arquitectura/services/realtime.md).
 
-**Estado: scaffold funcional y navegable.** Compila, pasa lint y tipos en modo estricto, 20 pruebas unitarias y 13 e2e en verde. Con el modo mock se puede entrar y recorrer la app entera contra un `bff` y un `realtime` simulados, seguimiento por SSE incluido. Las pantallas corren contra tipos provisionales; **no hay lógica de negocio implementada** y el contrato del backend todavía no existe (ver [Decisiones abiertas](#decisiones-abiertas)).
+**Estado: scaffold funcional y navegable.** Compila, pasa lint y tipos en modo estricto, y tiene pruebas unitarias y e2e en verde. Con el modo mock se puede entrar y recorrer la app entera contra un `bff` simulado. Las pantallas corren contra tipos provisionales; **no hay lógica de negocio implementada** y el contrato del backend todavía no existe (ver [Decisiones abiertas](#decisiones-abiertas)).
+
+> **Seguimiento en vivo retirado de V1 (E9-T10 / F-06).** La superficie de posición, señal, geocercas y stream SSE era V2 (la excluye `DEC-001`) y se aisló como prototipo no productivo e inalcanzable en [`prototipos-v2/seguimiento-vivo/`](./prototipos-v2/seguimiento-vivo/README.md). V1 obtiene los hitos y el ETA por HTTP (polling, `ADR 27`), no por SSE. Lo que V1 sí usa —`Fresco<T>`, `FreshnessMark` y el ETA— se conservó. Partes de este README que describen "las dos rutas de datos" y el mapa reflejan el estado anterior; se corrigen al tocar cada sección.
 
 ---
 
@@ -74,7 +76,7 @@ Husky + lint-staged: formato y lint sobre lo _staged_, más `typecheck` del proy
 | Estado de cliente  | **React Context**                                     | Sin Zustand/Redux/Jotai. Tres contextos y ni uno más: sesión, degradación, modal              |
 | Estilos            | **Tailwind 4.3.3**                                    | Config en CSS (`@theme` en `src/styles/globals.css`). **Por eso no hay `tailwind.config.ts`** |
 | Componentes UI     | ninguno                                               | Sin shadcn/Radix/MUI/Chakra/Framer. Primitivas propias en `src/components/ui/`                |
-| Mapa               | **MapLibre GL 6.7**                                   | Instalado, **no montado todavía** — ver `TrackingMap.tsx`                                     |
+| Mapa               | ninguno                                               | MapLibre se retiró con el seguimiento vivo V2 (E9-T10 / F-06). V1 no monta mapa               |
 | Pruebas            | **Vitest 5** + Testing Library + **Playwright 1.63**  | —                                                                                             |
 | Lint / formato     | **ESLint 10** + typescript-eslint 8.70 + Prettier 3.9 | —                                                                                             |
 
@@ -89,78 +91,50 @@ Un aviso de peer conocido: `openapi-typescript@7.13.0` quiere `typescript@^5.x`.
 
 ---
 
-## Las dos rutas de datos, y la regla que las gobierna
+## Transporte de datos en V1: HTTP
 
-**Hay una sola forma de payload de tracking y un solo parser**, llegue el dato por pull o por push. Es la propiedad **P4**.
+En V1 el portal lee por **HTTP** contra `bff`: el listado y el detalle del viaje, el panel y la conversación de negocio. Los hitos y el ETA del seguimiento se obtienen por **polling HTTP** (`ADR 27`), no por SSE: ese es el transporte normal de E2, no una degradación.
 
-```
-                 ┌──────────────────────────────────────┐
-                 │       pf-web-frontend-client         │
-                 │  lib/tracking/parseTrackingPayload   │
-                 │        ← un solo parser →            │
-                 └───────┬───────────────────┬──────────┘
-                         │                   │
-   PULL · HTTP           │                   │   PUSH · SSE
-   GET /api/v1/viajes/   │                   │   GET /api/v1/stream
-        {id}/tracking    ▼                   ▼
-                    ┌─────────┐         ┌──────────┐
-                    │   bff   │         │ realtime │
-                    └─────────┘         └──────────┘
-                         └── mismo ALB, servicio distinto ──┘
-```
+> **Las dos rutas de datos (pull HTTP + push SSE) y su parser único eran V2.** Esa arquitectura —`GET /viajes/{id}/tracking` + `GET /stream`, un solo parser `parseSeguimientoPayload`, el cliente SSE con reanudación/latido/liveness, y la conmutación push ⇄ polling— se aisló del release path de V1 en [`prototipos-v2/seguimiento-vivo/`](./prototipos-v2/seguimiento-vivo/README.md) (E9-T10 / F-06). Sigue siendo insumo válido para el seguimiento vivo de V2, pero no entra en el bundle de V1.
 
-`bff` **no proxea el stream**: la conexión SSE va directo a `realtime`. De ahí que haya dos base URLs en el entorno, no una.
+La conversación de negocio sí ordena por la secuencia **de dominio** (E9-T8); el contrato V1 de `realtime` (`ADR 28`) entrega únicamente la superficie viva de `mensajeria`, sin sobres de posición/tracking.
 
-Dónde está cada pieza:
-
-| Pieza                                       | Archivo                                       |
-| ------------------------------------------- | --------------------------------------------- |
-| El parser único                             | `src/lib/tracking/parseTrackingPayload.ts`    |
-| Cliente SSE (reanudación, latido, liveness) | `src/lib/stream/streamClient.ts`              |
-| Conmutación push → polling                  | `src/lib/degradation/mode.ts`                 |
-| Las dos rutas convergiendo                  | `src/features/tracking/useTracking.ts`        |
-| La prueba de que no divergen                | `tests/tracking/parseTrackingPayload.test.ts` |
-
-### Reglas del cliente, y cómo están hechas cumplir
+### Reglas del cliente que V1 conserva, y cómo están hechas cumplir
 
 No son comentarios: cada una tiene un mecanismo.
 
-| Regla                                                                                       | Mecanismo en el código                                                                                                                      |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Ordenar y deduplicar por la secuencia **de dominio**, nunca por el `seq` del sobre (**P5**) | `TransportSeq` y `DomainSeq` son tipos marcados **sin conversión entre ellos** en `lib/contracts/sequences.ts`. Confundirlos no compila     |
-| El navegador no selecciona canales arbitrarios (**P10**)                                    | `Canal` es un tipo marcado sin constructor libre. Solo existen `canalViaje` y `canalConversacion` — y **no existe `canalFlota`**            |
-| Ausente por degradación no es ausente                                                       | `Fresco<T>` tiene **tres** estados, no dos: `presente`, `ausente-por-degradacion`, `sin-dato`. `FreshnessMark` renderiza los tres distinto  |
-| Un aguas-abajo caído no es un "no encontrado"                                               | `ApiErrorKind` separa `degradado` de `noEncontrado`; `ErrorState` los presenta distinto                                                     |
-| Latido 4 s / liveness 7 s                                                                   | `STREAM_TIMINGS` en `lib/constants.ts`, aplicado en `streamClient.ts`                                                                       |
-| Stream vivo pero silencioso degrada a polling                                               | El estado `vivo-sin-datos` existe y `deriveDegradation` lo manda a polling                                                                  |
-| La degradación se muestra                                                                   | `DegradationBanner` en el shell, con `role="status"`                                                                                        |
-| Sin librerías prohibidas                                                                    | `no-restricted-imports` en `eslint.config.js` bloquea zustand, redux, jotai, swr, framer-motion, next-auth, aws-amplify, Radix, MUI, Chakra |
-| Los artefactos generados no se filtran                                                      | `no-restricted-imports` prohíbe importar `lib/api/generated/*` fuera de `src/lib/`                                                          |
+| Regla                                                         | Mecanismo en el código                                                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ordenar y deduplicar por la secuencia **de dominio** (**P5**) | `DomainSeq` es un tipo marcado sin conversión desde `TransportSeq`, en `lib/contracts/sequences.ts`. Lo usa la conversación de negocio      |
+| Ausente por degradación no es ausente                         | `Fresco<T>` tiene **tres** estados, no dos: `presente`, `ausente-por-degradacion`, `sin-dato`. `FreshnessMark` renderiza los tres distinto  |
+| Un aguas-abajo caído no es un "no encontrado"                 | `ApiErrorKind` separa `degradado` de `noEncontrado`; `ErrorState` los presenta distinto                                                     |
+| Sin librerías prohibidas                                      | `no-restricted-imports` en `eslint.config.js` bloquea zustand, redux, jotai, swr, framer-motion, next-auth, aws-amplify, Radix, MUI, Chakra |
+| Los artefactos generados no se filtran                        | `no-restricted-imports` prohíbe importar `lib/api/generated/*` fuera de `src/lib/`                                                          |
+
+Las reglas del transporte SSE —canales como tipo cerrado (`Canal`, P10), latido 4 s / liveness 7 s, y la conmutación a polling ante un stream vivo pero silencioso— viven ahora con el prototipo V2 en `prototipos-v2/seguimiento-vivo/`.
 
 ---
 
 ## El backend simulado
 
-`src/mocks/` contiene un `bff` y un `realtime` de mentira sobre MSW. Se activan solo con
+`src/mocks/` contiene un `bff` de mentira sobre MSW. Se activa solo con
 `VITE_ENABLE_MOCKS=true`, que vive en `.env.mock` y se carga con `--mode mock`; el import
 es dinámico, así que con la bandera apagada ni MSW ni los handlers entran en el bundle.
 
+> El `realtime` simulado (SSE sobre un `ReadableStream`) alimentaba el seguimiento vivo V2 y se archivó con el prototipo en `prototipos-v2/seguimiento-vivo/mocks/stream.ts` (E9-T10 / F-06). Los handlers de V1 ya no incluyen `GET /stream` ni `GET /viajes/:id/tracking`.
+
 **La decisión que hace que estos mocks valgan algo: devuelven la forma de contrato
 (`snake_case`, envoltorios de frescura), no modelos de la app.** Así la app corre su
-parser de verdad. Si devolvieran `TrackingPayload` ya construido, saltarían la única pieza
+parser de verdad. Si devolvieran los modelos ya construidos, saltarían la única pieza
 que hay que ejercitar y solo se comprobaría que React pinta objetos.
 
-El dataset cubre a propósito los tres estados de `Fresco<T>`:
+El dataset del panel cubre a propósito los tres estados de `Fresco<Eta>`:
 
-| Viaje     | Qué demuestra                                                                                                                                                            |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `viaje-1` | Camino feliz. **Recibe posiciones por SSE cada 2 s**, con snapshot de apertura, latido cada 4 s y `Last-Event-ID`                                                        |
-| `viaje-2` | `procesamiento` caído: payload **parcial y marcado**. El estado sigue visible; posición y ETA llegan como `ausente-por-degradacion`, con motivo y último dato etiquetado |
-| `viaje-3` | Recién solicitado: `sin-dato`. Nunca hubo posición, y eso **no** es lo mismo que no poder alcanzarla                                                                     |
-
-En el sobre SSE el `seq` de transporte arranca en 1000 y la secuencia de dominio en 1 —
-números deliberadamente distintos, para que cualquier confusión entre ambos se vea en
-pantalla en lugar de esconderse tras una coincidencia numérica.
+| Viaje     | Qué demuestra                                                                                                                  |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `viaje-1` | Camino feliz: ETA presente                                                                                                     |
+| `viaje-2` | `procesamiento` caído: ETA **ausente por degradación**, con motivo y último dato etiquetado; el estado del viaje sigue visible |
+| `viaje-3` | Recién solicitado: `sin-dato`. Nunca hubo ETA, y eso **no** es lo mismo que no poder alcanzarlo                                |
 
 Lo que los mocks **no** hacen: máquina de estados de viaje, autorización real,
 multi-tenancy. Sirven para trabajar en la UI y para que los e2e cubran el recorrido
@@ -170,40 +144,64 @@ Cuando exista `contracts/openapi/bff.yaml`, `src/mocks/data.ts` es lo primero qu
 validar contra él: si el contrato usa otros nombres de campo, los mocks fallan y el parser
 también — que es exactamente la señal que se busca.
 
-### Seguimiento en Vivo: mismo contrato que el Panel de Control
+### Seguimiento en Vivo: retirado de V1 (E9-T10 / F-06)
 
-`routes/_private/seguimiento/index.tsx` carga `getPanel()` — el mismo `loader` que usa el
-Panel de Control — y le pasa `panel.viajesEnCurso` a `features/seguimiento/SeguimientoSection`.
-No existe un endpoint ni un contrato propios de esta pantalla: las dos vistas leen el mismo
-`ViajeEnCurso` de `lib/contracts/panel.ts`, porque describen el mismo viaje desde dos
-ángulos, no dos datos distintos.
+La pantalla «Seguimiento en Vivo» (`/seguimiento`) **ya no forma parte de V1**. Reusaba
+`getPanel()` para renderizar telemetría viva —mapa, velocidad, temperatura de carga y
+batería del GPS—, superficie que `DEC-001` excluye del alcance V1 (sin marcador de
+posición, sin señal, sin ETA continua). Se retiró del release path en **E9-T10** (cierra el
+hallazgo **F-06**) y vive aislada, congelada y no productiva, en
+`prototipos-v2/seguimiento-vivo/` (fuera de `tsconfig.app.json` y de ESLint; no se compila,
+no se enruta, no entra en el bundle).
 
-`ViajeEnCurso` trae seis campos que la tabla del panel no pinta pero que Seguimiento en Vivo
-sí necesita, todos **PROVISIONALES** igual que el resto de `lib/contracts/`:
+Como consecuencia, el contrato compartido `ViajeEnCurso` (`lib/contracts/panel.ts`) quedó
+depurado: trae **solo** lo que el Panel de Control y el Historial muestran de un viaje en
+curso (`viajeId`, `folio`, `origen`, `destino`, `estado`, `condicionesActivas`, `eta`). Los
+seis campos de telemetría (`operadorNombre`, `progresoPct`, `estadoSeguimiento`,
+`velocidadPromedioKmh`, `temperaturaCargaC`, `bateriaGpsPct`) y la interfaz
+`EstadoSeguimiento` se movieron al prototipo. Lo que V1 **sí** conserva en `src/` es
+`Fresco<T>` y `FreshnessMark` (para el ETA obsoleto, E9-T5): la marca de frescura no es
+telemetría.
 
-| Campo                  | Wire (`snake_case`)      | Para qué lo usa Seguimiento en Vivo                                                                                              |
-| ---------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
-| `operadorNombre`       | `operador_nombre`        | Fila "OPERADOR" de la tarjeta                                                                                                    |
-| `progresoPct`          | `progreso_pct`           | `ProgresoBar` (0–100)                                                                                                            |
-| `estadoSeguimiento`    | `estado_seguimiento`     | `EstadoSeguimientoBadge`: etiqueta, tono e icono **autorados en el wire**, no derivados de `EstadoViaje` ni de `CondicionActiva` |
-| `velocidadPromedioKmh` | `velocidad_promedio_kmh` | Barra de telemetría inferior                                                                                                     |
-| `temperaturaCargaC`    | `temperatura_carga_c`    | Barra de telemetría inferior                                                                                                     |
-| `bateriaGpsPct`        | `bateria_gps_pct`        | Barra de telemetría inferior                                                                                                     |
+Lo que V1 sabe de un viaje en curso se ve en el **Panel de Control** (`/`) y el **Historial
+de Viajes** (`/viajes`). Para revivir el seguimiento en V2 habrá que reintroducir las piezas
+del prototipo de forma deliberada, confirmadas contra el contrato de `realtime` de ese
+momento, no reconectando la carpeta tal cual.
 
-`estadoSeguimiento.tono` e `icono` son uniones abiertas (`'success' | 'warning' | 'info' |
-(string & {})` y equivalente para el icono): un valor que la UI no reconoce se pinta en
-neutro en `EstadoSeguimientoBadge`, la misma disciplina que ya sigue `EstadoViajeChip` con
-los estados de viaje.
+### Historial de Viajes: listado enriquecido y paginado en cliente
 
-Cuando exista el contrato real, confirmar contra él si estos seis campos viajan en
-`GET /panel` o si terminan en un endpoint de telemetría aparte; si es lo segundo,
-`ViajeEnCurso` se separaría en dos tipos y `parsePanel.ts` dejaría de leerlos directamente.
-Hasta entonces, vivir juntos evita inventar una frontera que el contrato no ha confirmado.
+`routes/_private/viajes/index.tsx` carga `listViajes()` — el listado plano de
+`GET /api/v1/viajes` — y se lo pasa a `features/viajes/historial/HistorialViajesSection`,
+que compone encabezado, barra de filtros y tabla. La tabla reutiliza la MISMA primitiva
+`components/ui/Table` que el Panel de Control; el Historial la usa con `headerTone='filled'`,
+`rowTone` (resalta en tono de error la fila de un viaje cancelado) y `porPagina`.
 
-El acento de color de la barra izquierda de cada tarjeta (`features/seguimiento/rutaAccent.ts`)
-es puramente decorativo y no viene del wire: rota entre los roles M3 `primary` /
-`secondary` / `tertiary` por posición en la lista, así que respeta el tema oscuro sin
-necesitar un rol de color nuevo.
+`ViajeResumen` sumó cuatro campos para esta pantalla, todos **PROVISIONALES** igual que el
+resto de `lib/contracts/`:
+
+| Campo              | Para qué                                                                   |
+| ------------------ | -------------------------------------------------------------------------- |
+| `origenSitio`      | Segunda línea de la columna de ruta ("Almacén Central"). Puede ser `null`  |
+| `destinoSitio`     | Segunda línea del destino. Puede ser `null`                                |
+| `unidad`           | Vehículo, placa y conductor. `null` cuando el viaje aún no tiene unidad    |
+| `reporteSeguridad` | Icono de la columna "Reporte Seguridad". Unión abierta, como `EstadoViaje` |
+
+`unidad: null` no es decoración: un viaje recién `SOLICITADO` no tiene unidad, y la celda
+dice "Sin asignar" en vez de fingir un vehículo — la misma disciplina de no inventar datos
+que sigue `Fresco`.
+
+Dos cosas son del servidor y hoy **no** están cableadas, a propósito:
+
+- **El filtrado** (`HistorialFiltros`) es solo frontend: los campos se pueden usar y
+  conservan su valor, pero no filtran nada y el botón "Filtrar" está deshabilitado con su
+  motivo. El día que exista el contrato, alimentarán un search param de la ruta (patrón de
+  `login.tsx`) que el `loader` leerá con `loaderDeps` para pedir a `bff` la página ya
+  filtrada. No se filtra en cliente: la lista completa no vive en el navegador.
+- **La paginación** hoy es **estado de UI** dentro de `Table` (`porPagina`): el servidor
+  entrega la lista completa y la tabla la recorta. `TODO(contracts)`: cuando `bff` pagine,
+  esto se mueve al mismo search param + `loaderDeps` y la tabla recibe solo la página actual.
+- **Exportar CSV** está deshabilitado: la exportación la resolverá `bff` con el alcance del
+  tenant, no un armado en cliente.
 
 ---
 
@@ -218,6 +216,23 @@ No hay Server Components: es una SPA. La disciplina equivalente es **cargar en l
 
 Cero `useEffect` + `useState` para traer datos. El único `useEffect` con E/S es el que abre el stream, y eso no es un fetch.
 
+### Solicitar nuevo servicio: un asistente de una sola ruta
+
+`/viajes/new` es un asistente de cuatro pasos (Servicio y Fecha → Ruta → Detalles → Revisar)
+más una pantalla de confirmación. Es **una sola ruta**, no una por paso: el paso actual vive
+en el search param `?paso=` (`servicio`/`ruta`/`detalles`/`revisar`/`enviada`), y el borrador
+vive en un `useReducer` dentro de `SolicitarServicioWizard`. Continuar, Regresar y los enlaces
+"Editar" son navegación real (`navigate({ search: { paso } })`), de modo que el botón atrás y
+el enlace directo a un paso funcionan.
+
+**No hay backend:** "Enviar solicitud" NO hace `POST /viajes` ni crea registro. Genera un ID
+simulado (`AI27-YYMMDD-NNN`) en el cliente y muestra el acuse. El borrador se modela como
+`BorradorSolicitud` en `lib/contracts/dominio.ts` (PROVISIONAL, separado de `SolicitudViaje`);
+cuando exista el contrato real, ahí se decide qué subconjunto cruza al backend.
+
+Para integrar datos reales luego, esos catálogos son lo primero que se valida contra el contrato,
+igual que el resto del dataset mock.
+
 ---
 
 ## Estructura
@@ -228,30 +243,31 @@ src/
 ├── app/
 │   ├── router.tsx              # instancia del router, tipos registrados
 │   ├── queryClient.ts          # política de reintento = taxonomía de errores
-│   ├── providers.tsx           # QueryClient + los tres Context
-│   └── shell/                  # AppShell, nav, DegradationBanner
+│   ├── providers.tsx           # QueryClient + SessionProvider + ModalProvider
+│   └── shell/                  # AppShell, nav
 ├── routes/                     # TanStack Router, file-based
 │   ├── __root.tsx
 │   ├── (auth)/                 # públicas: login, two-factor
 │   ├── _private.tsx            # guarda: beforeLoad exige sesión
 │   └── _private/               # todo lo autenticado
 │       ├── index.tsx           # home: Panel de Control
-│       ├── seguimiento/index.tsx  # Seguimiento en Vivo: tarjetas + mapa + telemetria
-│       ├── viajes/{index,new,$viajeId/{index,tracking,bitacora}}
+│       ├── seguimiento/index.tsx  # Seguimiento en Vivo (lista): tarjetas + telemetria
+│       ├── viajes/{index,new,$viajeId/{index,bitacora}}
 │       └── conversaciones/{index,$conversacionId}
 ├── features/                   # *Section y hooks por dominio
-│   ├── sesion/ viajes/ tracking/ conversacion/ catalogos/ panel/ seguimiento/
+│   ├── sesion/ viajes/ conversacion/ catalogos/ panel/ seguimiento/
 ├── components/ui/              # Button, Input, Table, Modal, FreshnessMark, Feedback
-├── context/                    # SessionContext, DegradationContext, ModalContext
+├── context/                    # SessionContext, ModalContext
 ├── lib/
 │   ├── api/                    # client + wrappers por dominio + tokenStore + errors
 │   ├── contracts/              # tipos de contrato (PROVISIONALES) — barrel en index.ts
-│   ├── tracking/               # EL parser único
-│   ├── stream/                 # cliente SSE
-│   ├── degradation/            # push ⇄ polling
+│   ├── seguimiento/            # formatEta + parsers V1 de ETA/condiciones
 │   ├── constants.ts  utils.ts
-├── mocks/                      # bff y realtime simulados (MSW), solo en modo mock
+├── mocks/                      # bff simulado (MSW), solo en modo mock
 └── styles/globals.css          # Tailwind + @theme
+
+prototipos-v2/seguimiento-vivo/  # PROTOTIPO V2 aislado (E9-T10 / F-06): no se compila,
+                                 # no se enruta, fuera del bundle. Ver su README.
 ```
 
 `src/routeTree.gen.ts` y `src/lib/api/generated/` son generados y están en `.gitignore`.
@@ -264,18 +280,18 @@ Identificadores en inglés, **salvo los sustantivos de dominio**, que conservan 
 
 ## Superficie que consume
 
-Todo el HTTP por `bff` (`/api/v1/...`); el stream, por `realtime`.
+Todo el HTTP por `bff` (`/api/v1/...`).
 
-| Área         | Endpoints                                                                                   | Wrapper                      |
-| ------------ | ------------------------------------------------------------------------------------------- | ---------------------------- |
-| Sesión       | `POST /sesion` · `POST /sesion/refresh` · `DELETE /sesion`                                  | `lib/api/sesion.ts`          |
-| Viajes       | `POST /viajes` · `GET /viajes` · `GET /viajes/{id}` · `GET /viajes/{id}/bitacora`           | `lib/api/viajes.ts`          |
-| Tracking     | `GET /viajes/{id}/tracking` — pull y degradación                                            | `lib/api/viajes.ts`          |
-| Catálogos    | `GET /catalogos/...`                                                                        | `lib/api/catalogos.ts`       |
-| Conversación | `GET /conversaciones` · `/{id}/mensajes` · `POST /{id}/mensajes` · `/{id}/receipts/lectura` | `lib/api/conversaciones.ts`  |
-| Stream       | `GET /api/v1/stream?canales=...`                                                            | `lib/stream/streamClient.ts` |
+| Área         | Endpoints                                                                                   | Wrapper                     |
+| ------------ | ------------------------------------------------------------------------------------------- | --------------------------- |
+| Sesión       | `POST /sesion` · `POST /sesion/refresh` · `DELETE /sesion`                                  | `lib/api/sesion.ts`         |
+| Viajes       | `POST /viajes` · `GET /viajes` · `GET /viajes/{id}` · `GET /viajes/{id}/bitacora`           | `lib/api/viajes.ts`         |
+| Catálogos    | `GET /catalogos/...`                                                                        | `lib/api/catalogos.ts`      |
+| Conversación | `GET /conversaciones` · `/{id}/mensajes` · `POST /{id}/mensajes` · `/{id}/receipts/lectura` | `lib/api/conversaciones.ts` |
 
 Solo audiencia cliente. Bandejas, claim/release/transfer, reportes y auditoría son de `panel-admin`.
+
+El seguimiento vivo (`GET /viajes/{id}/tracking` pull y `GET /api/v1/stream` SSE) era V2 y se retiró del release path de V1 (E9-T10 / F-06); vive en `prototipos-v2/seguimiento-vivo/`.
 
 Sobre la sesión: la identidad es Cognito detrás de `identidad`, y el login va contra **`bff`**, no contra Cognito — por eso no hay `next-auth` ni `aws-amplify` (y ESLint los bloquea). El refresco es el punto donde los claims se reevalúan, así que `SessionContext` refresca con margen en vez de esperar el `401`. Un `401` a media conexión significa "reconecta tras refrescar", no "error de datos".
 
@@ -283,16 +299,17 @@ Sobre la sesión: la identidad es Cognito detrás de `identidad`, y el login va 
 
 ## Pruebas
 
-20 unitarias, 13 e2e. No cubren funcionalidad — cubren las **invariantes**:
+No cubren funcionalidad — cubren las **invariantes**:
 
-| Archivo                                       | Qué prueba                                                                                                                                                                                                                                                                                     |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tests/tracking/parseTrackingPayload.test.ts` | **La prueba de contrato de P4**: la misma entrada por pull y por sobre de push produce el mismo resultado. Y que la degradación se preserva en vez de colapsarse a `null`                                                                                                                      |
-| `tests/contracts/sequences.test.ts`           | Que el orden sale de la secuencia de dominio y no del orden de llegada; detección de huecos                                                                                                                                                                                                    |
-| `tests/degradation/mode.test.ts`              | Que `vivo-sin-datos` degrada a polling **y avisa**                                                                                                                                                                                                                                             |
-| `tests/ui/FreshnessMark.test.tsx`             | Que la ausencia por degradación se renderiza, con motivo y último dato etiquetado                                                                                                                                                                                                              |
-| `e2e/login.spec.ts`                           | Que la app arranca, que login renderiza y que la guarda de rutas privadas redirige                                                                                                                                                                                                             |
-| `e2e/journey.spec.ts`                         | El recorrido autenticado contra los mocks: que **la posición se actualiza por push sin recargar**, que un payload degradado marca la ausencia y conserva el estado, que `sin-dato` no se presenta como degradación, que la conversación ordena por secuencia de dominio, y el envío de mensaje |
+| Archivo                             | Qué prueba                                                                                                                                           |
+| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tests/contracts/sequences.test.ts` | Que el orden sale de la secuencia de dominio y no del orden de llegada; detección de huecos                                                          |
+| `tests/ui/FreshnessMark.test.tsx`   | Que la ausencia por degradación se renderiza, con motivo y último dato etiquetado — la marca de frescura que V1 usa para el ETA obsoleto             |
+| `tests/panel/formatEta.test.ts`     | Que el ETA se formatea por día de calendario ("Hoy"/"Mañana"/fecha), sin disfrazar un día de otro                                                    |
+| `e2e/login.spec.ts`                 | Que la app arranca, que login renderiza y que la guarda de rutas privadas redirige                                                                   |
+| `e2e/journey.spec.ts`               | El recorrido autenticado contra el mock: que la conversación ordena por secuencia de dominio, el envío de mensaje, el detalle de viaje y la bitácora |
+
+Las pruebas del seguimiento vivo V2 (el parser único P4, la degradación push ⇄ polling, el recorrido de posición por SSE) se archivaron con el prototipo en `prototipos-v2/seguimiento-vivo/tests/` y ya no las corre Vitest (E9-T10 / F-06).
 
 Los e2e corren contra el bundle de producción construido en modo mock. Los de `login.spec.ts` no dependen de la API; los de `journey.spec.ts` van contra el backend simulado.
 
@@ -307,10 +324,10 @@ Ninguna está resuelta en el código. Cada una tiene un `TODO` en su sitio.
 | 1   | **`contracts/` no existe.** No hay repo backend ni remoto: `openapi/bff.yaml`, `events/` y `estados/` no están en ninguna parte | `scripts/gen-contracts.mjs`, cabecera de cada archivo de `lib/contracts/` | **El bloqueo grande.** Los tipos de `lib/contracts/` son provisionales, escritos a mano desde `docs/arquitectura/`. Los nombres de campo del wire —tanto en el parser como en `src/mocks/data.ts`— son suposiciones en `snake_case`: la documentación fija el _requisito_ de que la degradación viaje marcada, no su serialización. Los mocks desbloquean el trabajo de UI pero **no reducen este riesgo**: confirman que la app es coherente consigo misma, no con el backend. `gen:contracts` falla con instrucciones |
 | 2   | **Custodia del token en el navegador**                                                                                          | `lib/api/tokenStore.ts`                                                   | ADR 8 cierra el proveedor, no el almacenamiento. Hoy hay una implementación con `localStorage` **solo para que el scaffold arranque**, aislada tras una interfaz. `localStorage` es lo peor ante XSS; memoria + refresh en cookie `httpOnly` es mejor pero exige que `bff` ponga esa cookie, y el contrato no lo dice                                                                                                                                                                                                   |
 | 3   | **ADR 16** — ¿el trigger de Cognito reevalúa claims en el refresco?                                                             | `context/SessionContext.tsx`                                              | Si no lo hace, un cambio de rol no se refleja hasta relogin y hace falta una ruta de relogin forzado                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| 4   | **ADR 10** — ¿existe `realtime` en V1?                                                                                          | `lib/constants.ts` (`STREAM_ENABLED`)                                     | Sin `VITE_STREAM_BASE_URL` la app corre pull-only y `lib/stream/` queda sin cablear. Funciona hoy                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| 5   | **ADR 4** — política de colchón del ETA de cliente                                                                              | `lib/contracts/tracking.ts`                                               | Cuál de los dos números de ETA cruza al cliente. `Eta` modela solo uno                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 4   | **ADR 10 / ADR 28** — `realtime` en V1                                                                                          | `prototipos-v2/seguimiento-vivo/`                                         | El seguimiento vivo por SSE era V2 y se aisló (E9-T10 / F-06). V1 lee hitos y ETA por HTTP (`ADR 27`); `realtime` V1 entrega solo la superficie viva de `mensajeria` (`ADR 28`)                                                                                                                                                                                                                                                                                                                                         |
+| 5   | **ADR 4** — política de colchón del ETA de cliente                                                                              | `lib/contracts/eta.ts`                                                    | Cuál de los dos números de ETA cruza al cliente. `Eta` modela solo uno                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | 6   | **ADR 6**                                                                                                                       | —                                                                         | La ruta `POST /panico` (V2). No está scaffoldeada                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | 7   | **ADR 13** — ¿entrega Cognito el OTP?                                                                                           | `routes/(auth)/two-factor.tsx`                                            | Si lo entrega, esta ruta puede no existir. Está como placeholder sin lógica                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| 8   | **Señal de "ingesta degradada"**                                                                                                | `lib/contracts/envelope.ts`, `lib/stream/streamClient.ts`                 | El diseño exige que el servidor pueda decir "estoy vivo pero no recibo"; la **forma** de esa señal no está especificada. El cliente tiene el hueco preparado y un `TODO`                                                                                                                                                                                                                                                                                                                                                |
-| 9   | **Cómo dibuja el mapa la incertidumbre**                                                                                        | `features/tracking/TrackingMap.tsx`                                       | MapLibre está instalado y **sin montar**, a propósito: interpolar entre dos posiciones separadas por 35 s es el "mapa que miente". Antes de montarlo hay que decidir cómo se pinta una posición vieja, qué se pinta cuando falta por degradación, y si la traza es polilínea o puntos discretos                                                                                                                                                                                                                         |
+| 8   | **Señal de "ingesta degradada"** (V2)                                                                                           | `prototipos-v2/seguimiento-vivo/`                                         | Pertenece al seguimiento vivo V2, aislado (E9-T10 / F-06). El diseño exige que el servidor pueda decir "estoy vivo pero no recibo"; la **forma** de esa señal sigue sin especificarse. No afecta a V1                                                                                                                                                                                                                                                                                                                   |
+| 9   | **Cómo dibuja el mapa la incertidumbre** (V2)                                                                                   | `prototipos-v2/seguimiento-vivo/MapaSeguimiento.tsx`                      | El mapa de posición era V2 y se aisló (E9-T10 / F-06): MapLibre se retiró de V1. La decisión de cómo pintar una posición vieja o ausente queda para V2                                                                                                                                                                                                                                                                                                                                                                  |
 | 10  | **Accesibilidad contra "sin librerías de componentes"**                                                                         | `components/ui/Modal.tsx`                                                 | El modal usa `<dialog>` nativo, que da foco atrapado, Escape y restauración de foco gratis. Si más adelante hacen falta combobox, menús o popovers posicionados, conviene revisar la restricción antes de reimplementar un focus manager                                                                                                                                                                                                                                                                                |

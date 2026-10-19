@@ -1,0 +1,188 @@
+/*
+ * Tailwind 4 configura por CSS, no por tailwind.config.ts: el tema vive en @theme.
+ * Es la razon por la que este repo no tiene tailwind.config.ts.
+ */
+@import 'tailwindcss';
+
+/*
+ * Dark mode por CLASE, no por prefers-color-scheme: el tema se controla anadiendo
+ * `.dark` en <html>. Con esto, ademas, la variante `dark:` aplica cuando .dark
+ * esta en un ancestro.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * ============================================================================
+ *  SISTEMA DE COLOR — derivado de AI27-tech (@ai27-tech/ui)
+ * ============================================================================
+ *
+ * FUENTE UNICA DE VERDAD
+ *   Los valores de color, radios y tipografia NO viven aqui: los define la
+ *   libreria compartida @ai27-tech/ui en sus design tokens `--ui-*` (ver
+ *   node_modules/@ai27-tech/ui -> src/styles/tokens.css). Este archivo solo
+ *   MAPEA esos tokens a los roles Material 3 que usan los componentes del
+ *   portal (surface, primary, on-primary, ...). No se duplica ningun valor:
+ *   cada rol referencia su token con `var(--ui-*)`.
+ *
+ *   El CSS de la libreria (`@ai27-tech/ui/styles.css`) se importa en
+ *   `src/main.tsx` ANTES que este archivo, de modo que las variables --ui-*
+ *   ya existen cuando estos roles las referencian.
+ *
+ * THEMING
+ *   La libreria conmuta sus --ui-* por el atributo `data-theme` en <html>
+ *   (ver index.html; el portal lo fija en "light"). Como todos los roles de
+ *   abajo referencian los --ui-*, seguir el tema no requiere redefinir valores:
+ *   basta con que la libreria cambie sus tokens.
+ *
+ * COMO SE USA (sin cambios respecto a antes)
+ *   Los nombres son ROLES, no colores ni escalas: <utilidad>-<rol>.
+ *   Ej: bg-surface, text-on-surface, border-outline. La regla `on-X` sigue viva:
+ *   un fondo `bg-X` lleva su contenido en `text-on-X`.
+ *
+ * MAPEO rol (portal)  ->  token AI27-tech (--ui-*)
+ *   surface / surface-*        -> --ui-color-surface / -muted / -raised / -container-*
+ *   on-surface / -variant      -> --ui-color-text / -muted
+ *   outline / outline-variant  -> --ui-color-border-strong / --ui-color-border
+ *   primary / on-primary       -> --ui-color-primary / --ui-color-on-primary
+ *   primary-container          -> --ui-color-primary-hover
+ *   secondary / on-secondary   -> --ui-color-secondary / --ui-color-on-secondary
+ *   secondary-container        -> --ui-color-secondary-hover
+ *   error / on-error           -> --ui-color-danger / --ui-color-on-danger
+ *   error-container            -> --ui-color-danger-container
+ *   success / warning / info   -> --ui-color-success / -warning / -info (+ -container)
+ *   background / on-background  -> --ui-color-surface-muted / --ui-color-text
+ *
+ * ROLES SIN EQUIVALENTE EN AI27-tech (ver bloque al final)
+ *   Se RETIRARON los que no tenian equivalente y no se usaban en componentes:
+ *   tertiary*, inverse-surface, inverse-on-surface, inverse-primary, surface-tint.
+ *   Se CONSERVAN como roles propios del portal los que no tienen equivalente
+ *   pero SI se usan en componentes (sidebar, brand-*, degradado-*): retirarlos
+ *   exigiria tocar JSX, que queda fuera del alcance de esta migracion de tema.
+ * ============================================================================
+ */
+@theme inline {
+  /* -- Superficies: fondos por nivel de elevacion -- */
+  --color-surface: var(--ui-color-surface);
+  --color-surface-dim: var(--ui-color-surface-muted);
+  --color-surface-bright: var(--ui-color-surface-raised);
+  --color-surface-container-lowest: var(--ui-color-surface-container-lowest);
+  --color-surface-container-low: var(--ui-color-surface-container-low);
+  --color-surface-container: var(--ui-color-surface-container);
+  --color-surface-container-high: var(--ui-color-surface-container-high);
+  --color-surface-container-highest: var(--ui-color-surface-container-highest);
+  --color-on-surface: var(--ui-color-text);
+  --color-on-surface-variant: var(--ui-color-text-muted);
+
+  /* -- Bordes y divisores -- */
+  --color-outline: var(--ui-color-border-strong);
+  --color-outline-variant: var(--ui-color-border);
+
+  /* -- Primary: color de marca y accion principal -- */
+  --color-primary: var(--ui-color-primary);
+  --color-on-primary: var(--ui-color-on-primary);
+  --color-primary-container: var(--ui-color-primary-hover);
+  --color-on-primary-container: var(--ui-color-on-primary);
+
+  /* -- Secondary: acciones y acentos de apoyo -- */
+  --color-secondary: var(--ui-color-secondary);
+  --color-on-secondary: var(--ui-color-on-secondary);
+  --color-secondary-container: var(--ui-color-secondary-hover);
+  --color-on-secondary-container: var(--ui-color-on-secondary);
+
+  /* -- Error: estados de fallo y validacion -> danger de la libreria -- */
+  --color-error: var(--ui-color-danger);
+  --color-on-error: var(--ui-color-on-danger);
+  --color-error-container: var(--ui-color-danger-container);
+  --color-on-error-container: var(--ui-color-danger);
+
+  /* -- Estados de operacion: success / warning / info --
+   * La libreria expone el par solido (`X`) y un relleno suave (`X-container`),
+   * pero NO expone un `on-X-container` propio. Para el texto sobre el relleno
+   * suave se reutiliza el tono solido del mismo estado (mismo criterio que la
+   * libreria, que usa su color solido como texto sobre los `*-container`).
+   */
+  --color-success: var(--ui-color-success);
+  --color-on-success: var(--ui-color-on-primary);
+  --color-success-container: var(--ui-color-success-container);
+  --color-on-success-container: var(--ui-color-success);
+
+  --color-warning: var(--ui-color-warning);
+  --color-on-warning: var(--ui-color-on-primary);
+  --color-warning-container: var(--ui-color-warning-container);
+  --color-on-warning-container: var(--ui-color-warning);
+
+  --color-info: var(--ui-color-info);
+  --color-on-info: var(--ui-color-on-primary);
+  --color-info-container: var(--ui-color-info-container, var(--ui-color-secondary));
+  --color-on-info-container: var(--ui-color-info);
+
+  /* -- Fondo de la app -- */
+  --color-background: var(--ui-color-surface-muted);
+  --color-on-background: var(--ui-color-text);
+  --color-surface-variant: var(--ui-color-surface-container);
+
+  /*
+   * ROLES PROPIOS DEL PORTAL — sin equivalente en AI27-tech.
+   * Se conservan porque hay componentes que ya los usan; migrarlos o retirarlos
+   * implicaria tocar JSX (fuera de alcance). Pendientes de decidir su destino en
+   * una fase que si toque componentes.
+   *
+   *   sidebar / on-sidebar : navy estructural en ambos temas (Sidebar.tsx).
+   *   brand-*              : legado de marca (login, chips de conversacion, ...).
+   *   degradado-*          : rol propio de "servicio degradado", distinto de error.
+   */
+  --color-sidebar: oklch(0.2376 0.0753 254.79);
+  --color-on-sidebar: oklch(1 0 0);
+
+  --color-brand-50: oklch(0.97 0.02 250);
+  --color-brand-500: oklch(0.55 0.18 250);
+  --color-brand-600: oklch(0.48 0.18 250);
+  --color-brand-700: oklch(0.4 0.16 250);
+
+  --color-degradado-50: oklch(0.97 0.03 85);
+  --color-degradado-600: oklch(0.6 0.13 85);
+  --color-degradado-800: oklch(0.42 0.1 85);
+
+  /*
+   * Tipografia. Inter para toda la app, coincide con --ui-font-family de la
+   * libreria. Se mantiene el nombre registrado por Fontsource para la variable.
+   */
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+
+  /* -- Radios: se toman de la escala de la libreria -- */
+  --radius-sm: var(--ui-radius-sm);
+  --radius-DEFAULT: var(--ui-radius);
+  --radius-md: var(--ui-radius);
+  --radius-lg: var(--ui-radius-lg);
+  --radius-xl: var(--ui-radius-xl);
+  --radius-full: var(--ui-radius-full);
+}
+
+/*
+ * Tema oscuro: lo gobierna la libreria @ai27-tech/ui via sus tokens --ui-*
+ * (conmutan por data-theme en <html>). Como todos los roles de arriba
+ * referencian esos tokens, NO hace falta redefinir valores para .dark; este
+ * selector solo mantiene coherente color-scheme si se anade la clase .dark.
+ * Para activar el oscuro completo, alterna tanto .dark como data-theme="dark".
+ */
+@layer base {
+  .dark {
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-on-background font-sans antialiased;
+    color-scheme: light dark;
+  }
+
+  /* Foco visible en todo lo interactivo: no se quita sin sustituto. */
+  :focus-visible {
+    @apply outline-primary outline-2 outline-offset-2;
+  }
+}
