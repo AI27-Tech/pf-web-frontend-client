@@ -9,6 +9,14 @@
 # un checkout limpio hasta que se generen las rutas. Por eso el job `calidad` corre un
 # `vite build --mode mock` antes de typecheck/test. El job `e2e` no lo necesita aparte:
 # su `playwright.config.ts` ya construye el bundle mock, que regenera las rutas.
+#
+# Nota sobre @ai27-tech/ui: es un paquete PRIVADO en GitHub Packages (vive en
+# pf-library-frontend-components). pnpm install necesita autenticarse contra el
+# registry del scope @ai27-tech o falla con 401. En local resuelve por el ~/.npmrc
+# del usuario; en CI se configura el registry via setup-node y se inyecta el token en
+# NODE_AUTH_TOKEN. El GITHUB_TOKEN del workflow con `packages: read` basta si la org
+# permite leer el paquete de otro repo de la misma org; si no, se usa el secreto de repo
+# GH_PAT (el mismo PAT con lectura que ya usan los backends, p. ej. pf-svc-identidad).
 name: ci
 
 on:
@@ -18,6 +26,13 @@ on:
 
 permissions:
   contents: read
+  packages: read
+
+env:
+  # El token para leer @ai27-tech/* de GitHub Packages. Usa GH_PAT si existe (el PAT con
+  # lectura que ya usan los backends de la plataforma) y cae al GITHUB_TOKEN del propio
+  # workflow en caso contrario.
+  NODE_AUTH_TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
 
 jobs:
   calidad:
@@ -33,6 +48,8 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@ai27-tech'
 
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
@@ -62,6 +79,8 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+          registry-url: https://npm.pkg.github.com
+          scope: '@ai27-tech'
 
       - name: Instalar dependencias
         run: pnpm install --frozen-lockfile
