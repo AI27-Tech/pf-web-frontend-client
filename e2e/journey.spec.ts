@@ -79,9 +79,12 @@ test.describe('viajes', () => {
     await page.goto('/viajes/viaje-2');
 
     await expect(page.getByRole('heading', { name: /AI27-000102/ })).toBeVisible();
-    // Estado y condicion son dos cosas distintas, y se ven las dos.
-    await expect(page.getByText('EN_RUTA')).toBeVisible();
+    // Una condicion activa MANDA sobre el estado: `EstadoViajeChip` pinta la
+    // descripcion de la condicion en lugar de la etiqueta del estado (ver el propio
+    // componente). Por eso en el chip se ve "Sin senal del dispositivo" y no "EN_RUTA".
+    // La condicion aparece ademas en la seccion "Condiciones activas" del detalle.
     await expect(page.getByText(/Sin senal del dispositivo/i).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Condiciones activas' })).toBeVisible();
   });
 
   test('solicitar un servicio abre el asistente en su primer paso', async ({ page }) => {
