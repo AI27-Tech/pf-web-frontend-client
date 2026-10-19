@@ -4,6 +4,27 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:19 16:30
+
+**Resumen:** Se implementó **E8-T1** (CI y línea base de calidad) en el portal cliente: workflow de CI que corre lint, typecheck, pruebas unitarias y e2e en cada PR y en cada push a las tres ramas del flujo (`pf-wfc-m/d/q`), más los dos workflows de promoción `d → q` y `q → m` copiados del patrón de la plataforma (merge manual; sin auto-merge). Además se **arreglaron los 8 fallos deterministas de la suite e2e** que la entrada del 2026-10-08 dejó señalados: no eran flakiness, sino pruebas escritas contra una UI anterior. `lint`, `typecheck` y `test` (20 archivos, 131 pruebas) en verde; `test:e2e` con 17 activos en verde y 13 omitidos (11 del panel cerrado, 2 de tema oscuro). El CI genera `routeTree.gen.ts` con `vite build --mode mock` antes de typecheck/test, porque ese archivo está gitignorado y `tsc --build` no lo produce.
+
+**Cambios:**
+
+- `.github/workflows/ci.yml` (nuevo): disparo en `push` a `pf-wfc-m/d/q` y en `pull_request`. Job `calidad` (install → generar rutas → lint → typecheck → test) y job `e2e` (install → `playwright install --with-deps chromium` → `test:e2e`).
+- `.github/workflows/promotion-pr-dq.yml` y `.github/workflows/promotion-pr-qm.yml` (nuevos): mantienen al día un PR `*-d → *-q` y otro `*-q → *-m`; derivan la rama destino del sufijo; no fusionan.
+- `e2e/historial.spec.ts`: `getByLabel('Estado')` → `{ exact: true }`; paginación con aria-labels en inglés (`Next page`) y conteo `1–3 of 6` dentro del nav `Pagination`; prueba de tema oscuro a `test.skip` (V1 no tiene conmutador de tema).
+- `e2e/solicitud.spec.ts`: enlace del sidebar sin nav nombrado «Principal» → enlace directo; `Checkbox` del design system con `check({ force: true })` (el recuadro estilizado intercepta el clic); confirmación afirmada por contenido visible (el `Card` con aria-label no es landmark `region`); prueba de tema oscuro a `test.skip`.
+- `e2e/journey.spec.ts`: el detalle de un viaje con condición activa muestra la condición en lugar del estado (`EstadoViajeChip` lo reemplaza); la prueba dejó de exigir ver `EN_RUTA` y la condición a la vez.
+- `.kiro/specs/e8-t1-ci-calidad/*`: spec del repo con requisitos, diseño, tareas y hallazgos.
+
+**Archivos modificados:**
+
+- `.github/workflows/ci.yml` · `.github/workflows/promotion-pr-dq.yml` · `.github/workflows/promotion-pr-qm.yml`
+- `e2e/historial.spec.ts` · `e2e/journey.spec.ts` · `e2e/solicitud.spec.ts`
+- `.kiro/specs/e8-t1-ci-calidad/requirements.md` · `design.md` · `tasks.md`
+
+**Señalado (no se tocó):** `pnpm format:check` reporta 165 archivos con estilo pendiente, **preexistentes** a E8-T1 (tests del panel, tsconfig, etc.); no se reformatearon para no mezclar ruido ajeno en este cambio. Los archivos tocados aquí sí pasan Prettier. La activación de branch protection y del permiso de organización para que Actions cree PRs queda a cargo de quien tenga permisos de admin. El toggle de tema oscuro (2 pruebas omitidas) queda pendiente de confirmación con PO.
+
 ## 2026:10:08 11:05
 
 **Resumen:** Se **cerró el acceso al Panel de Control** del portal, la pantalla que servía de home de la sesión autenticada. Su `loader` pegaba a `GET /api/v1/panel`, un endpoint que **no existe en el contrato** (`contracts/openapi/bff.yaml`: las únicas rutas del `bff` son `/api/v1/sesion`, `/api/v1/sesion/refresh`, `/api/v1/viajes` y `/api/v1/viajes/{id}`). La pantalla se construyó contra un mock más rico de lo que V1 sabe, así que contra el `bff` real la home se rompería al cargar. Mientras la decisión de fondo sigue diferida —congelar `/panel` como superficie de composición del `bff`, o recomponer el panel con las superficies que V1 sí tiene (`PLAN-EJECUCION-V1.md` §9; es el pendiente que la entrada del 2026-10-07 señaló como **E9-T11**)— se cierra el acceso para no dejar en producción una pantalla rota. **No se borró el panel:** su código (`features/panel/`, `lib/api/panel.ts`, `lib/panel/parsePanel.ts`, `lib/contracts/panel.ts`, el mock handler) queda congelado para cuando se tome esa decisión. `typecheck`, `lint` (0 warnings) y `test` (20 archivos, 131 pruebas) en verde. En e2e, el delta no introduce fallos nuevos: los 8 fallos actuales de la suite son preexistentes al commit `ccb00ec` (se verificó corriendo la suite sobre el árbol limpio).
