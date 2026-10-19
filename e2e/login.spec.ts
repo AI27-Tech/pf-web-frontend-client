@@ -33,7 +33,3 @@ test('la raiz redirige a login sin sesion', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveURL(/\/login/);
 });
-
-// PRUEBA NEGATIVA DELIBERADA (E8-T1, tarea 5): error de tipos a proposito para
-// confirmar que el job `calidad` del CI bloquea. Se revierte en el commit siguiente.
-const _pruebaNegativaE8T1: number = 'esto no es un number';
