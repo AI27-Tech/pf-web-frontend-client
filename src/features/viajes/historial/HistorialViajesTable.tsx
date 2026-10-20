@@ -22,11 +22,7 @@ import { Link } from '@tanstack/react-router';
 import { Button, Card, CardBody, FilterTable, Pagination, type Column } from '@ai27-tech/ui';
 import type { ViajeResumen } from '@/lib/contracts';
 import { EmptyState } from '@/components/ui/Feedback';
-import { formatDateTime } from '@/lib/utils';
 import { EstadoViajeChip } from '@/features/viajes/EstadoViajeChip';
-import { RutaCell } from './RutaCell';
-import { UnidadCell } from './UnidadCell';
-import { ReporteSeguridadCell } from './ReporteSeguridadCell';
 
 /** Registros por pagina del historial. */
 const PAGE_SIZE = 3;
@@ -60,59 +56,43 @@ const filtros = [
     placeholder: 'Estado',
     options: [
       { value: '', label: 'Todos los estados' },
-      { value: 'EN_RUTA', label: 'En Ruta' },
       { value: 'SOLICITADO', label: 'Solicitado' },
-      { value: 'COMPLETADO', label: 'Completado' },
+      { value: 'EN_TRANSITO', label: 'En tránsito' },
+      { value: 'CERRADO', label: 'Cerrado' },
       { value: 'CANCELADO', label: 'Cancelado' },
     ],
   },
 ];
 
+/*
+ * Columnas mínimas apegadas al contrato `ViajeResumen` ({id, estado, origen}). Las
+ * columnas Folio/Fecha, Ruta (destino/sitios), Vehículo/Conductor y Reporte de
+ * Seguridad se retiraron: el contrato no las define. Volverán cuando el contrato las
+ * publique. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ */
 const columns: readonly Column<ViajeResumen>[] = [
   {
     key: 'id',
-    header: 'ID / Fecha',
+    header: 'ID',
     cell: (viaje) => (
-      <div className="flex flex-col">
-        <Link
-          to="/viajes/$viajeId"
-          params={{ viajeId: viaje.id }}
-          className="text-primary font-semibold hover:underline"
-        >
-          {viaje.folio}
-        </Link>
-        <span className="text-on-surface-variant text-xs">
-          {formatDateTime(viaje.solicitadoEn)}
-        </span>
-      </div>
+      <Link
+        to="/viajes/$viajeId"
+        params={{ viajeId: viaje.id }}
+        className="text-primary font-semibold hover:underline"
+      >
+        {viaje.id}
+      </Link>
     ),
   },
   {
-    key: 'ruta',
-    header: 'Ruta (Origen → Destino)',
-    cell: (viaje) => (
-      <RutaCell
-        origen={viaje.origen}
-        origenSitio={viaje.origenSitio}
-        destino={viaje.destino}
-        destinoSitio={viaje.destinoSitio}
-      />
-    ),
-  },
-  {
-    key: 'unidad',
-    header: 'Vehiculo / Conductor',
-    cell: (viaje) => <UnidadCell unidad={viaje.unidad} />,
-  },
-  {
-    key: 'reporte',
-    header: 'Reporte Seguridad',
-    cell: (viaje) => <ReporteSeguridadCell reporte={viaje.reporteSeguridad} />,
+    key: 'origen',
+    header: 'Origen',
+    cell: (viaje) => <span className="text-on-surface">{viaje.origen}</span>,
   },
   {
     key: 'estado',
     header: 'Estado',
-    cell: (viaje) => <EstadoViajeChip estado={viaje.estado} condicionesActivas={[]} />,
+    cell: (viaje) => <EstadoViajeChip estado={viaje.estado} />,
   },
 ];
 
@@ -157,7 +137,7 @@ export function HistorialViajesTable({ viajes }: { readonly viajes: readonly Via
             // Toolbar del design system: busqueda + filtros + accion, con su layout.
             search={search}
             onSearchChange={setSearch}
-            searchPlaceholder="Buscar por ID de Vehiculo, Origen o Destino..."
+            searchPlaceholder="Buscar por ID u Origen..."
             filters={filtros}
             filterValues={filterValues}
             onFilterChange={(key, value) => setFilterValues((prev) => ({ ...prev, [key]: value }))}
@@ -168,11 +148,11 @@ export function HistorialViajesTable({ viajes }: { readonly viajes: readonly Via
             }
             // El conteo lo muestra la `Pagination` de abajo ("X–Y of Z"); evitar duplicarlo.
             hideCount
-            aria-label="Historial de viajes de tu cuenta, con su ruta, unidad, reporte de seguridad y estado"
+            aria-label="Historial de viajes de tu cuenta, con su origen y estado"
             columns={[...columns]}
             data={[...visibleRows]}
             rowKey={(viaje) => viaje.id}
-            className="min-w-[52rem]"
+            className="min-w-[32rem]"
           />
         </div>
 

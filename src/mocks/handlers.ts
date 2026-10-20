@@ -20,16 +20,7 @@
  */
 
 import { HttpResponse, delay, http } from 'msw';
-import {
-  DEV_USER,
-  bitacoraWire,
-  catalogosWire,
-  conversacionesWire,
-  mensajesWire,
-  panelWire,
-  viajeDetalleWire,
-  viajesWire,
-} from './data';
+import { DEV_USER, catalogosWire, sesionWire, viajeDetalleWire, viajesWire } from './data';
 
 /** Latencia artificial: sin ella los estados de carga nunca se ven. */
 const LATENCY_MS = 250;
@@ -39,9 +30,9 @@ export const handlers = [
   http.post('*/api/v1/sesion', async ({ request }) => {
     await delay(LATENCY_MS);
 
-    const body = (await request.json()) as { usuario?: string; password?: string };
+    const body = (await request.json()) as { usuario?: string; contrasena?: string };
 
-    if (body.usuario !== DEV_USER.usuario || body.password !== DEV_USER.password) {
+    if (body.usuario !== DEV_USER.usuario || body.contrasena !== DEV_USER.contrasena) {
       /*
        * 401, no 404. La app distingue "credenciales invalidas" de "el servicio no
        * esta", y devolver el codigo correcto es lo que permite comprobar que esa
@@ -50,21 +41,12 @@ export const handlers = [
       return HttpResponse.json({ error: 'credenciales invalidas' }, { status: 401 });
     }
 
-    return HttpResponse.json({
-      access_token: 'mock.jwt.no-firmado',
-      // Vida corta a proposito: hace visible el bucle de refresco de SessionContext.
-      expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
-      requiere_segundo_factor: false,
-    });
+    return HttpResponse.json(sesionWire());
   }),
 
   http.post('*/api/v1/sesion/refresh', async () => {
     await delay(LATENCY_MS);
-    return HttpResponse.json({
-      access_token: 'mock.jwt.no-firmado.refrescado',
-      expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
-      requiere_segundo_factor: false,
-    });
+    return HttpResponse.json({ ...sesionWire(), access_token: 'mock.jwt.no-firmado.refrescado' });
   }),
 
   http.delete('*/api/v1/sesion', async () => {
@@ -72,15 +54,10 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  // --- Panel de control ---------------------------------------------------------
-  /*
-   * Una sola respuesta agregada: es bff quien compone indicadores, viajes y
-   * notificaciones a partir de varios servicios. El cliente hace un GET, no cuatro.
-   */
-  http.get('*/api/v1/panel', async () => {
-    await delay(LATENCY_MS);
-    return HttpResponse.json(panelWire());
-  }),
+  // --- Panel de control: DESCONECTADO (recorte al contrato) ---------------------
+  // El contrato bff no define GET /api/v1/panel. El handler se retiró; el builder
+  // `panelWire` se conserva en data.ts para cuando se reconecte el panel de
+  // src/_desconectado/panel/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 
   // --- Viajes -------------------------------------------------------------------
   http.get('*/api/v1/viajes', async () => {
@@ -88,10 +65,15 @@ export const handlers = [
     return HttpResponse.json(viajesWire);
   }),
 
-  http.post('*/api/v1/viajes', async () => {
+  http.post('*/api/v1/viajes', async ({ request }) => {
     await delay(LATENCY_MS);
-    // El estado inicial lo decide `operacion`, no el cliente: siempre SOLICITADO.
-    return HttpResponse.json({ id: 'viaje-3' }, { status: 201 });
+    // Devuelve la forma de contrato `ViajeResumen` ({id, estado, origen}). El estado
+    // inicial lo decide `operacion`, no el cliente: siempre SOLICITADO (§C.1).
+    const body = (await request.json().catch(() => ({}))) as { origen?: string };
+    return HttpResponse.json(
+      { id: 'viaje-nuevo', estado: 'SOLICITADO', origen: body.origen ?? 'Origen pendiente' },
+      { status: 201 },
+    );
   }),
 
   http.get('*/api/v1/viajes/:viajeId', async ({ params }) => {
@@ -103,10 +85,9 @@ export const handlers = [
     return HttpResponse.json(detalle);
   }),
 
-  http.get('*/api/v1/viajes/:viajeId/bitacora', async ({ params }) => {
-    await delay(LATENCY_MS);
-    return HttpResponse.json(bitacoraWire[String(params.viajeId)] ?? []);
-  }),
+  // Handler de bitácora DESCONECTADO (recorte al contrato): el contrato bff no define
+  // GET /viajes/{id}/bitacora. El dato mock `bitacoraWire` se conserva en data.ts para
+  // cuando se reconecte. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 
   // --- Catalogos ----------------------------------------------------------------
   http.get('*/api/v1/catalogos/:familia', async ({ params }) => {
@@ -114,44 +95,10 @@ export const handlers = [
     return HttpResponse.json(catalogosWire[String(params.familia)] ?? []);
   }),
 
-  // --- Conversaciones -----------------------------------------------------------
-  http.get('*/api/v1/conversaciones', async () => {
-    await delay(LATENCY_MS);
-    return HttpResponse.json(conversacionesWire);
-  }),
-
-  http.get('*/api/v1/conversaciones/:conversacionId/mensajes', async ({ params }) => {
-    await delay(LATENCY_MS);
-    return HttpResponse.json(mensajesWire[String(params.conversacionId)] ?? []);
-  }),
-
-  http.post('*/api/v1/conversaciones/:conversacionId/mensajes', async ({ params, request }) => {
-    await delay(LATENCY_MS);
-
-    const conversacionId = String(params.conversacionId);
-    const body = (await request.json()) as { cuerpo?: string };
-    const existing = mensajesWire[conversacionId] ?? [];
-
-    /*
-     * La secuencia de dominio la asigna el servidor, dentro de su transaccion. El
-     * cliente no la propone, y este mock respeta eso.
-     */
-    const nextSeq = existing.reduce((max, m) => Math.max(max, m.seq), 0) + 1;
-
-    const created = {
-      id: `m-${crypto.randomUUID().slice(0, 8)}`,
-      seq: nextSeq,
-      cuerpo: body.cuerpo ?? '',
-      enviado_en: new Date().toISOString(),
-      de_cliente: true,
-    };
-
-    mensajesWire[conversacionId] = [...existing, created];
-    return HttpResponse.json(created, { status: 201 });
-  }),
-
-  http.post('*/api/v1/conversaciones/:conversacionId/receipts/lectura', async () => {
-    await delay(LATENCY_MS);
-    return new HttpResponse(null, { status: 204 });
-  }),
+  // --- Conversaciones: DESCONECTADAS (recorte al contrato) ----------------------
+  // El contrato bff no expone conversación al cliente (mensajeria.yaml es superficie
+  // interna). Los handlers de /conversaciones se retiraron; los datos mock
+  // (conversacionesWire, mensajesWire) se conservan en data.ts para cuando se
+  // reconecte la feature de src/_desconectado/conversacion/.
+  // Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 ];

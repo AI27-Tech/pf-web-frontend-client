@@ -7,161 +7,70 @@
  * correspondencia con los tipos generados que van a sustituir a este archivo.
  */
 
-import type { CondicionActiva, EstadoViaje } from './estados';
-import type { DomainSeq } from './sequences';
+import type { components } from '@ai27-tech/contracts/openapi/bff';
+
+import type { EstadoViaje } from './estados';
 
 /**
- * La unidad asignada a un viaje: vehiculo y conductor.
+ * Resumen de un viaje, en la forma que el contrato `bff` define (ViajeResumen):
+ * exactamente `{ id, estado, origen }`. Nada más viaja en el listado.
  *
- * Puede no existir todavia — un viaje recien SOLICITADO aun no tiene unidad — por eso
- * en `ViajeResumen` viaja como `UnidadAsignada | null` y no como campos sueltos: "sin
- * asignar" es un estado, no tres cadenas vacias.
- *
- * TODO(contracts): confirmar nombres y forma contra contracts/openapi/bff.yaml.
+ * Los campos que el portal asumía antes (folio, destino, origenSitio, unidad,
+ * reporteSeguridad, solicitadoEn) NO están en el contrato: se retiraron. Cuando el
+ * contrato los publique, el encargado del repo los reincorpora aquí y en la tabla.
+ * Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
-export interface UnidadAsignada {
-  /** Marca y modelo, p. ej. "Volvo FH16". */
-  readonly descripcion: string;
-  /** Placa/matricula, p. ej. "AB-123". */
-  readonly placa: string;
-  readonly conductorNombre: string;
-}
-
-/**
- * Resultado del reporte de seguridad de un viaje.
- *
- * Union abierta, igual que `EstadoViaje`: la UI presenta los valores que conoce y
- * degrada a neutro los que no, sin inventar catalogos que el contrato no confirma.
- */
-export type ReporteSeguridad = 'SIN_INCIDENCIAS' | 'CON_INCIDENCIAS' | 'PENDIENTE' | (string & {});
-
 export interface ViajeResumen {
   readonly id: string;
-  readonly folio: string;
   readonly estado: EstadoViaje;
   readonly origen: string;
-  readonly destino: string;
-  readonly solicitadoEn: string;
-  /** Sitio concreto del origen, p. ej. "Almacen Central". Puede no venir. */
-  readonly origenSitio: string | null;
-  /** Sitio concreto del destino, p. ej. "Planta Industrial Sur". Puede no venir. */
-  readonly destinoSitio: string | null;
-  /** `null` cuando el viaje aun no tiene unidad asignada (recien SOLICITADO). */
-  readonly unidad: UnidadAsignada | null;
-  readonly reporteSeguridad: ReporteSeguridad;
-}
-
-/** Detalle: estado de progreso mas condiciones activas superpuestas (§C.2). */
-export interface ViajeDetalle extends ViajeResumen {
-  readonly condicionesActivas: readonly CondicionActiva[];
-  readonly contratoId: string | null;
-  readonly rutaId: string | null;
-}
-
-/** Solo la bitacora VISIBLE al cliente. La auditoria probatoria es de operacion. */
-export interface EntradaBitacora {
-  readonly id: string;
-  readonly ocurrioEn: string;
-  readonly descripcion: string;
-}
-
-export interface SolicitudViaje {
-  readonly origen: string;
-  readonly destino: string;
-  readonly requeridoEn: string;
-  readonly notas: string;
 }
 
 /*
- * PROVISIONAL — el borrador del asistente "Solicitar nuevo servicio".
- *
- * NO es el body de `POST /viajes` (ese es `SolicitudViaje`, arriba): es el estado que
- * el cliente arma paso a paso ANTES de enviar. Se mantiene aparte a proposito, porque
- * el contrato real del alta de servicio todavia no existe (ver Decisiones abiertas del
- * README) y este formulario captura mas campos de los que hoy viaja `SolicitudViaje`.
- * Cuando llegue el contrato, aqui se decide que subconjunto cruza al backend.
- *
- * Todos los campos son `string` porque provienen de campos de formulario; la
- * normalizacion (a ISO, a numero, etc.) se hara en la frontera de envio cuando exista.
+ * NOTA (recorte al contrato): `UnidadAsignada` y `ReporteSeguridad` se retiraron
+ * del historial porque el contrato `ViajeResumen` no los define. `ViajeDetalle`,
+ * `CondicionActiva`, bitácora y el asistente de solicitud se reconcilian contra el
+ * contrato en sus propios pasos (detalle sobre `ViajeSeguimiento`). Hasta entonces,
+ * los tipos de abajo se conservan autónomos para que esas pantallas sigan
+ * compilando; se tocan en su paso.
  */
-
-/** Paso 1: tipo de servicio, programacion de salida y datos operativos. */
-export interface DatosServicio {
-  /** `id` de la familia de catalogo `tipos-servicio`. */
-  readonly tipoServicio: string;
-  readonly fechaSalida: string;
-  readonly horaSalida: string;
-  /** `id` de la familia de catalogo `prioridades-servicio`. */
-  readonly prioridad: string;
-  /** Referencia / No. de orden de compra. Opcional. */
-  readonly referenciaOrden: string;
-  readonly contactoNombre: string;
-  readonly contactoTelefono: string;
-}
-
-/** Paso 2: una ubicacion (origen o destino) con sus datos de contacto y acceso. */
-export interface DatosUbicacion {
-  readonly nombreLugar: string;
-  readonly calleNumero: string;
-  readonly ciudadEstado: string;
-  readonly codigoPostal: string;
-  readonly contactoSitio: string;
-  readonly telefonoContacto: string;
-  readonly instruccionesAcceso: string;
-}
-
-/** Paso 3: informacion de la carga y requerimientos de unidad/operacion. */
-export interface DatosCarga {
-  /** `id` de la familia de catalogo `categorias-carga`. */
-  readonly categoria: string;
-  /** `id` de la familia de catalogo `rangos-valor`. */
-  readonly valorEstimado: string;
-  /** `id`s de la familia de catalogo `requisitos-manejo` marcados. */
-  readonly requisitos: readonly string[];
-  readonly requerimientosVehiculo: string;
-  readonly instruccionesOperativas: string;
-}
-
-/** Paso 3: documentacion adjunta. La subida real no esta implementada. */
-export interface DatosDocumentacion {
-  readonly comentarios: string;
-}
-
-/** El borrador completo, agrupado por los pasos del asistente. */
-export interface BorradorSolicitud {
-  readonly servicio: DatosServicio;
-  readonly origen: DatosUbicacion;
-  readonly destino: DatosUbicacion;
-  readonly carga: DatosCarga;
-  readonly documentacion: DatosDocumentacion;
-}
-
-export interface ConversacionResumen {
-  readonly id: string;
-  readonly asunto: string;
-  readonly viajeId: string | null;
-  readonly ultimoMensajeEn: string | null;
-  readonly noLeidos: number;
-}
-
-export interface Mensaje {
-  readonly id: string;
-  /** Secuencia DE DOMINIO: es la que ordena en pantalla. */
-  readonly seq: DomainSeq;
-  readonly cuerpo: string;
-  readonly enviadoEn: string;
-  readonly deCliente: boolean;
-}
 
 /**
- * Un recibo publico no filtra operacion (P23): sin miembro de pool, sin claimant,
- * sin supervisor y sin metadata de cola. Si algun dia aparece uno de esos campos
- * aqui, es una fuga.
+ * Detalle/seguimiento de un viaje, en la forma del contrato `bff` (ViajeSeguimiento):
+ * hito de progreso, ETA estimado con marca de obsolescencia e incidencias curadas.
+ *
+ * El contrato NO expone folio, origen, destino ni "condiciones activas" en esta
+ * superficie: el cliente ve la vista curada (DEC-006), no el detalle interno. La
+ * incidencia curada trae categoría + estado + marca de tiempo, nunca el tipo interno.
  */
-export interface ReciboLectura {
-  readonly mensajeId: string;
-  readonly leidoEn: string;
-}
+export type ViajeSeguimiento = components['schemas']['ViajeSeguimiento'];
+export type HitoCliente = components['schemas']['HitoCliente'];
+export type IncidenciaCurada = components['schemas']['IncidenciaCurada'];
+
+/*
+ * NOTA (recorte al contrato): `CondicionActiva` y `EntradaBitacora` se desconectaron
+ * del barrel. El contrato bff no define esas superficies para el cliente. Sus tipos
+ * locales viven en src/_desconectado/panel/tipos.ts y src/_desconectado/bitacora/.
+ */
+
+/**
+ * Entrada de creación de un viaje, en la forma del contrato `bff` (CrearViajeEntrada):
+ * `{ origen, destinos:[{nombre, numero_envio?}], cliente_id?, fecha_hora_servicio?,
+ * tipo_servicio? }`. El estado inicial lo fija el servidor (SOLICITADO), no el cliente.
+ *
+ * El asistente rico de 4 pasos (que capturaba ~20 campos: contactos, accesos, carga,
+ * documentación) se desconectó a src/_desconectado/solicitud/ porque el contrato no los
+ * modela. La pantalla activa es el formulario mínimo NuevaSolicitudForm.
+ * Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ */
+export type CrearViajeEntrada = components['schemas']['CrearViajeEntrada'];
+
+/*
+ * NOTA (recorte al contrato): `ConversacionResumen`, `Mensaje` y `ReciboLectura` se
+ * desconectaron del barrel: el contrato bff no expone conversación al cliente (vive en
+ * mensajeria.yaml, superficie interna). Sus tipos locales están en
+ * src/_desconectado/conversacion/api.ts.
+ */
 
 /** Entrada de catalogo para selects y filtros. */
 export interface OpcionCatalogo {

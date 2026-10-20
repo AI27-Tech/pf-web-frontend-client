@@ -4,6 +4,33 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:20 12:00
+
+**Resumen:** Se **reestructuró el portal cliente para apegarse al contrato `bff`** (`@ai27-tech/contracts`, `v0.1.0-tracer.11`), como ampliación de alcance de **E8-T3** ("el sistema crece conforme al contrato, no al revés"). La sesión y los roles pasan a los tipos generados; las pantallas de viaje se recortan a su versión mínima funcional según lo que el contrato define; y lo que el contrato aún no modela (bitácora, conversación, panel de control, asistente de solicitud completo) se **desconecta sin borrarse**, conservado en `src/_desconectado/` con tipos locales y pruebas, para reconectarlo cuando el contrato crezca. El barrel `lib/contracts/` queda solo con lo que el `bff` define más utilidades de UI. `typecheck`, `lint` y `test` (20 archivos, 126 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (conversación y panel desconectados, más tema oscuro preexistente); `build:mock` compila.
+
+**Cambios:**
+
+- `src/lib/contracts/`: `ViajeResumen` recortado a `{id, estado, origen}`; `ViajeDetalle` inventado → `ViajeSeguimiento` del contrato; `EstadoViaje` pasa al enum generado (cerrado, 13 valores, ADR 19); se agregan `HitoCliente`, `IncidenciaCurada`, `CrearViajeEntrada`. Salen del barrel los tipos de panel, bitácora, conversación y asistente. Se conservan `Fresco`, `Eta` y secuencias (utilidades de UI).
+- `src/lib/api/sesion.ts`, `src/context/SessionContext.tsx`, `src/features/sesion/LoginSection.tsx`: consumo del contrato de sesión (`{usuario, contrasena}`, `sesion_id` conservado).
+- Historial (`HistorialViajesTable.tsx`, `EstadoViajeChip.tsx`): tabla a 3 columnas; chip mapea los 13 estados. Se retiran `RutaCell`/`UnidadCell`/`ReporteSeguridadCell`.
+- Detalle (`ViajeDetailSection.tsx`): reconstruido sobre `ViajeSeguimiento` (hito, ETA con obsolescencia, incidencias curadas, DEC-006).
+- Solicitud: nuevo `NuevaSolicitudForm.tsx` (campos de `CrearViajeEntrada`, POST real a `/viajes`); asistente de 4 pasos desconectado a `src/_desconectado/solicitud/`.
+- Desconectados a `src/_desconectado/` (componentes, API, tipos locales y pruebas): `bitacora/`, `conversacion/`, `panel/`, `solicitud/`. Entrada «Mensajes» retirada del `AppShell`; rutas sin respaldo en el contrato retiradas del enrutado.
+- `src/mocks/`: handlers de `/panel`, `/conversaciones` y bitácora desconectados (datos conservados con nota); `POST /viajes` responde forma `ViajeResumen`.
+- `tests/contracts/sesion.test.ts` (nuevo): ata el mock de sesión al tipo del tracer. Pruebas de las pantallas desconectadas conservadas junto a su pieza.
+- `docs/decisiones/2026-recorte-al-contrato-bff.md` y `src/_desconectado/README.md` (nuevos): decisión, inventario y procedimiento de reconexión.
+
+**Archivos modificados (resumen):**
+
+- `src/lib/contracts/{index,dominio,estados}.ts` · `src/lib/api/{sesion,viajes}.ts`
+- `src/features/viajes/{EstadoViajeChip,ViajeDetailSection,NuevaSolicitudForm}.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/features/sesion/LoginSection.tsx`
+- `src/context/SessionContext.tsx` · `src/app/shell/AppShell.tsx`
+- `src/mocks/{data,handlers}.ts` · `src/routes/_private/viajes/new.tsx`
+- `src/_desconectado/**` (bitácora, conversación, panel, solicitud) · `docs/decisiones/2026-recorte-al-contrato-bff.md`
+- `tests/contracts/sesion.test.ts` · `tests/ui/EstadoViajeChip.test.tsx` · `tests/viajes/*`
+
+**Señalado (no se tocó):** el refresh del cliente no persiste `refresh_token` (el contrato lo exige en el cuerpo; queda `TODO(auth)` en `lib/api/sesion.ts`). Ampliar el contrato `bff` para las pantallas desconectadas es trabajo aparte en `pf-pkg-contracts`. No se corrió `pnpm format:check` ni la verificación manual en `dev:mock` en esta sesión. La ruta `/configuracion` (placeholder sin HU) no se tocó.
+
 ## 2026:10:19 16:30
 
 **Resumen:** Se implementó **E8-T1** (CI y línea base de calidad) en el portal cliente: workflow de CI que corre lint, typecheck, pruebas unitarias y e2e en cada PR y en cada push a las tres ramas del flujo (`pf-wfc-m/d/q`), más los dos workflows de promoción `d → q` y `q → m` copiados del patrón de la plataforma (merge manual; sin auto-merge). Además se **arreglaron los 8 fallos deterministas de la suite e2e** que la entrada del 2026-10-08 dejó señalados: no eran flakiness, sino pruebas escritas contra una UI anterior. `lint`, `typecheck` y `test` (20 archivos, 131 pruebas) en verde; `test:e2e` con 17 activos en verde y 13 omitidos (11 del panel cerrado, 2 de tema oscuro). El CI genera `routeTree.gen.ts` con `vite build --mode mock` antes de typecheck/test, porque ese archivo está gitignorado y `tsc --build` no lo produce.

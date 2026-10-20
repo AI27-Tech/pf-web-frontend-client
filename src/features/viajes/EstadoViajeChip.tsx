@@ -1,57 +1,74 @@
 /*
  * El chip de estado de un viaje.
  *
- * `lib/contracts/estados.ts` deja escrito que los estados de viaje
- * son datos del contrato. Hoy el unico estado que la documentacion
- * confirma es SOLICITADO.
+ * Los estados son los del contrato generado (`@ai27-tech/contracts/estados`, ADR 19):
+ * unión cerrada de 13 valores. El chip mapea cada estado a la señal táctica del
+ * `Badge` de `@ai27-tech/ui`.
  *
- * Composicion de dominio sobre el `Badge` de `@ai27-tech/ui`: mapea el estado (y las
- * condiciones superpuestas) a la senal tactica del `Badge`, que aporta la apariencia.
+ * Las condiciones superpuestas (incidencia, sin señal) NO viajan en `ViajeResumen`
+ * del contrato; se reconcilian en el detalle del viaje (`ViajeSeguimiento.incidencias`)
+ * en su propio paso. Por eso este chip pinta solo el estado.
  */
 
 import { Badge, type BadgeVariant } from '@ai27-tech/ui';
-import type { CondicionActiva, EstadoViaje } from '@/lib/contracts';
+import type { EstadoViaje } from '@/lib/contracts';
 
 interface EstadoViajeChipProps {
   readonly estado: EstadoViaje;
-  /** Condiciones superpuestas al estado. La primera manda sobre la apariencia. */
-  readonly condicionesActivas?: readonly CondicionActiva[];
 }
 
-/** Etiquetas de los estados que el cliente conoce. Sin entrada por defecto. */
+/** Etiqueta legible por estado del contrato. Sin entrada = se muestra el token crudo. */
 const labelByEstado: Readonly<Record<string, string>> = {
   SOLICITADO: 'Solicitado',
-  EN_RUTA: 'En Ruta',
-  COMPLETADO: 'Completado',
+  APROBADO: 'Aprobado',
+  RECHAZADO_POR_AI27: 'Rechazado por AI27',
+  RECHAZADO_POR_CLIENTE: 'Rechazado',
+  ASIGNADO: 'Asignado',
+  APTO_PARA_SALIDA: 'Apto para salida',
+  EN_EMBARQUE: 'En embarque',
+  PATRULLA_EN_CAMINO: 'Patrulla en camino',
+  EN_TRANSITO: 'En tránsito',
+  EN_DESTINO: 'En destino',
+  EN_DESCARGA: 'En descarga',
+  CERRADO: 'Cerrado',
   CANCELADO: 'Cancelado',
 };
 
 /**
- * Estado del viaje -> senal tactica del `Badge` de la libreria (mismo criterio que
- * `ViajesEnCursoTable`):
- *   EN_RUTA               -> secure  (unidad en marcha, sin novedad)
- *   SOLICITADO/COMPLETADO -> escort  (informativo)
- *   CANCELADO             -> alert   (rojo)
- *   otro                  -> neutral
+ * Estado -> señal táctica del `Badge`:
+ *   en marcha (tránsito/embarque/destino/descarga/patrulla) -> secure
+ *   solicitado/aprobado/asignado/apto                        -> escort (informativo)
+ *   cerrado                                                  -> escort
+ *   cancelado/rechazado                                      -> alert (rojo)
+ *   otro                                                     -> neutral
  */
 function variantForEstado(estado: EstadoViaje): BadgeVariant {
-  if (estado === 'EN_RUTA') return 'secure';
-  if (estado === 'SOLICITADO' || estado === 'COMPLETADO') return 'escort';
-  if (estado === 'CANCELADO') return 'alert';
-  return 'neutral';
+  switch (estado) {
+    case 'EN_TRANSITO':
+    case 'EN_EMBARQUE':
+    case 'EN_DESTINO':
+    case 'EN_DESCARGA':
+    case 'PATRULLA_EN_CAMINO':
+      return 'secure';
+    case 'SOLICITADO':
+    case 'APROBADO':
+    case 'ASIGNADO':
+    case 'APTO_PARA_SALIDA':
+    case 'CERRADO':
+      return 'escort';
+    case 'CANCELADO':
+    case 'RECHAZADO_POR_AI27':
+    case 'RECHAZADO_POR_CLIENTE':
+      return 'alert';
+    default:
+      return 'neutral';
+  }
 }
 
-export function EstadoViajeChip({ estado, condicionesActivas = [] }: EstadoViajeChipProps) {
-  const condicion = condicionesActivas[0];
-
-  // Una condicion activa manda sobre el estado: se pinta en `warning` y con su
-  // descripcion, no con la etiqueta del estado.
-  const variant: BadgeVariant = condicion !== undefined ? 'warning' : variantForEstado(estado);
-  const text = condicion?.descripcion ?? labelByEstado[estado] ?? estado;
-
+export function EstadoViajeChip({ estado }: EstadoViajeChipProps) {
   return (
-    <Badge variant={variant} dot pill>
-      {text}
+    <Badge variant={variantForEstado(estado)} dot pill>
+      {labelByEstado[estado] ?? estado}
     </Badge>
   );
 }

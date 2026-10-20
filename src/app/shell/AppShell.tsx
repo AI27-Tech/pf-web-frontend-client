@@ -1,12 +1,5 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import {
-  MessageSquare,
-  Plus,
-  RotateCcwClock,
-  ShieldHalf,
-  SquarePlus,
-  type LucideIcon,
-} from 'lucide-react';
+import { Plus, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
 import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
 
 type NavItem = {
@@ -45,8 +38,9 @@ const nav: readonly NavItem[] = [
   { to: '/viajes', label: 'Historial de Viajes', icon: RotateCcwClock, exact: false },
   // `exact: true`: es hijo de `/viajes`, no debe activar tambien a Historial.
   { to: '/viajes/new', label: 'Solicitar Servicio', icon: SquarePlus, exact: true },
-  // `exact: false`: activo tambien en el detalle `/conversaciones/$conversacionId`.
-  { to: '/conversaciones', label: 'Mensajes', icon: MessageSquare, exact: false },
+  // "Mensajes" (/conversaciones) se desconectó: el contrato bff no expone conversación
+  // al cliente (mensajeria.yaml es superficie interna). La feature se conservó en
+  // src/_desconectado/conversacion/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 ];
 
 /**

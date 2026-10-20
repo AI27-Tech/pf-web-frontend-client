@@ -7,8 +7,7 @@
  * cambio en lib/; sin el, es un cambio en cada import de la app.
  */
 
-export type { EstadoViaje, CondicionActiva } from './estados';
-export { ESTADO_INICIAL } from './estados';
+export { EstadoViaje, ESTADOS_VIAJE, esTerminal, ESTADO_INICIAL } from './estados';
 
 export type { Fresco } from './freshness';
 export {
@@ -30,31 +29,19 @@ export {
 
 export type { Eta } from './eta';
 
-export type {
-  IndicadorViajesActivos,
-  IndicadorRiesgoGlobal,
-  IndicadorAlertas,
-  NivelRiesgo,
-  ViajeEnCurso,
-  SeveridadNotificacion,
-  NotificacionPanel,
-  PanelDeControl,
-} from './panel';
+/*
+ * NOTA (recorte al contrato): los tipos del panel de control
+ * (PanelDeControl, ViajeEnCurso, indicadores, NivelRiesgo, SeveridadNotificacion,
+ * NotificacionPanel) y `CondicionActiva` se desconectaron del barrel: el contrato bff
+ * no define la superficie del panel. Sus tipos locales viven en
+ * src/_desconectado/panel/tipos.ts. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ */
 
 export type {
-  UnidadAsignada,
-  ReporteSeguridad,
   ViajeResumen,
-  ViajeDetalle,
-  EntradaBitacora,
-  SolicitudViaje,
-  DatosServicio,
-  DatosUbicacion,
-  DatosCarga,
-  DatosDocumentacion,
-  BorradorSolicitud,
-  ConversacionResumen,
-  Mensaje,
-  ReciboLectura,
+  ViajeSeguimiento,
+  HitoCliente,
+  IncidenciaCurada,
+  CrearViajeEntrada,
   OpcionCatalogo,
 } from './dominio';
