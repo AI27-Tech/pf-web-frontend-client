@@ -27,7 +27,6 @@ import { tokenStore } from '@/lib/api/tokenStore';
 
 interface SessionValue {
   readonly isAuthenticated: boolean;
-  readonly requiereSegundoFactor: boolean;
   login(credenciales: Credenciales): Promise<SesionEmitida>;
   logout(): Promise<void>;
 }
@@ -38,7 +37,6 @@ export function SessionProvider({ children }: { readonly children: ReactNode }) 
   const [isAuthenticated, setIsAuthenticated] = useState(
     () => tokenStore.getAccessToken() !== null,
   );
-  const [requiereSegundoFactor, setRequiereSegundoFactor] = useState(false);
 
   // El token vive tras `tokenStore`; este Context solo refleja su presencia.
   useEffect(
@@ -69,19 +67,16 @@ export function SessionProvider({ children }: { readonly children: ReactNode }) 
   }, [isAuthenticated]);
 
   const login = useCallback(async (credenciales: Credenciales) => {
-    const sesion = await loginRequest(credenciales);
-    setRequiereSegundoFactor(sesion.requiereSegundoFactor);
-    return sesion;
+    return loginRequest(credenciales);
   }, []);
 
   const logout = useCallback(async () => {
     await logoutRequest();
-    setRequiereSegundoFactor(false);
   }, []);
 
   const value = useMemo<SessionValue>(
-    () => ({ isAuthenticated, requiereSegundoFactor, login, logout }),
-    [isAuthenticated, requiereSegundoFactor, login, logout],
+    () => ({ isAuthenticated, login, logout }),
+    [isAuthenticated, login, logout],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

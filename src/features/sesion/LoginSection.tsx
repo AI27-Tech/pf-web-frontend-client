@@ -38,13 +38,10 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
     setPending(true);
 
     try {
-      const sesion = await login({ usuario, password });
-
-      // ADR 13 abierto: si Cognito entrega el OTP, este desvio puede no existir.
-      if (sesion.requiereSegundoFactor) {
-        await navigate({ to: '/two-factor' });
-        return;
-      }
+      // El contrato recibe `usuario`/`contrasena`; la UI captura un correo y la
+      // contrasena. El segundo factor no es parte del contrato de sesion V1
+      // (no existe `requiere_segundo_factor`); el desvio a /two-factor se retira.
+      await login({ usuario, contrasena: password });
 
       await navigate({ to: redirectTo ?? '/' });
     } catch (cause) {

@@ -1,31 +1,16 @@
 /*
- * PROVISIONAL — se reemplaza por generacion desde contracts/estados/. Ver README.
+ * Estados de viaje — reexportados del contrato generado.
  *
- * Los estados de viaje son "dato unico" (P14): se generan desde el contrato, no se
- * declaran en cada servicio. Este archivo es un marcador de posicion para que el
- * resto del scaffold compile; los valores exactos y la maquina de estados completa
- * son de `operacion` y NO estan documentados en detalle en docs/arquitectura/.
+ * Los estados son "dato único" (P14, ADR 19): se generan desde el contrato
+ * (`@ai27-tech/contracts/estados`), no se declaran a mano en cada servicio. Este
+ * archivo solo reexporta el enum del contrato para que el resto de la app lo use
+ * a través del barrel, sin importar directamente del paquete generado.
  *
- * Lo unico confirmado por la documentacion (bff, apartado (f) · §C.1):
- *   una solicitud de servicio entra en SOLICITADO.
- *
- * TODO(contracts): reemplazar por el enum generado. No anadir estados por
- * suposicion: un estado inventado aqui es un `switch` que compila y miente.
+ * `EstadoViaje` es ahora una unión CERRADA de los 13 estados canónicos. Un estado
+ * inventado deja de compilar — que es justo la señal que antes faltaba.
  */
 
+export { EstadoViaje, ESTADOS_VIAJE, esTerminal } from '@ai27-tech/contracts/estados';
+
+/** Estado inicial de una solicitud de servicio (§C.1, ADR 19). */
 export const ESTADO_INICIAL = 'SOLICITADO' as const;
-
-/**
- * Union abierta a proposito: `string` mantiene el resto de estados representables
- * sin inventarlos, y conserva el autocompletado del unico que conocemos. Cuando
- * llegue el contrato, esto pasa a ser una union cerrada y el compilador senalara
- * cada sitio que asumia algo.
- */
-export type EstadoViaje = typeof ESTADO_INICIAL | (string & {});
-
-/** Una condicion activa se superpone al estado de progreso (§C.2). */
-export interface CondicionActiva {
-  readonly codigo: string;
-  readonly descripcion: string;
-  readonly desde: string;
-}

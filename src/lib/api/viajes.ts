@@ -7,20 +7,25 @@
  */
 
 import { api } from './client';
-import type { EntradaBitacora, SolicitudViaje, ViajeDetalle } from '../contracts';
+import type { CrearViajeEntrada, ViajeSeguimiento } from '../contracts';
 import type { ViajeResumen } from '../contracts';
 
 export async function listViajes(signal?: AbortSignal): Promise<readonly ViajeResumen[]> {
   return api.get<readonly ViajeResumen[]>('/viajes', signal !== undefined ? { signal } : {});
 }
 
-export async function getViaje(viajeId: string, signal?: AbortSignal): Promise<ViajeDetalle> {
-  return api.get<ViajeDetalle>(`/viajes/${viajeId}`, signal !== undefined ? { signal } : {});
+/** Detalle/seguimiento del viaje: hito, ETA e incidencias curadas (ViajeSeguimiento). */
+export async function getViaje(viajeId: string, signal?: AbortSignal): Promise<ViajeSeguimiento> {
+  return api.get<ViajeSeguimiento>(`/viajes/${viajeId}`, signal !== undefined ? { signal } : {});
 }
 
-/** Entra en SOLICITADO (§C.1). El estado inicial no lo elige el cliente. */
-export async function solicitarViaje(solicitud: SolicitudViaje): Promise<{ readonly id: string }> {
-  return api.post<{ readonly id: string }>('/viajes', solicitud);
+/**
+ * Crea un viaje con la forma del contrato (CrearViajeEntrada). Entra en SOLICITADO
+ * (§C.1): el estado inicial lo fija el servidor, no el cliente. Devuelve el resumen
+ * del viaje creado (ViajeResumen del contrato).
+ */
+export async function crearViaje(entrada: CrearViajeEntrada): Promise<ViajeResumen> {
+  return api.post<ViajeResumen>('/viajes', entrada);
 }
 
 /*
@@ -30,14 +35,8 @@ export async function solicitarViaje(solicitud: SolicitudViaje): Promise<{ reado
  * aislado del release path de V1 en `prototipos-v2/seguimiento-vivo/`. El ETA
  * estimado de V1 (E2-HU-012) no se lee por aqui: viaja en el panel y en el detalle
  * del viaje.
+ *
+ * NOTA (recorte al contrato): `getBitacora` se desconectó: el contrato bff no define
+ * `GET /viajes/{id}/bitacora`. Su versión conservada vive junto al componente en
+ * `src/_desconectado/bitacora/`. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
-
-export async function getBitacora(
-  viajeId: string,
-  signal?: AbortSignal,
-): Promise<readonly EntradaBitacora[]> {
-  return api.get<readonly EntradaBitacora[]>(
-    `/viajes/${viajeId}/bitacora`,
-    signal !== undefined ? { signal } : {},
-  );
-}

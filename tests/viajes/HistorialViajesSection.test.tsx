@@ -12,15 +12,8 @@ import { renderConRouter } from '../support/router';
 const viajes: readonly ViajeResumen[] = [
   {
     id: 'viaje-1',
-    folio: 'AI27-000101',
-    estado: 'EN_RUTA',
+    estado: 'EN_TRANSITO',
     origen: 'CDMX',
-    origenSitio: 'Almacen Central',
-    destino: 'Monterrey',
-    destinoSitio: 'Planta Sur',
-    solicitadoEn: '2026-09-07T08:15:00Z',
-    unidad: { descripcion: 'Volvo FH16', placa: 'AB-123', conductorNombre: 'Juan Perez' },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
   },
 ];
 
