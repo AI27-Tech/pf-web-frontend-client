@@ -38,18 +38,18 @@ test.describe('historial · contenido', () => {
     ).toHaveCount(0);
   });
 
-  test('pinta los chips de estado nuevos: Completado y Cancelado', async ({ page }) => {
+  test('pinta los chips de estado del contrato: Cerrado y Cancelado', async ({ page }) => {
     await login(page);
     await page.goto('/viajes');
     await expect(page.getByRole('table')).toBeVisible();
 
-    // viaje-6/8 son COMPLETADO y viaje-7 CANCELADO; a 3 por pagina caen en la 2a.
+    // viaje-6/8 son CERRADO y viaje-7 CANCELADO; a 3 por pagina caen en la 2a.
     // La `Pagination` del design system usa controles con aria-label en ingles.
     await page.getByRole('button', { name: 'Next page' }).click();
 
-    // Se acota a la tabla: "Completado"/"Cancelado" tambien son opciones del filtro.
+    // Se acota a la tabla: "Cerrado"/"Cancelado" tambien son opciones del filtro.
     const tabla = page.getByRole('table');
-    await expect(tabla.getByText('Completado').first()).toBeVisible();
+    await expect(tabla.getByText('Cerrado').first()).toBeVisible();
     await expect(tabla.getByText('Cancelado')).toBeVisible();
   });
 });

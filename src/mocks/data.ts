@@ -56,136 +56,54 @@ export interface MensajeWireMock {
 }
 
 /*
- * El listado de viajes.
- *
- * TODO(contracts): confirmar nombres de campo (`origenSitio`, `unidad`,
- * `reporteSeguridad`, ...) contra contracts/openapi/bff.yaml cuando exista.
+ * El listado de viajes, en la FORMA DE CONTRATO `ViajeResumen` ({id, estado, origen}).
+ * Los estados son los del enum del contrato (ADR 19). Los campos que el portal
+ * mostraba antes (folio, destino, unidad, reporteSeguridad, fecha) se retiraron: el
+ * contrato no los define. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
 export const viajesWire = [
-  {
-    id: 'viaje-1',
-    folio: 'AI27-000101',
-    estado: 'EN_RUTA',
-    origen: 'CDMX · Vallejo',
-    destino: 'Queretaro · Parque Industrial',
-    solicitadoEn: '2026-09-07T08:15:00Z',
-    origenSitio: 'Almacen Central',
-    destinoSitio: 'Planta Industrial Sur',
-    unidad: { descripcion: 'Volvo FH16', placa: 'AB-123', conductorNombre: 'Juan Perez' },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-2',
-    folio: 'AI27-000102',
-    estado: 'EN_RUTA',
-    origen: 'Guadalajara · El Salto',
-    destino: 'Leon · Zona Franca',
-    solicitadoEn: '2026-09-07T06:40:00Z',
-    origenSitio: 'Centro Logistico',
-    destinoSitio: 'Parque Industrial',
-    unidad: { descripcion: 'Kenworth T680', placa: 'CD-456', conductorNombre: 'Miguel Silva' },
-    reporteSeguridad: 'CON_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-3',
-    folio: 'AI27-000103',
-    estado: 'SOLICITADO',
-    origen: 'Monterrey · Apodaca',
-    destino: 'Saltillo · Derramadero',
-    solicitadoEn: '2026-09-07T15:05:00Z',
-    origenSitio: 'Patio de Origen',
-    destinoSitio: 'Derramadero',
-    // Recien solicitado: aun no hay unidad asignada. La celda dira "Sin asignar".
-    unidad: null,
-    reporteSeguridad: 'PENDIENTE',
-  },
-  {
-    id: 'viaje-6',
-    folio: 'AI27-000106',
-    estado: 'COMPLETADO',
-    origen: 'Puebla · Parque Vw',
-    destino: 'Veracruz · Puerto Nuevo',
-    solicitadoEn: '2026-09-05T06:00:00Z',
-    origenSitio: 'Planta Vw',
-    destinoSitio: 'Puerto Nuevo',
-    unidad: {
-      descripcion: 'Freightliner Cascadia',
-      placa: 'EF-789',
-      conductorNombre: 'Carlos Gomez',
-    },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-7',
-    folio: 'AI27-000107',
-    estado: 'CANCELADO',
-    origen: 'Tijuana · Otay',
-    destino: 'Mexicali · Ejido Nuevo Leon',
-    solicitadoEn: '2026-09-04T09:30:00Z',
-    origenSitio: 'Otay Industrial',
-    destinoSitio: 'Ejido Nuevo Leon',
-    unidad: { descripcion: 'Scania R450', placa: 'GH-012', conductorNombre: 'Laura Mendez' },
-    reporteSeguridad: 'CON_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-8',
-    folio: 'AI27-000108',
-    estado: 'COMPLETADO',
-    origen: 'CDMX · Iztapalapa',
-    destino: 'Toluca · Lerma',
-    solicitadoEn: '2026-09-03T11:20:00Z',
-    origenSitio: 'CEDIS Oriente',
-    destinoSitio: 'Zona Industrial Lerma',
-    unidad: { descripcion: 'International LT', placa: 'IJ-345', conductorNombre: 'Roberto Diaz' },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
-  },
+  { id: 'viaje-1', estado: 'EN_TRANSITO', origen: 'CDMX · Vallejo' },
+  { id: 'viaje-2', estado: 'EN_TRANSITO', origen: 'Guadalajara · El Salto' },
+  { id: 'viaje-3', estado: 'SOLICITADO', origen: 'Monterrey · Apodaca' },
+  { id: 'viaje-6', estado: 'CERRADO', origen: 'Puebla · Parque Vw' },
+  { id: 'viaje-7', estado: 'CANCELADO', origen: 'Tijuana · Otay' },
+  { id: 'viaje-8', estado: 'CERRADO', origen: 'CDMX · Iztapalapa' },
 ] as const;
 
 export const viajeDetalleWire: Record<string, Json> = {
+  // Forma de contrato `ViajeSeguimiento`: {id, hito, eta, incidencias}. Vista curada
+  // del cliente (DEC-006): sin folio/origen/destino ni tipo interno de incidencia.
   'viaje-1': {
-    ...viajesWire[0],
-    condicionesActivas: [],
-    contratoId: 'contrato-77',
-    rutaId: 'ruta-12',
+    id: 'viaje-1',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito a destino' },
+    eta: { valor: '2026-09-07T18:30:00Z', obsoleto: false },
+    incidencias: [],
   },
   'viaje-2': {
-    ...viajesWire[1],
-    condicionesActivas: [
+    id: 'viaje-2',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito a destino' },
+    eta: { valor: '2026-09-07T16:00:00Z', obsoleto: true },
+    incidencias: [
       {
-        codigo: 'SIN_SENAL',
-        descripcion: 'Sin senal del dispositivo',
-        desde: '2026-09-07T14:20:00Z',
+        categoria: 'Incidencia de seguridad',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-09-07T14:20:00Z',
       },
     ],
-    contratoId: 'contrato-77',
-    rutaId: 'ruta-31',
   },
   'viaje-3': {
-    ...viajesWire[2],
-    condicionesActivas: [],
-    contratoId: 'contrato-90',
-    rutaId: null,
-  },
-  'viaje-6': {
-    ...viajesWire[3],
-    condicionesActivas: [],
-    contratoId: 'contrato-45',
-    rutaId: 'ruta-58',
-  },
-  'viaje-7': {
-    ...viajesWire[4],
-    condicionesActivas: [],
-    contratoId: 'contrato-62',
-    rutaId: 'ruta-71',
-  },
-  'viaje-8': {
-    ...viajesWire[5],
-    condicionesActivas: [],
-    contratoId: 'contrato-83',
-    rutaId: 'ruta-19',
+    id: 'viaje-3',
+    hito: { estado: 'SOLICITADO', etiqueta: 'Servicio solicitado' },
+    eta: null,
+    incidencias: [],
   },
 };
 
+/*
+ * `bitacoraWire` — DESCONECTADO (recorte al contrato): su handler se retiró porque el
+ * contrato bff no define la bitácora. El dato se conserva para cuando se reconecte el
+ * componente de src/_desconectado/bitacora/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ */
 export const bitacoraWire: Record<string, Json> = {
   'viaje-1': [
     { id: 'b-1', ocurrioEn: '2026-09-07T08:15:00Z', descripcion: 'Servicio solicitado' },
@@ -281,6 +199,11 @@ export const mensajesWire: Record<string, MensajeWireMock[]> = {
  * diseno y NO se derivan de `viajesWire`: son agregados de toda la cuenta, no de los
  * tres viajes de ejemplo.
  */
+/*
+ * `panelWire` — DESCONECTADO (recorte al contrato): su handler GET /api/v1/panel se
+ * retiró porque el contrato bff no lo define. Se conserva para cuando se reconecte el
+ * panel de src/_desconectado/panel/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ */
 export function panelWire(): Json {
   const now = Date.now();
   const minutesAgo = (minutes: number): string => new Date(now - minutes * 60_000).toISOString();
@@ -315,10 +238,10 @@ export function panelWire(): Json {
     viajes_en_curso: [
       {
         viaje_id: 'viaje-1',
-        folio: viajesWire[0].folio,
-        origen: viajesWire[0].origen,
-        destino: viajesWire[0].destino,
-        estado: viajesWire[0].estado,
+        folio: 'AI27-000101',
+        origen: 'CDMX · Vallejo',
+        destino: 'Queretaro · Parque Industrial',
+        estado: 'EN_TRANSITO',
         condiciones_activas: [],
         eta: {
           estado: 'presente',
@@ -328,10 +251,10 @@ export function panelWire(): Json {
       },
       {
         viaje_id: 'viaje-2',
-        folio: viajesWire[1].folio,
-        origen: viajesWire[1].origen,
-        destino: viajesWire[1].destino,
-        estado: viajesWire[1].estado,
+        folio: 'AI27-000102',
+        origen: 'Guadalajara · El Salto',
+        destino: 'Leon · Zona Franca',
+        estado: 'EN_TRANSITO',
         condiciones_activas: [
           {
             codigo: 'RETRASADO',
@@ -347,10 +270,10 @@ export function panelWire(): Json {
       },
       {
         viaje_id: 'viaje-3',
-        folio: viajesWire[2].folio,
-        origen: viajesWire[2].origen,
-        destino: viajesWire[2].destino,
-        estado: viajesWire[2].estado,
+        folio: 'AI27-000103',
+        origen: 'Monterrey · Apodaca',
+        destino: 'Saltillo · Derramadero',
+        estado: 'SOLICITADO',
         condiciones_activas: [],
         // Nunca hubo ETA. No es lo mismo que no poder calcularlo ahora.
         eta: null,
@@ -390,7 +313,7 @@ export function panelWire(): Json {
         id: 'notif-1',
         severidad: 'critica',
         titulo: 'Desvío de ruta detectado',
-        cuerpo: `La unidad del viaje ${viajesWire[1].folio} salió de la geocerca en un tramo peligroso.`,
+        cuerpo: 'La unidad del viaje AI27-000102 salió de la geocerca en un tramo peligroso.',
         ocurrio_en: minutesAgo(2),
       },
       {

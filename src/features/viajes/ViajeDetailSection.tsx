@@ -1,71 +1,84 @@
 /*
  * ViajeDetailSection. Presentacional.
  *
- * Muestra el estado de progreso MAS las condiciones activas superpuestas (§C.2). Son
- * dos cosas distintas y se pintan por separado a proposito: una condicion activa no
- * sustituye al estado, se le superpone.
+ * Reconstruido sobre `ViajeSeguimiento` del contrato `bff` (recorte al contrato): la
+ * vista del cliente es CURADA (DEC-006). Muestra el hito de progreso, el ETA estimado
+ * con su marca de obsolescencia, y las incidencias curadas (categoría + estado +
+ * marca de tiempo), nunca el tipo interno de incidencia.
+ *
+ * Lo que el contrato NO expone aquí y por eso ya no se pinta: folio, origen, destino,
+ * fecha de solicitud y "condiciones activas". Volverán si el contrato los publica.
+ * Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
 
-import { Link } from '@tanstack/react-router';
-import type { ViajeDetalle } from '@/lib/contracts';
+import type { EstadoViaje, ViajeSeguimiento } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
 import { EstadoViajeChip } from './EstadoViajeChip';
 
-export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeDetalle }) {
+export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento }) {
+  const { hito, eta, incidencias } = viaje;
+
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-on-surface text-xl font-semibold">Viaje {viaje.folio}</h1>
-        <EstadoViajeChip estado={viaje.estado} condicionesActivas={viaje.condicionesActivas} />
+        <h1 className="text-on-surface text-xl font-semibold">Viaje {viaje.id}</h1>
+        {/* El estado del hito es un token del enum del contrato (ADR 19). */}
+        <EstadoViajeChip estado={hito.estado as EstadoViaje} />
       </header>
 
       <dl className="grid gap-4 sm:grid-cols-2">
+        {hito.etiqueta !== undefined && (
+          <div>
+            <dt className="text-on-surface-variant text-xs font-medium">Hito</dt>
+            <dd className="text-on-surface text-sm">{hito.etiqueta}</dd>
+          </div>
+        )}
         <div>
-          <dt className="text-on-surface-variant text-xs font-medium">Origen</dt>
-          <dd className="text-on-surface text-sm">{viaje.origen}</dd>
-        </div>
-        <div>
-          <dt className="text-on-surface-variant text-xs font-medium">Destino</dt>
-          <dd className="text-on-surface text-sm">{viaje.destino}</dd>
-        </div>
-        <div>
-          <dt className="text-on-surface-variant text-xs font-medium">Solicitado</dt>
-          <dd className="text-on-surface text-sm">{formatDateTime(viaje.solicitadoEn)}</dd>
+          <dt className="text-on-surface-variant text-xs font-medium">ETA estimado</dt>
+          <dd className="text-on-surface text-sm">
+            {eta === undefined || eta === null ? (
+              <span className="text-on-surface-variant">Sin ETA</span>
+            ) : (
+              <>
+                {formatDateTime(eta.valor)}
+                {eta.obsoleto && (
+                  <span className="text-degradado-800 ml-2 text-xs">(obsoleto)</span>
+                )}
+              </>
+            )}
+          </dd>
         </div>
       </dl>
 
-      {viaje.condicionesActivas.length > 0 && (
-        <section aria-labelledby="condiciones">
-          <h2 id="condiciones" className="mb-2 text-sm font-semibold">
-            Condiciones activas
-          </h2>
+      <section aria-labelledby="incidencias">
+        <h2 id="incidencias" className="mb-2 text-sm font-semibold">
+          Incidencias
+        </h2>
+        {incidencias.length === 0 ? (
+          <p className="text-on-surface-variant text-sm">Sin incidencias reportadas.</p>
+        ) : (
           <ul className="flex flex-col gap-2">
-            {viaje.condicionesActivas.map((condicion) => (
+            {incidencias.map((incidencia, i) => (
               <li
-                key={condicion.codigo}
+                key={`${incidencia.categoria}-${i}`}
                 className="bg-degradado-50 text-degradado-800 rounded-md px-3 py-2 text-sm"
               >
-                <span className="font-medium">{condicion.descripcion}</span>{' '}
-                <span className="text-xs">desde {formatDateTime(condicion.desde)}</span>
+                <span className="font-medium">{incidencia.categoria}</span>{' '}
+                <span className="text-xs">
+                  · {incidencia.estado === 'en_atencion' ? 'En atención' : 'Resuelta'} ·{' '}
+                  {formatDateTime(incidencia.marca_tiempo)}
+                </span>
               </li>
             ))}
           </ul>
-        </section>
-      )}
+        )}
+      </section>
 
       {/*
-        El enlace "Seguimiento en vivo" se retiro con la superficie de tracking V2
-        (E9-T10 / F-06): la ruta /viajes/$viajeId/seguimiento ya no existe en V1.
+        El enlace a "Bitacora" se desconectó con el recorte al contrato: la ruta
+        /viajes/$viajeId/bitacora se retiró del enrutado (el contrato bff no define
+        la bitácora). El componente se conserva en src/_desconectado/bitacora/.
       */}
-      <nav className="flex gap-3 text-sm">
-        <Link
-          to="/viajes/$viajeId/bitacora"
-          params={{ viajeId: viaje.id }}
-          className="text-brand-700 hover:underline"
-        >
-          Bitacora
-        </Link>
-      </nav>
     </div>
   );
 }

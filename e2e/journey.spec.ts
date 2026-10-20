@@ -41,7 +41,11 @@ test.describe('sesion', () => {
  * se sigue cubriendo en la prueba unitaria de FreshnessMark.
  */
 
-test.describe('conversacion · orden por secuencia de dominio', () => {
+// DESCONECTADO (recorte al contrato): las rutas /conversaciones se retiraron porque el
+// contrato bff no expone conversación al cliente (mensajeria.yaml es superficie interna).
+// La feature se conservó en src/_desconectado/conversacion/. Reconectar estas pruebas al
+// recrear las rutas. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+test.describe.skip('conversacion · orden por secuencia de dominio', () => {
   test('ordena por secuencia de dominio y no por orden de llegada', async ({ page }) => {
     await login(page);
     await page.goto('/conversaciones/conv-1');
@@ -74,36 +78,40 @@ test.describe('conversacion · orden por secuencia de dominio', () => {
 });
 
 test.describe('viajes', () => {
-  test('el detalle muestra las condiciones activas superpuestas al estado', async ({ page }) => {
+  test('el detalle muestra el seguimiento curado: hito, ETA e incidencias', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/viaje-2');
 
-    await expect(page.getByRole('heading', { name: /AI27-000102/ })).toBeVisible();
-    // Una condicion activa MANDA sobre el estado: `EstadoViajeChip` pinta la
-    // descripcion de la condicion en lugar de la etiqueta del estado (ver el propio
-    // componente). Por eso en el chip se ve "Sin senal del dispositivo" y no "EN_RUTA".
-    // La condicion aparece ademas en la seccion "Condiciones activas" del detalle.
-    await expect(page.getByText(/Sin senal del dispositivo/i).first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Condiciones activas' })).toBeVisible();
+    // Recorte al contrato: el detalle es la vista curada `ViajeSeguimiento` (DEC-006).
+    // El encabezado usa el id (ya no el folio, que no está en el contrato), y las
+    // incidencias se listan por categoría curada, no por tipo interno.
+    await expect(page.getByRole('heading', { name: 'Viaje viaje-2' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Incidencias' })).toBeVisible();
+    await expect(page.getByText(/Incidencia de seguridad/i)).toBeVisible();
+    // El ETA de viaje-2 está marcado obsoleto.
+    await expect(page.getByText('(obsoleto)')).toBeVisible();
   });
 
-  test('solicitar un servicio abre el asistente en su primer paso', async ({ page }) => {
+  test('solicitar un servicio abre el formulario mínimo de alta', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/new');
 
     /*
-     * El alta de servicio ya no es un formulario unico que POSTea y redirige: es un
-     * asistente de cuatro pasos que NO crea registro (no hay backend). El recorrido
-     * completo —incluida la confirmacion con ID simulado— vive en `solicitud.spec.ts`;
-     * aqui solo se comprueba que la ruta abre el asistente en su primer paso.
+     * Recorte al contrato: el alta es un formulario mínimo con los campos de
+     * `CrearViajeEntrada` (origen, destino, tipo de servicio, fecha). El asistente
+     * rico se conservó desconectado; su recorrido vive en pruebas unitarias.
      */
     await expect(
       page.getByRole('heading', { name: 'Solicitar nuevo servicio', level: 1 }),
     ).toBeVisible();
-    await expect(page.getByRole('radio', { name: /Monitoreo Activo/ })).toBeVisible();
+    await expect(page.getByLabel('Origen')).toBeVisible();
+    await expect(page.getByLabel('Destino')).toBeVisible();
   });
 
-  test('la bitacora visible al cliente se lista', async ({ page }) => {
+  // DESCONECTADO (recorte al contrato): la ruta /viajes/$viajeId/bitacora se retiró
+  // porque el contrato bff no define la bitácora. El componente se conserva en
+  // src/_desconectado/bitacora/. Reconectar esta prueba al recrear la ruta.
+  test.skip('la bitacora visible al cliente se lista', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/viaje-1/bitacora');
 
