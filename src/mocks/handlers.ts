@@ -27,6 +27,7 @@ import {
   conversacionesWire,
   mensajesWire,
   panelWire,
+  sesionWire,
   viajeDetalleWire,
   viajesWire,
 } from './data';
@@ -39,9 +40,9 @@ export const handlers = [
   http.post('*/api/v1/sesion', async ({ request }) => {
     await delay(LATENCY_MS);
 
-    const body = (await request.json()) as { usuario?: string; password?: string };
+    const body = (await request.json()) as { usuario?: string; contrasena?: string };
 
-    if (body.usuario !== DEV_USER.usuario || body.password !== DEV_USER.password) {
+    if (body.usuario !== DEV_USER.usuario || body.contrasena !== DEV_USER.contrasena) {
       /*
        * 401, no 404. La app distingue "credenciales invalidas" de "el servicio no
        * esta", y devolver el codigo correcto es lo que permite comprobar que esa
@@ -50,21 +51,12 @@ export const handlers = [
       return HttpResponse.json({ error: 'credenciales invalidas' }, { status: 401 });
     }
 
-    return HttpResponse.json({
-      access_token: 'mock.jwt.no-firmado',
-      // Vida corta a proposito: hace visible el bucle de refresco de SessionContext.
-      expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
-      requiere_segundo_factor: false,
-    });
+    return HttpResponse.json(sesionWire());
   }),
 
   http.post('*/api/v1/sesion/refresh', async () => {
     await delay(LATENCY_MS);
-    return HttpResponse.json({
-      access_token: 'mock.jwt.no-firmado.refrescado',
-      expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
-      requiere_segundo_factor: false,
-    });
+    return HttpResponse.json({ ...sesionWire(), access_token: 'mock.jwt.no-firmado.refrescado' });
   }),
 
   http.delete('*/api/v1/sesion', async () => {

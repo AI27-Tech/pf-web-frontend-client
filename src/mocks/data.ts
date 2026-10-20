@@ -21,10 +21,26 @@
  * `prototipos-v2/seguimiento-vivo/`.
  */
 
+import type { components } from '@ai27-tech/contracts/openapi/bff';
+
 export const DEV_USER = {
   usuario: 'cliente@demo.ai27',
-  password: 'demo1234',
+  contrasena: 'demo1234',
 } as const;
+
+/**
+ * Respuesta de sesion en FORMA DE CONTRATO. Tipada contra el `Sesion` generado del
+ * tracer: si el contrato renombra o quita un campo, este builder deja de compilar.
+ * Es la pieza que ata el mock al contrato (contract test en tests/contracts/sesion).
+ */
+export function sesionWire(): components['schemas']['Sesion'] {
+  return {
+    sesion_id: 'ses-mock-1',
+    access_token: 'mock.jwt.no-firmado',
+    // Vida corta a proposito: hace visible el bucle de refresco de SessionContext.
+    expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
+  };
+}
 
 /** Valor JSON. Los mocks devuelven JSON crudo, no modelos de la app. */
 export type Json = string | number | boolean | null | Json[] | { readonly [key: string]: Json };
