@@ -68,11 +68,6 @@ export const viajesWire = [
   { id: 'viaje-6', estado: 'CERRADO', origen: 'Puebla · Parque Vw' },
   { id: 'viaje-7', estado: 'CANCELADO', origen: 'Tijuana · Otay' },
   { id: 'viaje-8', estado: 'CERRADO', origen: 'CDMX · Iztapalapa' },
-  // Viajes de ejemplo para la prueba manual de la vista de incidencias curadas
-  // (E9-T6): cubren los estados que `viaje-1/2/3` no muestran (resuelta, varias,
-  // impacto en el ETA). Ver viajeDetalleWire más abajo.
-  { id: 'viaje-9', estado: 'EN_TRANSITO', origen: 'Veracruz · Puerto' },
-  { id: 'viaje-10', estado: 'EN_DESTINO', origen: 'Querétaro · El Marqués' },
 ] as const;
 
 export const viajeDetalleWire: Record<string, Json> = {
@@ -102,6 +97,10 @@ export const viajeDetalleWire: Record<string, Json> = {
     eta: null,
     incidencias: [],
   },
+  // viaje-9 y viaje-10 son SOLO de detalle (no están en `viajesWire`, así que no
+  // aparecen en el historial ni alteran su paginación): se alcanzan por URL directa
+  // (/viajes/viaje-9, /viajes/viaje-10) para la prueba manual de E9-T6.
+  //
   // viaje-9: VARIAS incidencias, incluyendo una RESUELTA y una con IMPACTO EN EL ETA.
   // Cubre de un tiro tres de los cinco estados del ticket E9-T6. Las categorías son
   // las cinco CURADAS (DEC-006); nunca el tipo interno. `impacto_eta` es opcional en
