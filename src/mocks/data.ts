@@ -68,6 +68,11 @@ export const viajesWire = [
   { id: 'viaje-6', estado: 'CERRADO', origen: 'Puebla · Parque Vw' },
   { id: 'viaje-7', estado: 'CANCELADO', origen: 'Tijuana · Otay' },
   { id: 'viaje-8', estado: 'CERRADO', origen: 'CDMX · Iztapalapa' },
+  // Viajes de ejemplo para la prueba manual de la vista de incidencias curadas
+  // (E9-T6): cubren los estados que `viaje-1/2/3` no muestran (resuelta, varias,
+  // impacto en el ETA). Ver viajeDetalleWire más abajo.
+  { id: 'viaje-9', estado: 'EN_TRANSITO', origen: 'Veracruz · Puerto' },
+  { id: 'viaje-10', estado: 'EN_DESTINO', origen: 'Querétaro · El Marqués' },
 ] as const;
 
 export const viajeDetalleWire: Record<string, Json> = {
@@ -96,6 +101,47 @@ export const viajeDetalleWire: Record<string, Json> = {
     hito: { estado: 'SOLICITADO', etiqueta: 'Servicio solicitado' },
     eta: null,
     incidencias: [],
+  },
+  // viaje-9: VARIAS incidencias, incluyendo una RESUELTA y una con IMPACTO EN EL ETA.
+  // Cubre de un tiro tres de los cinco estados del ticket E9-T6. Las categorías son
+  // las cinco CURADAS (DEC-006); nunca el tipo interno. `impacto_eta` es opcional en
+  // el contrato: el portal lo pinta solo cuando viene (aquí, "+45 min").
+  'viaje-9': {
+    id: 'viaje-9',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito a destino' },
+    eta: { valor: '2026-10-23T20:00:00Z', obsoleto: false },
+    incidencias: [
+      {
+        categoria: 'Retraso/desvío en ruta',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-10-23T15:30:00Z',
+        impacto_eta: '+45 min',
+      },
+      {
+        categoria: 'Falla mecánica/de equipo',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-23T16:00:00Z',
+      },
+      {
+        categoria: 'Pérdida de contacto',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-10-23T17:10:00Z',
+      },
+    ],
+  },
+  // viaje-10: UNA sola incidencia RESUELTA, sin impacto en el ETA. Aísla el caso
+  // "resuelta" (y confirma que sin `impacto_eta` no se pinta la línea de impacto).
+  'viaje-10': {
+    id: 'viaje-10',
+    hito: { estado: 'EN_DESTINO', etiqueta: 'En destino' },
+    eta: { valor: '2026-10-23T12:00:00Z', obsoleto: true },
+    incidencias: [
+      {
+        categoria: 'Accidente/percance',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-23T09:15:00Z',
+      },
+    ],
   },
 };
 
