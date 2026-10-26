@@ -97,6 +97,51 @@ export const viajeDetalleWire: Record<string, Json> = {
     eta: null,
     incidencias: [],
   },
+  // viaje-9 y viaje-10 son SOLO de detalle (no están en `viajesWire`, así que no
+  // aparecen en el historial ni alteran su paginación): se alcanzan por URL directa
+  // (/viajes/viaje-9, /viajes/viaje-10) para la prueba manual de E9-T6.
+  //
+  // viaje-9: VARIAS incidencias, incluyendo una RESUELTA y una con IMPACTO EN EL ETA.
+  // Cubre de un tiro tres de los cinco estados del ticket E9-T6. Las categorías son
+  // las cinco CURADAS (DEC-006); nunca el tipo interno. `impacto_eta` es opcional en
+  // el contrato: el portal lo pinta solo cuando viene (aquí, "+45 min").
+  'viaje-9': {
+    id: 'viaje-9',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito a destino' },
+    eta: { valor: '2026-10-23T20:00:00Z', obsoleto: false },
+    incidencias: [
+      {
+        categoria: 'Retraso/desvío en ruta',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-10-23T15:30:00Z',
+        impacto_eta: '+45 min',
+      },
+      {
+        categoria: 'Falla mecánica/de equipo',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-23T16:00:00Z',
+      },
+      {
+        categoria: 'Pérdida de contacto',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-10-23T17:10:00Z',
+      },
+    ],
+  },
+  // viaje-10: UNA sola incidencia RESUELTA, sin impacto en el ETA. Aísla el caso
+  // "resuelta" (y confirma que sin `impacto_eta` no se pinta la línea de impacto).
+  'viaje-10': {
+    id: 'viaje-10',
+    hito: { estado: 'EN_DESTINO', etiqueta: 'En destino' },
+    eta: { valor: '2026-10-23T12:00:00Z', obsoleto: true },
+    incidencias: [
+      {
+        categoria: 'Accidente/percance',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-23T09:15:00Z',
+      },
+    ],
+  },
 };
 
 /*

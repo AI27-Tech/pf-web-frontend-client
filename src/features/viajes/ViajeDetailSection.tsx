@@ -4,7 +4,8 @@
  * Reconstruido sobre `ViajeSeguimiento` del contrato `bff` (recorte al contrato): la
  * vista del cliente es CURADA (DEC-006). Muestra el hito de progreso, el ETA estimado
  * con su marca de obsolescencia, y las incidencias curadas (categoría + estado +
- * marca de tiempo), nunca el tipo interno de incidencia.
+ * marca de tiempo, y el impacto en el ETA si el contrato lo trae), nunca el tipo
+ * interno de incidencia.
  *
  * Lo que el contrato NO expone aquí y por eso ya no se pinta: folio, origen, destino,
  * fecha de solicitud y "condiciones activas". Volverán si el contrato los publica.
@@ -68,6 +69,12 @@ export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento
                   · {incidencia.estado === 'en_atencion' ? 'En atención' : 'Resuelta'} ·{' '}
                   {formatDateTime(incidencia.marca_tiempo)}
                 </span>
+                {/* impacto_eta es opcional y nullable en el contrato.*/}
+                {incidencia.impacto_eta !== undefined && incidencia.impacto_eta !== null && (
+                  <span className="mt-1 block text-xs">
+                    Impacto en el ETA: {incidencia.impacto_eta}
+                  </span>
+                )}
               </li>
             ))}
           </ul>

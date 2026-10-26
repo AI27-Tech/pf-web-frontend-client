@@ -4,6 +4,30 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:26 12:02
+
+**Resumen:** Se **cerró con pruebas la vista de incidencias curadas del viaje para el cliente** (E9-T6, AI27-93). La vista ya estaba implementada en `ViajeDetailSection.tsx` sobre `ViajeSeguimiento.incidencias` (contrato `bff`); este trabajo la verifica y la deja probada, sin reescribirla. Se confirmó que el portal solo consume los campos curados del contrato (`categoria`, `estado`, `marca_tiempo`) y que `estado` se traduce únicamente a «En atención»/«Resuelta». Se decidió **renderizar `impacto_eta`** (opcional y nullable en el contrato) de forma mínima: se muestra solo si el `bff` lo trae y se omite por completo cuando es `null` o ausente, sin texto de relleno. El mapeo tipo interno → categoría **sigue viviendo en el `bff`** (`internal/tracking/incidencias.go`), no se trajo al portal (DEC-006). `typecheck`, `lint` y `test` (21 archivos, 133 pruebas) en verde.
+
+**Estados cubiertos por las pruebas (`tests/viajes/ViajeDetailSection.test.tsx`, nuevo):**
+
+- Sin incidencias: estado vacío «Sin incidencias reportadas.» y ninguna lista.
+- Una incidencia en atención: categoría + «En atención» + fecha.
+- Una incidencia resuelta: estado traducido a «Resuelta».
+- Varias incidencias: una entrada por cada una, en orden.
+- Incidencia con impacto en el ETA: se muestra «Impacto en el ETA: …» cuando el contrato lo trae; se omite si es `null`/ausente.
+- **Invariante de seguridad (DEC-006):** dado un seguimiento con incidencias de las cinco categorías curadas, el DOM nunca contiene ningún nombre técnico interno del catálogo (p. ej. «Asalto o Robo», «Intercepción de custodia», «Sabotaje GPS»); solo aparecen las cinco categorías curadas. Fixtures con forma de contrato.
+
+**Cambios:**
+
+- `src/features/viajes/ViajeDetailSection.tsx`: render mínimo de `impacto_eta` por incidencia (se pinta solo si viene y no es `null`); comentario de por qué el `bff` hoy lo deja `nil`. Se actualizó el docblock de cabecera. No se tocó el consumo de campos ni los wrappers de `lib/api/`.
+- `tests/viajes/ViajeDetailSection.test.tsx` (nuevo): 7 pruebas unitarias (Vitest + Testing Library) con fixtures `ViajeSeguimiento`/`IncidenciaCurada` del barrel `@/lib/contracts`.
+
+**Archivos modificados:**
+
+- `src/features/viajes/ViajeDetailSection.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `CHANGELOG.md`
+
+**Señalado (no se tocó):** el catálogo interno y su mapeo no se trajeron al portal (DEC-006); `src/_desconectado/` quedó intacto; el contrato y los wrappers de `lib/api/` no se modificaron. Mientras el `bff` deje `impacto_eta` en `nil`, la línea de impacto no se pinta en producción; la rama queda cubierta por prueba para cuando el contrato lo publique.
+
 ## 2026:10:20 12:00
 
 **Resumen:** Se **reestructuró el portal cliente para apegarse al contrato `bff`** (`@ai27-tech/contracts`, `v0.1.0-tracer.11`), como ampliación de alcance de **E8-T3** ("el sistema crece conforme al contrato, no al revés"). La sesión y los roles pasan a los tipos generados; las pantallas de viaje se recortan a su versión mínima funcional según lo que el contrato define; y lo que el contrato aún no modela (bitácora, conversación, panel de control, asistente de solicitud completo) se **desconecta sin borrarse**, conservado en `src/_desconectado/` con tipos locales y pruebas, para reconectarlo cuando el contrato crezca. El barrel `lib/contracts/` queda solo con lo que el `bff` define más utilidades de UI. `typecheck`, `lint` y `test` (20 archivos, 126 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (conversación y panel desconectados, más tema oscuro preexistente); `build:mock` compila.
