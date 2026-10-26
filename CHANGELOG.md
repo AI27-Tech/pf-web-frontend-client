@@ -4,6 +4,31 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:26 15:42
+
+**Resumen:** Se **agregó el polling HTTP del detalle/seguimiento del viaje** (E9-T5, AI27-24), que cumple ADR 27: el seguimiento V1 (hito + ETA estimado + incidencias curadas) se refresca por **pull inicial + polling periódico** mientras la vista está abierta, sin SSE. Antes el detalle se cargaba **una sola vez** en el `loader` de la ruta. Ahora el `loader` se conserva como **lectura inicial y puerta del primer fallo** (lo sigue cubriendo el `errorComponent` a pantalla completa), y el componente consume el detalle por **`useQuery`** con `refetchInterval`, sembrando su caché con el dato del `loader` (`initialData`). No se tocó la forma de `ViajeSeguimiento` ni el `bff`; `ViajeDetailSection` sigue siendo presentacional. `typecheck`, `lint` y `test` (22 archivos, 139 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (preexistentes).
+
+**Decisiones de patrón (y por qué):**
+
+- **`loader` + `useQuery` con `initialData`, no `ensureQueryData`.** El `router` no inyecta el `QueryClient` en su `context` (se crea dentro de `Providers`, uno por montaje), así que un `loader` no tiene acceso al `QueryClient` compartido para precargar la caché. El patrón coherente con el repo es: el `loader` hace la lectura inicial (gatea el primer render y su error), y `useQuery` toma ese resultado como `initialData` y a partir de ahí **posee** el polling. Así el primer fallo de carga sigue siendo del `errorComponent`, y los fallos posteriores del polling no.
+- **La cadencia es configuración, no contrato (ADR 27 §3).** Se añadió `VIAJE_POLLING_INTERVAL_MS` en `src/lib/constants.ts` con comentario explícito de que es **ajustable y no es criterio Pass/Fail**; los 5 s del scaffold V2 no se adoptaron.
+- **El polling corre solo mientras la ruta está montada** (comportamiento natural de `useQuery`: el intervalo se detiene al desmontar). `refetchIntervalInBackground` queda en su valor por defecto (`false`): si la pestaña no está visible, el poll de fondo se pausa y se reanuda al volver, sin gastar lecturas `bff → operacion`.
+- **Un refetch fallido no tira la pantalla.** TanStack Query conserva el último `data` bueno ante un refetch de fondo que falla y expone el fallo aparte (`isError`); el ETA ya trae su propia marca `obsoleto` en el contrato, así que no se forzó `Fresco<T>` donde el dato ya modela su frescura.
+
+**Cambios:**
+
+- `src/lib/constants.ts`: nueva constante `VIAJE_POLLING_INTERVAL_MS` (cadencia del polling de ADR 27) con nota de que es ajustable y no contrato.
+- `src/features/viajes/useViajeSeguimiento.ts` (nuevo): hook `useQuery` dueño del estado de servidor del detalle. Clave `['viaje', viajeId]` (helper `viajeQueryKey`), `queryFn = getViaje` con `AbortSignal`, `initialData` del `loader`, `refetchInterval = VIAJE_POLLING_INTERVAL_MS`.
+- `src/routes/_private/viajes/$viajeId/index.tsx`: el `loader` se mantiene (lectura inicial + `errorComponent` del primer fallo); el componente pasa a `useViajeSeguimiento(viajeId, Route.useLoaderData())`.
+- `tests/viajes/ViajeDetailSection.test.tsx`: +3 pruebas de **frescura del ETA** (presente al día; presente pero obsoleto → marca «(obsoleto)», no se oculta; ausente → «Sin ETA»).
+- `tests/viajes/useViajeSeguimiento.test.tsx` (nuevo): 3 pruebas de comportamiento del polling (no refetch al montar con `initialData` + `staleTime`; el polling corre y se repite cada intervalo con timers falsos; un refetch fallido conserva el último dato bueno y marca el fallo aparte, afirmado contra la caché del `QueryClient`).
+
+**Archivos modificados:**
+
+- `src/lib/constants.ts` · `src/features/viajes/useViajeSeguimiento.ts` · `src/routes/_private/viajes/$viajeId/index.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `tests/viajes/useViajeSeguimiento.test.tsx` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se abrió SSE ni se tocó `prototipos-v2/seguimiento-vivo/` (seguimiento vivo es V2); no se inventó marcador de posición, señal ni ETA continua (DEC-001); no se cambió la forma de `ViajeSeguimiento` ni el `bff`; el `errorComponent` de la ruta sigue cubriendo el primer fallo de carga.
+
 ## 2026:10:26 12:02
 
 **Resumen:** Se **cerró con pruebas la vista de incidencias curadas del viaje para el cliente** (E9-T6, AI27-93). La vista ya estaba implementada en `ViajeDetailSection.tsx` sobre `ViajeSeguimiento.incidencias` (contrato `bff`); este trabajo la verifica y la deja probada, sin reescribirla. Se confirmó que el portal solo consume los campos curados del contrato (`categoria`, `estado`, `marca_tiempo`) y que `estado` se traduce únicamente a «En atención»/«Resuelta». Se decidió **renderizar `impacto_eta`** (opcional y nullable en el contrato) de forma mínima: se muestra solo si el `bff` lo trae y se omite por completo cuando es `null` o ausente, sin texto de relleno. El mapeo tipo interno → categoría **sigue viviendo en el `bff`** (`internal/tracking/incidencias.go`), no se trajo al portal (DEC-006). `typecheck`, `lint` y `test` (21 archivos, 133 pruebas) en verde.

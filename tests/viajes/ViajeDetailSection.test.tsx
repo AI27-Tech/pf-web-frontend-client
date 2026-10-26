@@ -62,6 +62,16 @@ function seguimiento(incidencias: readonly IncidenciaCurada[]): ViajeSeguimiento
   };
 }
 
+/** Igual que `seguimiento`, pero deja fijar la forma del ETA (presente/obsoleto/ausente). */
+function seguimientoConEta(eta: NonNullable<ViajeSeguimiento['eta']> | null): ViajeSeguimiento {
+  return {
+    id: 'viaje-1',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito' },
+    eta,
+    incidencias: [],
+  };
+}
+
 describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
   it('sin incidencias: muestra el estado vacío y ninguna entrada', () => {
     render(<ViajeDetailSection viaje={seguimiento([])} />);
@@ -228,5 +238,49 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
         within(lista).getByText(new RegExp(categoria.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&'))),
       ).toBeInTheDocument();
     }
+  });
+});
+
+/*
+ * Frescura del ETA estimado (E9-T5, AI27-24).
+ *
+ * El seguimiento V1 muestra el ETA como ESTIMADO, no en vivo (ADR 20/27): lo fija el
+ * monitorista a mano. Su frescura viaja en el propio contrato —`eta.obsoleto`— y la
+ * vista la refleja en tres variantes: presente al día, presente pero obsoleto (se
+ * marca, no se oculta), y ausente (sin ETA). El polling de E9-T5 solo cambia cada
+ * cuánto llega este dato; la forma de pintarlo es la que se fija aquí.
+ */
+describe('ViajeDetailSection — frescura del ETA (E9-T5)', () => {
+  it('ETA presente y al día: muestra la fecha sin la marca de obsolescencia', () => {
+    render(
+      <ViajeDetailSection
+        viaje={seguimientoConEta({ valor: '2026-10-23T18:00:00Z', obsoleto: false })}
+      />,
+    );
+
+    const grupo = screen.getByText('ETA estimado').closest('div') as HTMLElement;
+    expect(within(grupo).queryByText('(obsoleto)')).not.toBeInTheDocument();
+    expect(within(grupo).queryByText('Sin ETA')).not.toBeInTheDocument();
+  });
+
+  it('ETA presente pero obsoleto: conserva la fecha y añade la marca "(obsoleto)"', () => {
+    render(
+      <ViajeDetailSection
+        viaje={seguimientoConEta({ valor: '2026-10-23T18:00:00Z', obsoleto: true })}
+      />,
+    );
+
+    const grupo = screen.getByText('ETA estimado').closest('div') as HTMLElement;
+    // No se oculta el dato viejo: se etiqueta. Esa es la invariante de ADR 20/27.
+    expect(within(grupo).getByText('(obsoleto)')).toBeInTheDocument();
+    expect(within(grupo).queryByText('Sin ETA')).not.toBeInTheDocument();
+  });
+
+  it('ETA ausente (null): muestra "Sin ETA" y no inventa marca ni posición', () => {
+    render(<ViajeDetailSection viaje={seguimientoConEta(null)} />);
+
+    const grupo = screen.getByText('ETA estimado').closest('div') as HTMLElement;
+    expect(within(grupo).getByText('Sin ETA')).toBeInTheDocument();
+    expect(within(grupo).queryByText('(obsoleto)')).not.toBeInTheDocument();
   });
 });
