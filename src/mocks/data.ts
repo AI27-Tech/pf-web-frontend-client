@@ -37,7 +37,8 @@ export function sesionWire(): components['schemas']['Sesion'] {
   return {
     sesion_id: 'ses-mock-1',
     access_token: 'mock.jwt.no-firmado',
-    // Vida corta a proposito: hace visible el bucle de refresco de SessionContext.
+    refresh_token: 'mock.refresh-1',
+    // Vida corta a propósito: hace visible el bucle de refresco de SessionContext.
     expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
   };
 }

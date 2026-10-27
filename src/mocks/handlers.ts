@@ -44,8 +44,18 @@ export const handlers = [
     return HttpResponse.json(sesionWire());
   }),
 
-  http.post('*/api/v1/sesion/refresh', async () => {
+  http.post('*/api/v1/sesion/refresh', async ({ request }) => {
     await delay(LATENCY_MS);
+    if (
+      request.headers.get('x-mock-session-cut') === '1' ||
+      request.headers.get('cookie')?.includes('ai27-mock-session-cut=1')
+    ) {
+      return HttpResponse.json({ detail: 'Sesión revocada' }, { status: 401 });
+    }
+    const body = (await request.json()) as { refresh_token?: string };
+    if (body.refresh_token !== 'mock.refresh-1') {
+      return HttpResponse.json({ detail: 'refresh_token requerido' }, { status: 401 });
+    }
     return HttpResponse.json({ ...sesionWire(), access_token: 'mock.jwt.no-firmado.refrescado' });
   }),
 
@@ -60,8 +70,14 @@ export const handlers = [
   // src/_desconectado/panel/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 
   // --- Viajes -------------------------------------------------------------------
-  http.get('*/api/v1/viajes', async () => {
+  http.get('*/api/v1/viajes', async ({ request }) => {
     await delay(LATENCY_MS);
+    if (
+      request.headers.get('x-mock-session-cut') === '1' ||
+      request.headers.get('cookie')?.includes('ai27-mock-session-cut=1')
+    ) {
+      return HttpResponse.json({ detail: 'Sesión finalizada' }, { status: 401 });
+    }
     return HttpResponse.json(viajesWire);
   }),
 
