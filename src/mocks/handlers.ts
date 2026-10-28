@@ -44,8 +44,18 @@ export const handlers = [
     return HttpResponse.json(sesionWire());
   }),
 
-  http.post('*/api/v1/sesion/refresh', async () => {
+  http.post('*/api/v1/sesion/refresh', async ({ request }) => {
     await delay(LATENCY_MS);
+    if (
+      request.headers.get('x-mock-session-cut') === '1' ||
+      request.headers.get('cookie')?.includes('ai27-mock-session-cut=1')
+    ) {
+      return HttpResponse.json({ detail: 'Sesión revocada' }, { status: 401 });
+    }
+    const body = (await request.json()) as { refresh_token?: string };
+    if (body.refresh_token !== 'mock.refresh-1') {
+      return HttpResponse.json({ detail: 'refresh_token requerido' }, { status: 401 });
+    }
     return HttpResponse.json({ ...sesionWire(), access_token: 'mock.jwt.no-firmado.refrescado' });
   }),
 
@@ -67,6 +77,14 @@ export const handlers = [
   // NO recibe ni filtra por tenant (P9, P10).
   http.get('*/api/v1/viajes', async ({ request }) => {
     await delay(LATENCY_MS);
+    // Corte de sesion revocada (E8-T6): antes de servir datos, una sesion cortada
+    // responde 401, igual que /sesion/refresh.
+    if (
+      request.headers.get('x-mock-session-cut') === '1' ||
+      request.headers.get('cookie')?.includes('ai27-mock-session-cut=1')
+    ) {
+      return HttpResponse.json({ detail: 'Sesión finalizada' }, { status: 401 });
+    }
     const estado = new URL(request.url).searchParams.get('estado');
     const items = estado === null ? viajesWire : viajesWire.filter((v) => v.estado === estado);
     return HttpResponse.json(items);

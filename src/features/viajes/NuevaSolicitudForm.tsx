@@ -10,12 +10,13 @@
  * Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button, Card, CardBody, FormField, Input, Select } from '@ai27-tech/ui';
 import { crearViaje } from '@/lib/api/viajes';
 import type { CrearViajeEntrada, OpcionCatalogo } from '@/lib/contracts';
 import { isApiError } from '@/lib/api/errors';
+import { onCut } from '@/lib/api/sessionCut';
 
 interface NuevaSolicitudFormProps {
   /** Catálogo de tipos de servicio para el select (único catálogo que el contrato usa). */
@@ -32,6 +33,9 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [creado, setCreado] = useState<{ id: string } | null>(null);
+  const [avisoSesionFinalizada, setAvisoSesionFinalizada] = useState(false);
+
+  useEffect(() => onCut(() => setAvisoSesionFinalizada(true)), []);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -100,6 +104,11 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
   return (
     <Card variant="outlined" padding="lg" className="mx-auto w-full max-w-xl">
       <CardBody>
+        {avisoSesionFinalizada && (
+          <p role="alert" className="text-error mb-4 text-sm">
+            Tu sesión finalizó. La información capturada no se envió.
+          </p>
+        )}
         <form onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-4" noValidate>
           <FormField label="Origen" required>
             <Input

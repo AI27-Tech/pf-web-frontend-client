@@ -1,28 +1,23 @@
 /*
  * Taxonomia de errores del front-end.
  *
- * Es la contraparte cliente del modulo de adaptacion de errores de bff (apartado
- * (d)), y su distincion central es esta:
- *
- *   "Un dato ausente por degradacion no es un dato ausente. Un aguas-abajo caido
- *    nunca se presenta como no encontrado."
- *
- * De ahi que `degradado` y `noEncontrado` sean clases distintas y no un mismo
- * "error 4xx". Colapsarlas produce el mapa que miente.
+ * Un aguas-abajo caído (`degradado`) no es un "no encontrado" (`noEncontrado`).
  */
 
 export type ApiErrorKind =
-  /** 401/403. El token no alcanza, o la sesion ya no vale. */
+  /** 401/403. El token no alcanza, o la sesión aún no se ha clasificado como corte. */
   | 'noAutorizado'
-  /** 404 real: el recurso no existe. NUNCA se usa para un aguas-abajo caido. */
+  /** La sesión no pudo recuperarse y el portal ejecutó el corte. */
+  | 'sesionFinalizada'
+  /** 404 real: el recurso no existe. */
   | 'noEncontrado'
-  /** 409: comando obsoleto o carrera perdida. Se muestra, no se reintenta (P20). */
+  /** 409: comando obsoleto o carrera perdida. */
   | 'conflicto'
-  /** 422: el comando no es valido. */
+  /** 422: el comando no es válido. */
   | 'invalido'
-  /** 503/504 y equivalentes: la dependencia no responde. Se degrada, no se miente. */
+  /** 503/504 y equivalentes: la dependencia no responde. */
   | 'degradado'
-  /** Todo lo demas, incluido fallo de red. */
+  /** Todo lo demás, incluido fallo de red. */
   | 'roto';
 
 export class ApiError extends Error {
@@ -38,12 +33,10 @@ export class ApiError extends Error {
     this.detail = detail;
   }
 
-  /** True si el error significa "no lo sabemos ahora", no "no existe". */
   get esDegradacion(): boolean {
     return this.kind === 'degradado';
   }
 
-  /** True si conviene reintentar. Un conflicto NO se reintenta solo (P20). */
   get esReintentable(): boolean {
     return this.kind === 'degradado' || this.kind === 'roto';
   }

@@ -1,19 +1,7 @@
-/*
- * Wrapper base de fetch contra `bff`.
- *
- * bff es la UNICA superficie HTTP de comandos y consultas que este front-end
- * consume: no hablamos con `operacion`, `catalogos`, `mensajeria` ni `identidad`
- * directamente. Si aparece aqui una base URL que no sea la de bff —con la unica
- * excepcion del stream de `realtime`, que tiene su propio modulo— algo se torcio.
- *
- * Lo que este modulo NO hace, deliberadamente:
- *   - No decide autorizacion. El tenant, el rol y la Audiencia se derivan del token
- *     en el servidor; el cliente no los envia ni los interpreta (P10).
- *   - No filtra por audiencia. Si un dato llego, el servidor decidio que podia llegar.
- */
-
 import { API_BASE_URL, API_PREFIX } from '../constants';
 import { ApiError, kindFromStatus } from './errors';
+import { refrescarSesionCoordinado } from './refreshCoordinator';
+import { cortarSesion } from './sessionCut';
 import { tokenStore } from './tokenStore';
 
 export interface RequestOptions {
@@ -21,10 +9,12 @@ export interface RequestOptions {
   readonly body?: unknown;
   readonly query?: Readonly<Record<string, string | number | undefined>>;
   readonly signal?: AbortSignal;
-  /** Clave de idempotencia para comandos. La exige bff en los comandos atomicos. */
+  /** Clave de idempotencia para comandos. La exige bff en los comandos atómicos. */
   readonly idempotencyKey?: string;
-  /** Version esperada del agregado: produce 409 si esta obsoleta (P20). */
+  /** Versión esperada del agregado: produce 409 si está obsoleta (P20). */
   readonly expectedVersion?: number;
+  /** Control interno para limitar el reintento después de un refresco. */
+  readonly _reintentoPostRefresco?: boolean;
 }
 
 function buildUrl(path: string, query?: RequestOptions['query']): string {
@@ -45,6 +35,38 @@ async function readDetail(response: Response): Promise<string | null> {
     return text.length > 0 ? text.slice(0, 500) : null;
   } catch {
     return null;
+  }
+}
+
+function esEndpointDeSesion(path: string, method: RequestOptions['method']): boolean {
+  return path === '/sesion' || (path === '/sesion/refresh' && method === 'POST');
+}
+
+function errorSesionFinalizada(): ApiError {
+  return new ApiError('sesionFinalizada', 'La sesión finalizó.', 401, null);
+}
+
+async function manejar401<T>(path: string, options: RequestOptions): Promise<T> {
+  if (options._reintentoPostRefresco) {
+    cortarSesion();
+    throw errorSesionFinalizada();
+  }
+
+  if (tokenStore.getRefreshToken() === null) {
+    cortarSesion();
+    throw errorSesionFinalizada();
+  }
+
+  try {
+    await refrescarSesionCoordinado();
+    return request<T>(path, { ...options, _reintentoPostRefresco: true });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      cortarSesion();
+      throw errorSesionFinalizada();
+    }
+    // Red y 5xx son degradación transitoria: se propagan sin cortar la sesión.
+    throw error;
   }
 }
 
@@ -69,7 +91,6 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
       ...(signal !== undefined ? { signal } : {}),
     });
   } catch (cause) {
-    // Fallo de red: es degradacion, no "no encontrado".
     throw new ApiError(
       'degradado',
       'No se pudo alcanzar el servicio.',
@@ -78,11 +99,15 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     );
   }
 
+  if (response.status === 401 && !esEndpointDeSesion(path, method)) {
+    return manejar401<T>(path, options);
+  }
+
   if (!response.ok) {
     const detail = await readDetail(response);
     throw new ApiError(
       kindFromStatus(response.status),
-      `${method} ${path} respondio ${response.status}`,
+      `${method} ${path} respondió ${response.status}`,
       response.status,
       detail,
     );
@@ -95,7 +120,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   } catch (cause) {
     throw new ApiError(
       'roto',
-      'La respuesta no es JSON valido.',
+      'La respuesta no es JSON válido.',
       response.status,
       cause instanceof Error ? cause.message : null,
     );
