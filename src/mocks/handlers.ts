@@ -60,9 +60,16 @@ export const handlers = [
   // src/_desconectado/panel/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 
   // --- Viajes -------------------------------------------------------------------
-  http.get('*/api/v1/viajes', async () => {
+  // El filtrado por `estado` es del SERVIDOR (listarViajes acepta `estado` y `cursor`).
+  // El mock imita esa forma: si llega `?estado=X`, devuelve solo los viajes en ese
+  // estado; sin el, devuelve todos del alcance. No imita el `cursor` (V1 recorta la
+  // pagina en cliente todavia). El alcance de tenant lo deriva bff del token: el mock
+  // NO recibe ni filtra por tenant (P9, P10).
+  http.get('*/api/v1/viajes', async ({ request }) => {
     await delay(LATENCY_MS);
-    return HttpResponse.json(viajesWire);
+    const estado = new URL(request.url).searchParams.get('estado');
+    const items = estado === null ? viajesWire : viajesWire.filter((v) => v.estado === estado);
+    return HttpResponse.json(items);
   }),
 
   http.post('*/api/v1/viajes', async ({ request }) => {

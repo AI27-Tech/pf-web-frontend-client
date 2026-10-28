@@ -12,5 +12,11 @@
 
 export { EstadoViaje, ESTADOS_VIAJE, esTerminal } from '@ai27-tech/contracts/estados';
 
+import { ESTADOS_VIAJE, type EstadoViaje } from '@ai27-tech/contracts/estados';
+
 /** Estado inicial de una solicitud de servicio (§C.1, ADR 19). */
 export const ESTADO_INICIAL = 'SOLICITADO' as const;
+
+export function esEstadoViaje(value: unknown): value is EstadoViaje {
+  return typeof value === 'string' && (ESTADOS_VIAJE as readonly string[]).includes(value);
+}

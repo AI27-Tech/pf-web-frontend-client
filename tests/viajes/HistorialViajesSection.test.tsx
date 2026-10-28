@@ -31,11 +31,11 @@ describe('HistorialViajesSection', () => {
     renderConRouter(<HistorialViajesSection viajes={viajes} />);
 
     const titulo = await screen.findByRole('heading', { level: 1 });
-    const filtrar = screen.getByRole('button', { name: 'Filtrar' });
+    const filtroEstado = screen.getByLabelText('Estado');
     const tabla = screen.getByRole('table');
 
-    expect(titulo.compareDocumentPosition(filtrar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(filtrar.compareDocumentPosition(tabla)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(titulo.compareDocumentPosition(filtroEstado)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(filtroEstado.compareDocumentPosition(tabla)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('ya no ofrece el enlace "Solicitar servicio"', async () => {

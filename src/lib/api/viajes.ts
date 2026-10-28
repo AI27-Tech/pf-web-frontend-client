@@ -7,11 +7,29 @@
  */
 
 import { api } from './client';
-import type { CrearViajeEntrada, ViajeSeguimiento } from '../contracts';
+import type { CrearViajeEntrada, EstadoViaje, ViajeSeguimiento } from '../contracts';
 import type { ViajeResumen } from '../contracts';
 
-export async function listViajes(signal?: AbortSignal): Promise<readonly ViajeResumen[]> {
-  return api.get<readonly ViajeResumen[]>('/viajes', signal !== undefined ? { signal } : {});
+/**
+ * Filtro del listado. Hoy el contrato `bff` (listarViajes) solo acepta `estado`
+ * (string) y `cursor`: no hay busqueda de texto ni rango de fechas. Por eso el
+ * filtro es exactamente `estado?`, y nada mas. `tenantId` NO va aqui: el alcance
+ * lo deriva bff del token (P9, P10); mandarlo seria un bug de seguridad.
+ */
+export interface ListViajesFiltro {
+  readonly estado?: EstadoViaje;
+}
+
+export async function listViajes(
+  filtro: ListViajesFiltro = {},
+  signal?: AbortSignal,
+): Promise<readonly ViajeResumen[]> {
+  // `estado` vacio/ausente = todos: no se manda el query param y bff devuelve el
+  // listado completo del alcance. El filtrado lo hace el SERVIDOR, no el navegador.
+  return api.get<readonly ViajeResumen[]>('/viajes', {
+    ...(filtro.estado !== undefined ? { query: { estado: filtro.estado } } : {}),
+    ...(signal !== undefined ? { signal } : {}),
+  });
 }
 
 /** Detalle/seguimiento del viaje: hito, ETA e incidencias curadas (ViajeSeguimiento). */
