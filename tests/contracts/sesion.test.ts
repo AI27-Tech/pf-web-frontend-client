@@ -44,6 +44,25 @@ describe('contrato de sesion (tracer)', () => {
     expect(Object.keys(credenciales).sort()).toEqual(['contrasena', 'usuario']);
   });
 
+  it('CredencialesEntrada admite segundo_factor opcional (TOTP, tracer.20)', () => {
+    // El segundo factor viaja JUNTO a las credenciales en un solo POST /sesion: el
+    // portal no construye tramo propio de OTP (DEC-031/DEC-071). El contrato lo
+    // declara opcional, asi que ambas formas —con y sin codigo— deben tipar.
+    const sinCodigo = {
+      usuario: DEV_USER.usuario,
+      contrasena: DEV_USER.contrasena,
+    } satisfies CredencialesEntrada;
+
+    const conCodigo = {
+      usuario: DEV_USER.usuario,
+      contrasena: DEV_USER.contrasena,
+      segundo_factor: DEV_USER.segundoFactor,
+    } satisfies CredencialesEntrada;
+
+    expect(sinCodigo).toBeTruthy();
+    expect(conCodigo.segundo_factor).toBe('123456');
+  });
+
   it('el refresco usa el refresh_token del contrato', () => {
     const body: RefrescoEntrada = { refresh_token: 'mock.refresh-1' };
     expect(body).toEqual({ refresh_token: 'mock.refresh-1' });

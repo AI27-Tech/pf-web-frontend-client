@@ -6,6 +6,9 @@ test('un 401 no recuperable corta la sesión y lleva al login con mensaje', asyn
   await page.goto('/login?redirect=/viajes');
   await page.getByLabel('Correo electronico empresarial').fill('cliente@demo.ai27');
   await page.getByLabel('Contrasena', { exact: true }).fill('demo1234');
+  // El login exige el segundo factor; sin él, el 401 sería del propio login y nunca se
+  // ejercitaría el corte de sesión, que es lo que esta prueba observa.
+  await page.getByLabel('Codigo de verificacion').fill('123456');
   await page.getByRole('button', { name: 'Iniciar sesion' }).click();
 
   await expect(page).toHaveURL(/\/login\?.*motivo=sesion_finalizada/);

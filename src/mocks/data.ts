@@ -26,6 +26,10 @@ import type { components } from '@ai27-tech/contracts/openapi/bff';
 export const DEV_USER = {
   usuario: 'cliente@demo.ai27',
   contrasena: 'demo1234',
+  // Segundo factor (TOTP) del dev user. En el sistema real lo valida el IdP; el mock
+  // solo exige un codigo conocido para reproducir el camino feliz y, por contraste,
+  // el 401 uniforme ante un codigo ausente o incorrecto (DEC-094).
+  segundoFactor: '123456',
 } as const;
 
 /**

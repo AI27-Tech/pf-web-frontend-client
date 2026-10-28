@@ -30,9 +30,16 @@ export const handlers = [
   http.post('*/api/v1/sesion', async ({ request }) => {
     await delay(LATENCY_MS);
 
-    const body = (await request.json()) as { usuario?: string; contrasena?: string };
+    const body = (await request.json()) as {
+      usuario?: string;
+      contrasena?: string;
+      segundo_factor?: string | null;
+    };
+    const credencialOk =
+      body.usuario === DEV_USER.usuario && body.contrasena === DEV_USER.contrasena;
+    const segundoFactorOk = (body.segundo_factor ?? '').trim() === DEV_USER.segundoFactor;
 
-    if (body.usuario !== DEV_USER.usuario || body.contrasena !== DEV_USER.contrasena) {
+    if (!credencialOk || !segundoFactorOk) {
       /*
        * 401, no 404. La app distingue "credenciales invalidas" de "el servicio no
        * esta", y devolver el codigo correcto es lo que permite comprobar que esa

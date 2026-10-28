@@ -1,5 +1,39 @@
 # CHANGELOG
 
+## 2026:10:28 16:47
+
+**Resumen:** Se completó el **segundo factor del login** del portal del cliente (E9-T2, AI27-21). ADR 13 quedó resuelto (DEC-031/DEC-071): **el IdP (Keycloak) entrega y valida el OTP** como **TOTP**, y el `bff` ya propaga el campo en el contrato de sesión (`CredencialesEntrada.segundo_factor`, opcional/nullable, `tracer.20`). El portal **no construye tramo propio de OTP**: el código se captura en el login y **viaja JUNTO a las credenciales en un solo `POST /sesion`**. Se eligió el **flujo de un solo paso** porque el contrato solo admite `segundo_factor` dentro de `POST /sesion` y **no existe endpoint de OTP** (`/otp/...` es del IdP, no del portal); en consecuencia, la ruta placeholder `/two-factor` **se retiró** (no tenía endpoint propio que llamar). `lint`, `typecheck` y `test` (27 archivos, 167 pruebas) en verde; el e2e en verde (20 activos, incluido el recorrido login → segundo factor → panel).
+
+**Decisión del contrato (y por qué un solo paso):**
+
+- Se leyó el esquema real `CredencialesEntrada` del contrato generado antes de decidir. En `tracer.20` acepta `{ usuario, contrasena, segundo_factor? }`; el segundo factor es **TOTP, opcional en V1** (requerido en V2+), y `bff`/`identidad` **solo lo transportan** (el IdP lo valida). Con esa forma, un segundo paso en `/two-factor` sobraba: no hay nada que llamar entre contraseña y código. El flujo correcto es capturar todo junto y mandarlo en una sola llamada.
+- Se **bumpeó `@ai27-tech/contracts` de `0.1.0-tracer.11` a `0.1.0-tracer.20`**: la versión instalada no tenía `segundo_factor`, así que enviarlo de forma tipada exigía mover el paquete generado. También se ajustó `minimumReleaseAgeExclude` en `pnpm-workspace.yaml` para la nueva versión.
+
+**Estados obligatorios (y cómo se cumplen):**
+
+- **No enumeración de cuentas.** Credencial inválida, usuario inexistente y **segundo factor inválido o vencido** producen el **mismo 401 uniforme** del lado de `identidad` (DEC-094), y la UI muestra un **mensaje genérico idéntico** en los tres casos («Usuario, contrasena o codigo de verificacion incorrectos»). Hay prueba unitaria que compara el texto exacto exista o no el usuario, y e2e del segundo factor incorrecto con credenciales válidas.
+- **IdP no disponible.** Un fallo de degradación (503/504/red) no se presenta como culpa del usuario: el mensaje habla del servicio de identidad, no de credenciales. Cubierto por prueba unitaria.
+
+**Postura de `tokenStore` (confirmada, no cambiada):** V1 **mantiene** accessToken+metadatos en localStorage (`ai27.sesion`) y `refreshToken` solo en memoria. El salto a memoria + cookie httpOnly **no es decisión del portal** (exige `Set-Cookie` del `bff`, es decir, cambio de contrato); si se toma aguas arriba, el cambio ocurre **detrás de la interfaz `TokenStore`** sin tocar a sus consumidores. Se documentó en el encabezado del archivo.
+
+**Cambios:**
+
+- `src/features/sesion/LoginSection.tsx`: campo «Codigo de verificacion» (TOTP, no `required` en cliente: la política de MFA es del IdP), captura de `segundoFactor`, y envío en un solo paso con `segundo_factor` omitido cuando está vacío. Mensaje genérico ampliado para cubrir el segundo factor; mensaje de degradación que no culpa al usuario.
+- `src/routes/(auth)/two-factor.tsx`: **eliminado** (ruta placeholder sin endpoint propio). `src/routeTree.gen.ts` regenerado sin la ruta.
+- `src/lib/api/tokenStore.ts`: nota de la postura V1 confirmada y del porqué de la interfaz.
+- `src/mocks/handlers.ts` y `src/mocks/data.ts`: el `POST /sesion` del mock exige el segundo factor del dev user y devuelve el **mismo** 401 uniforme ante credencial o factor incorrectos; `DEV_USER.segundoFactor = '123456'`.
+- `tests/sesion/LoginSection.test.tsx` (nuevo): envío en un solo paso, omisión del campo vacío, no enumeración (mismo mensaje exista o no el usuario y ante factor inválido), y fallo del IdP sin culpar al usuario.
+- `tests/contracts/sesion.test.ts`: afirma que `CredencialesEntrada` admite `segundo_factor` opcional en `tracer.20`.
+- `e2e/login.spec.ts`, `e2e/journey.spec.ts`, `e2e/session-cut.spec.ts`, `e2e/support/login.ts`: el campo de segundo factor en el render, el recorrido completo login → segundo factor → panel, y el factor incorrecto con el mismo mensaje.
+- `package.json` y `pnpm-workspace.yaml`: `@ai27-tech/contracts` a `0.1.0-tracer.20`.
+- `README.md`: ADR 13 marcado RESUELTO y la nota de `/two-factor` retirada.
+
+**Archivos modificados:**
+
+- `src/features/sesion/LoginSection.tsx` · `src/routes/(auth)/two-factor.tsx` (eliminado) · `src/routeTree.gen.ts` · `src/lib/api/tokenStore.ts` · `src/mocks/handlers.ts` · `src/mocks/data.ts` · `tests/sesion/LoginSection.test.tsx` · `tests/contracts/sesion.test.ts` · `e2e/login.spec.ts` · `e2e/journey.spec.ts` · `e2e/session-cut.spec.ts` · `e2e/support/login.ts` · `package.json` · `pnpm-workspace.yaml` · `README.md` · `CHANGELOG.md`
+
+**Lo que NO se tocó / fuera de alcance:** el portal **no decide la política de MFA ni de reintentos** (son del IdP); **no hay recuperación de contraseña propia** (el enlace sigue inerte); no se construyó ningún endpoint ni tramo de OTP; no se cambió la postura de custodia de sesión (solo se confirmó y documentó).
+
 ## 2026:10:28 13:44
 
 **Resumen:** Se completó el **alta de servicio del portal del cliente** (E1-HU-001, E9-T4, AI27-23). El formulario mínimo pasa de un solo destino a **múltiples paradas 1..N** y hace cumplir las reglas de la HU: **origen y destino son texto libre y obligatorios** (el botón de envío queda **deshabilitado** mientras falte cualquiera), un booleano **"Agregar paradas"** permite **añadir y quitar** destinos uno por uno, y el **doble clic** no reenvía (el botón queda deshabilitado mientras la creación está en vuelo). Tipo de servicio sigue siendo opcional (DEC-010 #3, sin forzar su obligatoriedad); fecha/hora opcional; el cliente/tenant no se captura (lo deriva la identidad en el `bff`). Al crear, el viaje entra en `Solicitado` (estado que fija el servidor). `lint`, `typecheck` y `test` (26 archivos, 161 pruebas) en verde; el e2e de solicitud (4) y el journey en verde.
