@@ -17,6 +17,37 @@ Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
 
+## 2026:10:27 20:32
+
+**Resumen:** Se **cableó el filtro por estado del Historial de Viajes** (E9-T3, AI27-22), que pasa de ser **solo-frontend** a filtrar en el **servidor**. Antes la barra de filtros vivía en `useState` local y no filtraba nada, con un botón «Filtrar» deshabilitado. Ahora el select de **estado** navega con un **search param tipado** de la ruta; el `loader` lo lee con **`loaderDeps`** y llama `listViajes({ estado })`, que lo manda como query param `estado` al `GET /viajes`; el `bff` devuelve la página ya filtrada. El filtrado es del servidor: la lista completa no vive en el navegador. «En curso» (SOLICITADO/EN_TRANSITO) y «cerrado» (CERRADO) se distinguen porque producen llamadas y resultados distintos. `typecheck`, `lint` y `test` (24 archivos, 147 pruebas) en verde; el e2e del historial (7 activos) y el journey en verde.
+
+**Decisiones de patrón (y por qué):**
+
+- **El único filtro que el contrato soporta hoy es `estado`.** `listarViajes` (`bff.yaml`) acepta solo `estado` (string) y `cursor`: no hay búsqueda de texto, rango de fechas ni filtros ricos. Se cableó exactamente `estado` y nada más. No se inventaron filtros que el contrato no tiene.
+- **La URL es la fuente de verdad del filtro** (patrón de `login.tsx`). La ruta valida su search param con `esEstadoViaje` contra la unión cerrada `EstadoViaje` (ADR 19): un estado inventado se descarta como «sin filtro». El select toma su valor del search param, no de un `useState` local.
+- **Regla de seguridad (P9, P10).** `listViajes` nunca manda `tenantId` ni nada derivado del token: el alcance lo deriva `bff` del claim. Hay una prueba que lo afirma.
+- **Lo que el contrato no soporta queda deshabilitado y honesto.** El rango de fechas se deja visible pero inerte (todas sus opciones deshabilitadas); la búsqueda de texto no se renderiza (se omite `onSearchChange`, en vez de pintar un cuadro inerte); el «Exportar CSV» (fuera de alcance V1, DEC-023) sigue deshabilitado en el encabezado, sin duplicarse en la toolbar. Se retiró el botón «Filtrar»: el cambio de estado navega al instante, no hay nada que pulsar.
+- **La paginación no se forzó.** Sigue siendo estado de UI que recorta en cliente sobre la página que `bff` devolvió. El contrato expone `cursor`, pero moverla a search param + `cursor` es un paso aparte; aquí se priorizó cerrar el filtro por estado, con su `TODO(contracts)`.
+
+**Cambios:**
+
+- `src/lib/api/viajes.ts`: `listViajes` acepta un filtro opcional `{ estado? }` y, cuando viene, lo manda como query param `estado` a `GET /viajes` (el wrapper `api.get` ya soporta `query`). Sin filtro no manda el param: `bff` devuelve todo el alcance.
+- `src/lib/contracts/estados.ts` + `index.ts`: nueva guarda de tipo `esEstadoViaje` (valida un valor crudo contra la unión cerrada `EstadoViaje`), reexportada por el barrel.
+- `src/routes/_private/viajes/index.tsx`: search param tipado `estado?` con `validateSearch` (valida con `esEstadoViaje`), `loaderDeps` que entrega `estado` al `loader`, y `loader` que llama `listViajes({ estado })`. Pasa `estado` a la Section.
+- `src/features/viajes/historial/HistorialViajesSection.tsx`: propaga `estado` a la tabla.
+- `src/features/viajes/historial/HistorialViajesTable.tsx`: el select de estado navega con el nuevo search param (`''` = todos → limpia el param, vuelve a página 1); el valor del select viene del prop, no de `useState`. Rango de fechas con opciones deshabilitadas; sin cuadro de búsqueda; sin botón de acción en la toolbar. Un filtro sin coincidencias conserva la toolbar y muestra «Sin resultados» (vía `emptyState` de la tabla).
+- `src/mocks/handlers.ts`: el `GET /viajes` del mock honra `?estado=X` (filtra el dataset), para que dev y e2e reflejen el filtrado del servidor. No filtra por tenant (P9, P10).
+- `tests/viajes/listViajes.test.ts` (nuevo): 4 pruebas de que `listViajes` manda (o no) el query param `estado`, que «en curso» y «cerrado» difieren, y que nunca mete tenant en la query.
+- `tests/viajes/HistorialViajesTable.test.tsx`: se reemplazaron las pruebas de «solo frontend» por pruebas del cableado (elegir un estado navega con el search param; en curso vs cerrado; volver a «todos» limpia el param; refleja el estado activo; un filtro sin resultados conserva la toolbar) y de los controles sin contrato (rango inerte, sin searchbox, sin botón de acción).
+- `tests/viajes/HistorialViajesSection.test.tsx`: la prueba de orden de lectura usa el select de estado en vez del botón «Filtrar» retirado.
+- `e2e/historial.spec.ts`: se actualizaron los asertos (sin searchbox, sin «Filtrar») y se añadieron pruebas e2e del filtro por estado en el servidor (elegir «Cerrado» lleva `?estado=CERRADO` en la URL y la tabla trae solo cerrados; `?estado=EN_TRANSITO` no trae cerrados ni cancelados).
+
+**Archivos modificados:**
+
+- `src/lib/api/viajes.ts` · `src/lib/contracts/estados.ts` · `src/lib/contracts/index.ts` · `src/routes/_private/viajes/index.tsx` · `src/features/viajes/historial/HistorialViajesSection.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/mocks/handlers.ts` · `tests/viajes/listViajes.test.ts` · `tests/viajes/HistorialViajesTable.test.tsx` · `tests/viajes/HistorialViajesSection.test.tsx` · `e2e/historial.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se inventaron filtros fuera del contrato (sin búsqueda de texto ni rango de fechas); no se filtró en el cliente la lista completa; no se agregaron campos a `ViajeResumen`; no se cableó «Exportar CSV» (DEC-023); no se tocó `src/_desconectado/`; la paginación se dejó con su `TODO(contracts)`.
+
 ## 2026:10:26 15:42
 
 **Resumen:** Se **agregó el polling HTTP del detalle/seguimiento del viaje** (E9-T5, AI27-24), que cumple ADR 27: el seguimiento V1 (hito + ETA estimado + incidencias curadas) se refresca por **pull inicial + polling periódico** mientras la vista está abierta, sin SSE. Antes el detalle se cargaba **una sola vez** en el `loader` de la ruta. Ahora el `loader` se conserva como **lectura inicial y puerta del primer fallo** (lo sigue cubriendo el `errorComponent` a pantalla completa), y el componente consume el detalle por **`useQuery`** con `refetchInterval`, sembrando su caché con el dato del `loader` (`initialData`). No se tocó la forma de `ViajeSeguimiento` ni el `bff`; `ViajeDetailSection` sigue siendo presentacional. `typecheck`, `lint` y `test` (22 archivos, 139 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (preexistentes).

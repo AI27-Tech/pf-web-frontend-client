@@ -7,7 +7,7 @@
  * cambio en lib/; sin el, es un cambio en cada import de la app.
  */
 
-export { EstadoViaje, ESTADOS_VIAJE, esTerminal, ESTADO_INICIAL } from './estados';
+export { EstadoViaje, ESTADOS_VIAJE, esTerminal, ESTADO_INICIAL, esEstadoViaje } from './estados';
 
 export type { Fresco } from './freshness';
 export {
