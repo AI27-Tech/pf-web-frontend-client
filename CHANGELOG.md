@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## 2026:10:28 13:44
+
+**Resumen:** Se completó el **alta de servicio del portal del cliente** (E1-HU-001, E9-T4, AI27-23). El formulario mínimo pasa de un solo destino a **múltiples paradas 1..N** y hace cumplir las reglas de la HU: **origen y destino son texto libre y obligatorios** (el botón de envío queda **deshabilitado** mientras falte cualquiera), un booleano **"Agregar paradas"** permite **añadir y quitar** destinos uno por uno, y el **doble clic** no reenvía (el botón queda deshabilitado mientras la creación está en vuelo). Tipo de servicio sigue siendo opcional (DEC-010 #3, sin forzar su obligatoriedad); fecha/hora opcional; el cliente/tenant no se captura (lo deriva la identidad en el `bff`). Al crear, el viaje entra en `Solicitado` (estado que fija el servidor). `lint`, `typecheck` y `test` (26 archivos, 161 pruebas) en verde; el e2e de solicitud (4) y el journey en verde.
+
+**Reconciliación de catálogos (parte central del ticket):**
+
+- **El contrato `bff` (bff.yaml) NO define hoy ningún endpoint `/catalogos/{familia}`.** El select de tipo de servicio se lee contra ese path, que por ahora solo responde el mock MSW. Se dejó anotado como `TODO(contracts)` en `catalogos.ts` y el catálogo se trató como **NO bloqueante**: el loader de la ruta **degrada a lista vacía** si el catálogo no responde, de modo que el alta sigue usable (origen/destino no dependen de ningún catálogo).
+- Se **recortó la unión `FamiliaCatalogo` a la única familia que el portal activo consume: `tipos-servicio`**. Las otras seis (`rutas`, `zonas`, `prioridades-servicio`, `categorias-carga`, `rangos-valor`, `requisitos-manejo`) alimentaban el asistente rico de 4 pasos, hoy desconectado en `src/_desconectado/solicitud/`, que no importa esta unión. `rutas` **no es catálogo en V1** (origen/destino texto libre, DEC-010 #1, DEC-017).
+
+**Decisiones de patrón (y por qué):**
+
+- **No se capturan operador ni tracto.** DEC-010 #4 los declara opcionales, pero `CrearViajeEntrada` no los modela; capturarlos sería inventar una superficie que el contrato no acepta (se dropearían en silencio). Los completa el operador interno en la bitácora.
+- **El envío se arma EXACTAMENTE con la forma del contrato** `{ origen, destinos:[{nombre, numero_envio?}], tipo_servicio?, fecha_hora_servicio? }`. `numero_envio` y los opcionales se omiten cuando están vacíos.
+- **El loader ya no tiene `errorComponent`**: como el único dato que carga es presentación no bloqueante, degradar a `[]` es coherente con no tirar la pantalla por un catálogo caído.
+
+**Cambios:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx`: estado de destinos 1..N, booleano "Agregar paradas" (agregar/quitar), botón de envío gobernado por origen + todos los destinos con texto, guarda anti-doble-clic (`if (pending) return`), y armado de la entrada del contrato con `numero_envio` opcional.
+- `src/routes/_private/viajes/new.tsx`: el loader de `tipos-servicio` degrada a `[]` ante fallo (catálogo no bloqueante); se retiró el `errorComponent`.
+- `src/lib/api/catalogos.ts`: `FamiliaCatalogo` se recorta a `'tipos-servicio'`; comentario de reconciliación y `TODO(contracts)` por la ausencia del endpoint en `bff.yaml`.
+- `tests/viajes/NuevaSolicitudForm.test.tsx` (nuevo): 7 pruebas del comportamiento de la HU (envío deshabilitado sin origen/destino, parada extra vacía bloquea, agregar/quitar paradas, desactivar paradas conserva el primer destino, armado de la forma de contrato con 1..N destinos, anti-doble-clic).
+- `e2e/solicitud.spec.ts`: pruebas e2e del envío deshabilitado, agregar/quitar paradas y el flujo completo hasta `Solicitado`.
+
+**Archivos modificados:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `src/routes/_private/viajes/new.tsx` · `src/lib/api/catalogos.ts` · `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se reconectó el asistente de 4 pasos (`src/_desconectado/solicitud/`); no se añadieron campos fuera de `CrearViajeEntrada` (operador, tracto, documentos); no se inventó un catálogo que el contrato `bff` no expone; el cliente/tenant no se captura (P9, P10: lo deriva el `bff` del token).
+
 ## 2026:10:26 18:00
 
 **Resumen:** Se implementó E8-T6 en el Portal_Cliente: captura del `refresh_token` contractual, `refreshToken` solo en memoria, refresco reactivo coordinado ante `401`, corte idempotente, navegación al login con destino preservado y Mensaje_Sesion_Finalizada compuesto con `@ai27-tech/ui`.

@@ -7,17 +7,29 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
+import type { OpcionCatalogo } from '@/lib/contracts';
 import { listCatalogo } from '@/lib/api/catalogos';
 import { NuevaSolicitudForm } from '@/features/viajes/NuevaSolicitudForm';
-import { ErrorState, Spinner } from '@/components/ui/Feedback';
+import { Spinner } from '@/components/ui/Feedback';
 
 export const Route = createFileRoute('/_private/viajes/new')({
-  // Solo el catálogo que el contrato usa (tipo de servicio). El resto de catálogos del
-  // asistente rico quedó con él en _desconectado/.
-  loader: () => listCatalogo('tipos-servicio'),
+  /*
+   * El único catálogo que esta pantalla consume es el tipo de servicio (DEC-010 #3:
+   * el cliente PUEDE elegirlo). Es un dato de PRESENTACIÓN, opcional y no bloqueante:
+   * si `bff`/`catalogos` no responde, el alta sigue siendo usable con el campo en
+   * texto libre o vacío. Por eso el loader DEGRADA a lista vacía en vez de tirar la
+   * pantalla al `errorComponent`. Origen y destino (los campos obligatorios) no
+   * dependen de ningún catálogo (DEC-010 #1).
+   */
+  loader: async (): Promise<readonly OpcionCatalogo[]> => {
+    try {
+      return await listCatalogo('tipos-servicio');
+    } catch {
+      return [];
+    }
+  },
   component: NuevoViajePage,
   pendingComponent: () => <Spinner label="Preparando el formulario" />,
-  errorComponent: ({ error }) => <ErrorState error={error} />,
 });
 
 function NuevoViajePage() {
