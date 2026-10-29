@@ -20,6 +20,7 @@
  */
 
 import { HttpResponse, delay, http } from 'msw';
+import { EstadoViaje, puedeTransicionar } from '@/lib/contracts';
 import {
   DEV_USER,
   catalogosWire,
@@ -121,6 +122,64 @@ export const handlers = [
     if (detalle === undefined) {
       return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
     }
+    return HttpResponse.json(detalle);
+  }),
+
+  // --- Transición de estado pedida por el cliente (E1-HU-002, E9-T7) ------------
+  // El cliente solo puede llevar SU viaje a CANCELADO o RECHAZADO_POR_CLIENTE
+  // (DEC-005/DEC-111).
+  http.post('*/api/v1/viajes/:viajeId/transiciones-cliente', async ({ params, request }) => {
+    await delay(LATENCY_MS);
+    const viajeId = String(params.viajeId);
+    const detalle = viajeDetalleWire[viajeId] as
+      | {
+          id: string;
+          hito: { estado: string; etiqueta?: string };
+          eta: unknown;
+          incidencias: unknown;
+        }
+      | undefined;
+    // 404, no 403: no revela si el viaje existe cuando está fuera de alcance.
+    if (detalle === undefined) {
+      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as { a_estado?: string; causa?: string };
+    const causa = (body.causa ?? '').trim();
+    // 400: el motivo es OBLIGATORIO en ambas acciones (DEC-111).
+    if (causa === '') {
+      return HttpResponse.json(
+        { codigo: 'causa_requerida', error: 'El motivo es obligatorio.' },
+        { status: 400 },
+      );
+    }
+
+    const aEstado = body.a_estado;
+    if (aEstado !== 'CANCELADO' && aEstado !== 'RECHAZADO_POR_CLIENTE') {
+      // Arista que no corresponde al cliente: fuera del carril normal (403 en contrato).
+      return HttpResponse.json(
+        { codigo: 'arista_no_permitida', error: 'Transición no disponible para el cliente.' },
+        { status: 403 },
+      );
+    }
+
+    // 409: la máquina de estados (ADR 19) no permite la arista desde el estado actual
+    // (p. ej. el viaje ya salió o ya es terminal).
+    if (!puedeTransicionar(detalle.hito.estado as EstadoViaje, aEstado as EstadoViaje)) {
+      return HttpResponse.json(
+        { codigo: 'transicion_no_permitida', error: 'El viaje ya no puede cambiar a ese estado.' },
+        { status: 409 },
+      );
+    }
+
+    // Aplica la transición en el estado mutable del detalle (el listado `viajesWire` es
+    // inmutable `as const`; el detalle es lo que la vista relee).
+    detalle.hito = {
+      estado: aEstado,
+      etiqueta: aEstado === 'CANCELADO' ? 'Cancelado' : 'Rechazado',
+    };
+
+    // 200: el ViajeSeguimiento YA actualizado (misma forma que GET). Sin segundo GET.
     return HttpResponse.json(detalle);
   }),
 

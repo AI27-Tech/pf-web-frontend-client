@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026:10:29 17:10
+
+**Resumen:** Se implementó **cancelar y rechazar el servicio** desde el portal del cliente (E1-HU-002 / E9-T7, AI27-26): dos acciones distintas con dos desenlaces distintos, no una con variantes. **Cancelar** (`CANCELADO`) para el viaje aún no salido; **rechazar** (`RECHAZADO_POR_CLIENTE`) para no aceptar el servicio asignado. Ambas pegan a `POST /api/v1/viajes/{id}/transiciones-cliente` del contrato `bff` (`tracer.23`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.20` a `0.1.0-tracer.23` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (31 archivos, 202 pruebas) en verde; e2e en verde (24 activos: +1 de cancelación).
+
+**Formas tomadas del contrato:** la ruta y el cuerpo son los del contrato generado `bff` `tracer.23` —operación `transicionarViajeCliente`, cuerpo `TransicionEntrada = { a_estado, causa }`—, y la respuesta `200` es **`ViajeSeguimiento`**, la MISMA vista curada que devuelve `getViaje` (DEC-006: nunca el estado canónico ni las condiciones). El tipo `TransicionEntrada` se reexporta por el barrel `@/lib/contracts`. La ventana de cada acción se deriva del enum y las aristas **del contrato generado** (`@ai27-tech/contracts/estados`: `puedeTransicionar`, `esTerminal`), no de una tabla propia.
+
+**Decisiones de patrón (y por qué):**
+
+- **Dos acciones, dos desenlaces, dos diálogos.** Cada botón abre su propio `Modal` con título, descripción, etiqueta de motivo y botón de confirmar propios (`Confirmar cancelación` vs `Confirmar rechazo`). La etiqueta de confirmar es DISTINTA de la del disparador, para que la acción sea inequívoca y el cliente sepa cuál ejecutó.
+- **El motivo (`causa`) es OBLIGATORIO en ambas (DEC-111, supera DEC-020 #7).** El botón de confirmar queda deshabilitado mientras el motivo esté vacío (recortando espacios). Es guarda de UI, no solo del `400`: no dependemos de que el servidor rechace el envío.
+- **La disponibilidad se DERIVA del estado, no se deja fallar al pulsar.** Cancelar se ofrece en `SOLICITADO`/`APROBADO`/`ASIGNADO`/`APTO_PARA_SALIDA`; rechazar solo en `ASIGNADO`/`APTO_PARA_SALIDA`. Fuera de ventana (el viaje ya salió) o en estado terminal NO se ofrece botón: se explica por qué ya no aplica.
+- **El `200` refresca SIN un segundo GET.** La mutación (`useTransicionViaje`) escribe el `ViajeSeguimiento` devuelto directo en la query `['viaje', id]` con `setQueryData`. El polling de `useViajeSeguimiento` (ADR 27) sigue su cadencia y confirma después; no se fuerza un refetch.
+- **Taxonomía de respuestas (verificada con contrato/servicio):** `400` → falta/!válido el motivo (mensaje en el formulario); `409 transicion_no_permitida` → carrera de la máquina de estados, mensaje claro + la vista se actualiza con el polling; `404` → viaje ajeno/fuera de alcance tratado como «no encontrado» (el servicio devuelve 404, no 403, a propósito); `403`/`401` no son parte del carril normal del cliente.
+
+**Fuera de alcance V1:** cancelar/rechazar SOLO cambian de estado. Sin penalizaciones, reembolsos ni flujo de aprobación. Único cambio de regla frente al brief: el motivo ahora es obligatorio (DEC-111).
+
+**Estados obligatorios (cubiertos por pruebas):** ventana ABIERTA (acción ofrecida en los estados esperados) · ventana CERRADA (`EN_EMBARQUE`/`EN_TRANSITO`: acción ausente + explicación, no un fallo) · viaje TERMINAL (ausente + explicación) · el botón EXIGE motivo (vacío/solo-espacios no habilita ni envía) · los dos desenlaces (`CANCELADO` vs `RECHAZADO_POR_CLIENTE`) distinguibles · el `200` refresca la caché sin segundo GET · carrera con operación (`409`) con mensaje claro · e2e de cancelar en `SOLICITADO`.
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml`: pin de `@ai27-tech/contracts` a `0.1.0-tracer.23`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `TransicionEntrada` del contrato generado, reexportado por el barrel; se reexporta además `puedeTransicionar` de `estados`.
+- `src/lib/contracts/estados.ts`: reexporta `puedeTransicionar` del contrato generado.
+- `src/lib/api/viajes.ts` (nuevo wrapper): `transicionarViajeCliente(viajeId, aEstado, causa)` sobre `POST /viajes/{id}/transiciones-cliente`; tipo `EstadoDestinoCliente` que fija las dos únicas aristas del cliente. Devuelve `ViajeSeguimiento`.
+- `src/features/viajes/useTransicionViaje.ts` (nuevo): mutación dueña de la escritura; en éxito siembra `['viaje', id]` con el seguimiento devuelto (sin segundo GET).
+- `src/features/viajes/CancelarRechazarPanel.tsx` (nuevo): dos acciones con diálogo de confirmación (`Modal`) y captura de motivo obligatorio; deriva disponibilidad del estado; maneja `400`/`409`/`404`.
+- `src/features/viajes/ViajeDetailSection.tsx`: monta `CancelarRechazarPanel` con el seguimiento completo.
+- `src/mocks/handlers.ts`: handler `POST /viajes/{id}/transiciones-cliente` que imita `400` (sin motivo), `409` (fuera de la máquina de estados), `403` (arista no-cliente), `404` (fuera de alcance) y `200` (devuelve el `ViajeSeguimiento` ya actualizado, mutando el estado del detalle).
+- `tests/viajes/transicionViaje.test.ts` (nuevo): el wrapper manda `{ a_estado, causa }` por las dos aristas y devuelve el seguimiento sin segundo GET.
+- `tests/viajes/CancelarRechazarPanel.test.tsx` (nuevo): ventana (ofrecida vs no ofrecida por estado), motivo obligatorio, dos desenlaces distinguibles, `200` que refresca la caché sin segundo GET, `409` con mensaje claro.
+- `e2e/cancelar-rechazar.spec.ts` (nuevo): cancelar un viaje en `SOLICITADO` exigiendo motivo y reflejando el nuevo estado.
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/contracts/estados.ts` · `src/lib/api/viajes.ts` · `src/features/viajes/useTransicionViaje.ts` · `src/features/viajes/CancelarRechazarPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/mocks/handlers.ts` · `tests/viajes/transicionViaje.test.ts` · `tests/viajes/CancelarRechazarPanel.test.tsx` · `e2e/cancelar-rechazar.spec.ts` · `CHANGELOG.md`
+
 ## 2026:10:29 09:55
 
 **Resumen:** Se implementó la **emergencia del cliente** en el portal (E9-T9, AI27-28): activación y notas sobre el carril que el `bff` ya tenía mergeado (`tracer.20`, ADR 21 §6). El pendiente técnico del ticket **ya no aplicaba**: las tres rutas (`GET/POST /viajes/{id}/emergencias` y `POST /viajes/{id}/emergencias/{eid}/notas`) existen en el contrato generado, respaldadas por `mensajeria` y proyectadas por audiencia. Este trabajo es **UI + wrappers**, sin dependencia de contrato pendiente. En el portal no había nada de emergencia; ahora el detalle del viaje incluye un **panel de emergencia** con botón de activación y captura de notas. `lint`, `typecheck` y `test` (29 archivos, 181 pruebas) en verde; el e2e en verde (26 activos: +3 de emergencia).

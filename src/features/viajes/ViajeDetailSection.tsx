@@ -14,6 +14,7 @@
 
 import type { EstadoViaje, ViajeSeguimiento } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
+import { CancelarRechazarPanel } from './CancelarRechazarPanel';
 import { EmergenciaPanel } from './EmergenciaPanel';
 import { EstadoViajeChip } from './EstadoViajeChip';
 
@@ -81,6 +82,7 @@ export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento
           </ul>
         )}
       </section>
+      <CancelarRechazarPanel viaje={viaje} />
 
       {/* El panel es dueño de su propio estado de servidor (useEmergencias), por eso solo recibe el `viajeId`. */}
       <EmergenciaPanel viajeId={viaje.id} />
