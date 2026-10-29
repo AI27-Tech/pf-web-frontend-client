@@ -1,5 +1,45 @@
 # CHANGELOG
 
+## 2026:10:29 09:55
+
+**Resumen:** Se implementó la **emergencia del cliente** en el portal (E9-T9, AI27-28): activación y notas sobre el carril que el `bff` ya tenía mergeado (`tracer.20`, ADR 21 §6). El pendiente técnico del ticket **ya no aplicaba**: las tres rutas (`GET/POST /viajes/{id}/emergencias` y `POST /viajes/{id}/emergencias/{eid}/notas`) existen en el contrato generado, respaldadas por `mensajeria` y proyectadas por audiencia. Este trabajo es **UI + wrappers**, sin dependencia de contrato pendiente. En el portal no había nada de emergencia; ahora el detalle del viaje incluye un **panel de emergencia** con botón de activación y captura de notas. `lint`, `typecheck` y `test` (29 archivos, 181 pruebas) en verde; el e2e en verde (26 activos: +3 de emergencia).
+
+**Formas tomadas del contrato (NO inventadas):** los tipos son los del contrato generado `bff` `tracer.20` —`EmergenciaCliente` (`{id, estado: abierta|en_atencion|resuelta, activada_en}`), `EmergenciasCliente` (`{emergencia_activa, casos[]}`), `ActivarEmergenciaClienteEntrada` (`{activacion_id}`) y `NotaEmergenciaClienteEntrada` (`{cuerpo}`)—, reexportados por el barrel `@/lib/contracts`. El ticket nombraba `CasoEmergencia`/`PaginaEmergencias`/`ActivarEmergenciaEntrada`/`NotaEmergenciaEntrada`; se usaron los nombres REALES del contrato tras leerlo.
+
+**Decisiones de patrón (y por qué):**
+
+- **La idempotencia de la activación viaja en el CUERPO, no en un header.** El contrato pide `activacion_id` dentro de `ActivarEmergenciaClienteEntrada`: es una clave de negocio que genera el cliente **por pulsación intencional** (del botón del diálogo de confirmación). Un reintento técnico de la misma mutación reusa ese id → no duplica; una pulsación nueva genera otro `crypto.randomUUID()` → crea otro caso. Por eso NO se usó el `Idempotency-Key` del cliente HTTP.
+- **El botón crea y envía de inmediato, sin exigir nota previa.** Las notas son **opcionales**, multilínea, de 1 a 1000 caracteres, **recortando espacios**; un valor vacío o de solo espacios **no se envía** (botón deshabilitado + guarda). El tope de 1000 es de captura (`maxLength`) y de envío (`NOTA_EMERGENCIA_MAX_CHARS`).
+- **Selector mínimo por fecha/hora solo cuando coexisten varios casos.** Con un caso no hay selector; con varios, un `<select>` identifica cada caso **solo por fecha/hora** (sin exponer notas, estado interno ni personal) y la nota va al id elegido.
+- **Proyección por audiencia (ADR 21 §6).** El cliente nunca ve cuerpos de nota, responsable, recursos ni datos de Reacción: la UI solo consume `{id, estado, activada_en}` y pinta `abierta`/`en_atencion` como «En atención» y `resuelta` como «Resuelta». Hay prueba de que el DOM no contiene vocabulario interno.
+- **Sin dependencia de SSE (ADR 28).** El panel es dueño de su estado de servidor (`useEmergencias` con `useQuery` + polling de ADR 27); activar y notar operan por HTTP. La entrega viva es mejora, no requisito.
+
+**Arreglo transversal (necesario para la nota):** el cliente HTTP (`lib/api/client.ts`) trataba como `roto` cualquier respuesta OK sin cuerpo que no fuera `204`. El contrato de `agregarNotaEmergencia` responde **`201` sin contenido**, así que se ajustó: antes de parsear JSON se lee el texto y un cuerpo vacío es un éxito sin contenido (`undefined`), no una respuesta rota. Solo un cuerpo NO vacío mal formado sigue siendo `roto`.
+
+**Estados obligatorios (cubiertos por pruebas):** sin emergencias · emergencia activa · varios casos (selector por fecha/hora) · reintento idempotente que no duplica (dos reentregas → un caso; dos pulsaciones → dos casos) · nota en el límite (1000 ok; vacía/solo-espacios no se envía) · la vista cliente no renderiza datos internos.
+
+**Cambios:**
+
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias de los cuatro tipos de emergencia del contrato generado, reexportados por el barrel.
+- `src/lib/api/emergencias.ts` (nuevo): wrappers `listEmergencias`, `activarEmergencia` (idempotente por `activacion_id` del cuerpo) y `agregarNotaEmergencia` sobre `api` de `client.ts`.
+- `src/lib/api/client.ts`: una respuesta OK con cuerpo vacío (no solo `204`) se resuelve como `undefined`; solo un cuerpo no vacío no-JSON es `roto`.
+- `src/lib/constants.ts`: `NOTA_EMERGENCIA_MAX_CHARS = 1000`.
+- `src/features/viajes/useEmergencias.ts` (nuevo): hook dueño del estado de servidor (lista + dos mutaciones; invalida la lista al terminar).
+- `src/features/viajes/EmergenciaPanel.tsx` (nuevo): activación con diálogo de confirmación (`Modal`), captura de notas (`Textarea`), selector por fecha/hora con varios casos, estados vacío/activo.
+- `src/features/viajes/ViajeDetailSection.tsx`: monta `EmergenciaPanel` con el `viajeId`.
+- `src/mocks/data.ts` + `handlers.ts`: `emergenciasWire` (estado mutable en memoria) y tres handlers que imitan la proyección por audiencia y la idempotencia por `activacion_id`; el handler de notas responde `201` sin cuerpo.
+- `tests/support/query.tsx` (nuevo): helper de render con `QueryClient` para componentes con estado de servidor.
+- `tests/viajes/emergencias.test.ts` (nuevo): idempotencia por `activacion_id` en el cuerpo (reentrega vs pulsación), forma de las notas y de la lista.
+- `tests/viajes/EmergenciaPanel.test.tsx` (nuevo): los seis estados obligatorios de la UI.
+- `tests/viajes/ViajeDetailSection.test.tsx`: se envuelve en `QueryClient` y se aísla el carril de emergencia (el detalle ahora monta el panel).
+- `e2e/emergencia.spec.ts` (nuevo): activar + agregar nota + la vista cliente sin datos internos.
+
+**Archivos modificados:**
+
+- `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/api/emergencias.ts` · `src/lib/api/client.ts` · `src/lib/constants.ts` · `src/features/viajes/useEmergencias.ts` · `src/features/viajes/EmergenciaPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/support/query.tsx` · `tests/viajes/emergencias.test.ts` · `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `e2e/emergencia.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó / fuera de alcance V1:** sin ubicación en el payload; la activación **no crea incidencia ni condición**; las notas son **unidireccionales** (sin conversación dentro del caso); no se dependió de SSE ni se tocó `prototipos-v2/`; no se trajo al portal ningún dato interno de `mensajeria` ni de Reacción (viven en superficie interna).
+
 ## 2026:10:28 16:47
 
 **Resumen:** Se completó el **segundo factor del login** del portal del cliente (E9-T2, AI27-21). ADR 13 quedó resuelto (DEC-031/DEC-071): **el IdP (Keycloak) entrega y valida el OTP** como **TOTP**, y el `bff` ya propaga el campo en el contrato de sesión (`CredencialesEntrada.segundo_factor`, opcional/nullable, `tracer.20`). El portal **no construye tramo propio de OTP**: el código se captura en el login y **viaja JUNTO a las credenciales en un solo `POST /sesion`**. Se eligió el **flujo de un solo paso** porque el contrato solo admite `segundo_factor` dentro de `POST /sesion` y **no existe endpoint de OTP** (`/otp/...` es del IdP, no del portal); en consecuencia, la ruta placeholder `/two-factor` **se retiró** (no tenía endpoint propio que llamar). `lint`, `typecheck` y `test` (27 archivos, 167 pruebas) en verde; el e2e en verde (20 activos, incluido el recorrido login → segundo factor → panel).

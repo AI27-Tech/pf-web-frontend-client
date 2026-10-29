@@ -20,7 +20,14 @@
  */
 
 import { HttpResponse, delay, http } from 'msw';
-import { DEV_USER, catalogosWire, sesionWire, viajeDetalleWire, viajesWire } from './data';
+import {
+  DEV_USER,
+  catalogosWire,
+  emergenciasWire,
+  sesionWire,
+  viajeDetalleWire,
+  viajesWire,
+} from './data';
 
 /** Latencia artificial: sin ella los estados de carga nunca se ven. */
 const LATENCY_MS = 250;
@@ -120,6 +127,67 @@ export const handlers = [
   // Handler de bitácora DESCONECTADO (recorte al contrato): el contrato bff no define
   // GET /viajes/{id}/bitacora. El dato mock `bitacoraWire` se conserva en data.ts para
   // cuando se reconecte. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+
+  // --- Emergencias (E9-T9, ADR 21 §6) -------------------------------------------
+  // El mock imita la PROYECCIÓN por audiencia del bff: el cliente solo ve
+  // {id, estado, activada_en} por caso y el agregado emergencia_activa. Las notas, el
+  // activacion_id y cualquier dato interno NO salen en la respuesta. El estado vive en
+  // `emergenciasWire` (mutable) para que activar y agregar nota surtan efecto.
+  http.get('*/api/v1/viajes/:viajeId/emergencias', async ({ params }) => {
+    await delay(LATENCY_MS);
+    const casos = emergenciasWire[String(params.viajeId)] ?? [];
+    return HttpResponse.json({
+      emergencia_activa: casos.some((c) => c.estado === 'abierta' || c.estado === 'en_atencion'),
+      // Proyección a la vista cliente: se DESCARTAN notas y activacion_id.
+      casos: casos.map((c) => ({ id: c.id, estado: c.estado, activada_en: c.activada_en })),
+    });
+  }),
+
+  http.post('*/api/v1/viajes/:viajeId/emergencias', async ({ params, request }) => {
+    await delay(LATENCY_MS);
+    const viajeId = String(params.viajeId);
+    const body = (await request.json().catch(() => ({}))) as { activacion_id?: string };
+    const activacionId = body.activacion_id ?? '';
+    const casos = (emergenciasWire[viajeId] ??= []);
+
+    // Idempotencia por activacion_id: reentrega del MISMO id → caso original (200);
+    // id nuevo → caso nuevo (201). Es la regla contractual del ticket.
+    const existente = casos.find((c) => c.activacion_id === activacionId);
+    if (existente !== undefined) {
+      return HttpResponse.json(
+        { id: existente.id, estado: existente.estado, activada_en: existente.activada_en },
+        { status: 200 },
+      );
+    }
+
+    const nuevo = {
+      id: `emg-${casos.length + 1}-${Date.now()}`,
+      estado: 'abierta' as const,
+      activada_en: new Date().toISOString(),
+      notas: [] as string[],
+      activacion_id: activacionId,
+    };
+    casos.push(nuevo);
+    return HttpResponse.json(
+      { id: nuevo.id, estado: nuevo.estado, activada_en: nuevo.activada_en },
+      { status: 201 },
+    );
+  }),
+
+  http.post('*/api/v1/viajes/:viajeId/emergencias/:eid/notas', async ({ params, request }) => {
+    await delay(LATENCY_MS);
+    const casos = emergenciasWire[String(params.viajeId)] ?? [];
+    const caso = casos.find((c) => c.id === String(params.eid));
+    if (caso === undefined) {
+      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+    }
+    const body = (await request.json().catch(() => ({}))) as { cuerpo?: string };
+    const cuerpo = (body.cuerpo ?? '').trim();
+    // El contrato recorta y no guarda si queda vacío; el mock imita el no-guardado.
+    if (cuerpo !== '') caso.notas.push(cuerpo);
+    // 201 sin cuerpo, como el contrato.
+    return new HttpResponse(null, { status: 201 });
+  }),
 
   // --- Catalogos ----------------------------------------------------------------
   http.get('*/api/v1/catalogos/:familia', async ({ params }) => {

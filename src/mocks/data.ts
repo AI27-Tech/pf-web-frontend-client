@@ -379,6 +379,34 @@ export function panelWire(): Json {
   };
 }
 
+/*
+ * Emergencias del cliente, en FORMA DE CONTRATO (E9-T9, ADR 21 §6).
+ *
+ * viaje-2 arranca con un caso `en_atencion` para cubrir "emergencia activa" y "un solo
+ * caso" por URL directa; el resto de viajes arranca sin emergencias.
+ */
+export interface CasoEmergenciaWireMock {
+  readonly id: string;
+  estado: 'abierta' | 'en_atencion' | 'resuelta';
+  readonly activada_en: string;
+  /** Las notas NO se exponen al cliente; se guardan para que el mock no las pierda. */
+  readonly notas: string[];
+  /** `activacion_id` que creó el caso: base de la idempotencia del mock. */
+  readonly activacion_id: string;
+}
+
+export const emergenciasWire: Record<string, CasoEmergenciaWireMock[]> = {
+  'viaje-2': [
+    {
+      id: 'emg-seed-1',
+      estado: 'en_atencion',
+      activada_en: '2026-10-23T14:05:00Z',
+      notas: [],
+      activacion_id: 'seed-activacion-1',
+    },
+  ],
+};
+
 export const catalogosWire: Record<string, Json[]> = {
   rutas: [
     { id: 'ruta-12', nombre: 'CDMX - Queretaro' },

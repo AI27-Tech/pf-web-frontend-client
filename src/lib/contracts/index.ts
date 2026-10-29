@@ -44,4 +44,8 @@ export type {
   IncidenciaCurada,
   CrearViajeEntrada,
   OpcionCatalogo,
+  EmergenciaCliente,
+  EmergenciasCliente,
+  ActivarEmergenciaClienteEntrada,
+  NotaEmergenciaClienteEntrada,
 } from './dominio';
