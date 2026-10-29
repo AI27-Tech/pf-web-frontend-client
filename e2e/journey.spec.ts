@@ -6,10 +6,13 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { login } from './support/login';
+import { DEV_USER, login } from './support/login';
 
 test.describe('sesion', () => {
-  test('entra con el usuario de desarrollo y aterriza en el historial', async ({ page }) => {
+  test('recorrido completo login → segundo factor → panel', async ({ page }) => {
+    // El helper `login` llena correo, contrasena y SEGUNDO FACTOR, y envia: un solo
+    // paso, un solo POST /sesion. Si el segundo factor no viajara con las credenciales,
+    // el mock responderia 401 y este recorrido no llegaria al historial.
     await login(page);
     // La home redirige a `/viajes`: el Panel de Control se cerro mientras
     // `GET /api/v1/panel` no exista en el contrato (ver AppShell / panel.spec.ts).
@@ -25,9 +28,27 @@ test.describe('sesion', () => {
     await page.goto('/login');
     await page.getByLabel('Correo electronico empresarial').fill('nadie@demo.ai27');
     await page.getByLabel('Contrasena', { exact: true }).fill('incorrecta');
+    await page.getByLabel('Codigo de verificacion').fill('000000');
     await page.getByRole('button', { name: 'Iniciar sesion' }).click();
 
     // El mock devuelve 401, y la app lo traduce a fallo de credenciales.
+    await expect(page.getByRole('alert').first()).toContainText(/incorrectos/i);
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('un segundo factor incorrecto da el mismo mensaje, sin revelar que el usuario existe', async ({
+    page,
+  }) => {
+    await page.goto('/login');
+    // Credenciales VÁLIDAS pero segundo factor MALO: el IdP (aquí el mock) responde el
+    // mismo 401 uniforme (DEC-094). La UI no debe decir "el código es incorrecto" de
+    // forma distinta a "la contraseña es incorrecta": eso filtraría que la cuenta
+    // existe y que solo falló el factor.
+    await page.getByLabel('Correo electronico empresarial').fill(DEV_USER.usuario);
+    await page.getByLabel('Contrasena', { exact: true }).fill(DEV_USER.password);
+    await page.getByLabel('Codigo de verificacion').fill('999999');
+    await page.getByRole('button', { name: 'Iniciar sesion' }).click();
+
     await expect(page.getByRole('alert').first()).toContainText(/incorrectos/i);
     await expect(page).toHaveURL(/\/login/);
   });
