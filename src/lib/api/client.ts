@@ -115,8 +115,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (response.status === 204) return undefined as T;
 
+  /*
+   * Un comando puede responder OK SIN cuerpo (p. ej. `201` de `agregarNotaEmergencia`,
+   * cuyo contrato no devuelve contenido). Antes de parsear JSON, se lee el texto: si
+   * está vacío, la respuesta es un éxito sin cuerpo (`undefined`), no una respuesta
+   * "rota". Solo se trata como `roto` un cuerpo NO vacío que no sea JSON válido.
+   */
+  const text = await response.text();
+  if (text.length === 0) return undefined as T;
+
   try {
-    return (await response.json()) as T;
+    return JSON.parse(text) as T;
   } catch (cause) {
     throw new ApiError(
       'roto',

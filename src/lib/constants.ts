@@ -36,3 +36,8 @@ export const VIAJE_POLLING_INTERVAL_MS = 15_000;
 export const SESSION_REFRESH_MARGIN_MS = 60_000;
 
 export const ETA_MAX_CHARS = 18;
+
+/*
+ * Límite del cuerpo de una nota de emergencia (E9-T9, ADR 21 §6).
+ */
+export const NOTA_EMERGENCIA_MAX_CHARS = 1000;

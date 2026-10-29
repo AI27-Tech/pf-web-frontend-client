@@ -15,10 +15,21 @@
  * fabrica una forma propia del portal.
  */
 
-import { describe, expect, it } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { screen, within } from '@testing-library/react';
 import type { IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
+import { renderConQuery as render } from '../support/query';
+
+/*
+ * El detalle ahora monta `EmergenciaPanel` (E9-T9), que pide sus casos al `bff`. Estas
+ * pruebas son sobre incidencias/ETA, no sobre emergencia.
+ */
+vi.mock('@/lib/api/emergencias', () => ({
+  listEmergencias: vi.fn().mockResolvedValue({ emergencia_activa: false, casos: [] }),
+  activarEmergencia: vi.fn(),
+  agregarNotaEmergencia: vi.fn(),
+}));
 
 /**
  * Las cinco categorías CURADAS que el cliente puede ver (DEC-006). Es la tabla cerrada

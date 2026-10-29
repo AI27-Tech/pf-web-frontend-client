@@ -14,6 +14,7 @@
 
 import type { EstadoViaje, ViajeSeguimiento } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
+import { EmergenciaPanel } from './EmergenciaPanel';
 import { EstadoViajeChip } from './EstadoViajeChip';
 
 export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento }) {
@@ -80,6 +81,9 @@ export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento
           </ul>
         )}
       </section>
+
+      {/* El panel es dueño de su propio estado de servidor (useEmergencias), por eso solo recibe el `viajeId`. */}
+      <EmergenciaPanel viajeId={viaje.id} />
 
       {/*
         El enlace a "Bitacora" se desconectó con el recorte al contrato: la ruta

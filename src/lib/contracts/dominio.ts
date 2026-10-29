@@ -66,6 +66,15 @@ export type IncidenciaCurada = components['schemas']['IncidenciaCurada'];
 export type CrearViajeEntrada = components['schemas']['CrearViajeEntrada'];
 
 /*
+ * Las formas vienen del contrato generado (`tracer.20`).
+ */
+export type EmergenciaCliente = components['schemas']['EmergenciaCliente'];
+export type EmergenciasCliente = components['schemas']['EmergenciasCliente'];
+export type ActivarEmergenciaClienteEntrada =
+  components['schemas']['ActivarEmergenciaClienteEntrada'];
+export type NotaEmergenciaClienteEntrada = components['schemas']['NotaEmergenciaClienteEntrada'];
+
+/*
  * NOTA (recorte al contrato): `ConversacionResumen`, `Mensaje` y `ReciboLectura` se
  * desconectaron del barrel: el contrato bff no expone conversación al cliente (vive en
  * mensajeria.yaml, superficie interna). Sus tipos locales están en
