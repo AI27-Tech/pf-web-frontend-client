@@ -10,7 +10,12 @@
  * inventado deja de compilar — que es justo la señal que antes faltaba.
  */
 
-export { EstadoViaje, ESTADOS_VIAJE, esTerminal } from '@ai27-tech/contracts/estados';
+export {
+  EstadoViaje,
+  ESTADOS_VIAJE,
+  esTerminal,
+  puedeTransicionar,
+} from '@ai27-tech/contracts/estados';
 
 import { ESTADOS_VIAJE, type EstadoViaje } from '@ai27-tech/contracts/estados';
 

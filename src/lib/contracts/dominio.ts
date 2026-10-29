@@ -65,6 +65,13 @@ export type IncidenciaCurada = components['schemas']['IncidenciaCurada'];
  */
 export type CrearViajeEntrada = components['schemas']['CrearViajeEntrada'];
 
+/**
+ * Entrada de una transición de estado pedida por el cliente (E9-T7, AI27-26):
+ * `{ a_estado, causa? }`, espejo de `TransicionEntrada` de `operacion`. El cliente solo
+ * puede llevar SU viaje a `CANCELADO` o `RECHAZADO_POR_CLIENTE` (DEC-005/DEC-111).
+ */
+export type TransicionEntrada = components['schemas']['TransicionEntrada'];
+
 /*
  * Las formas vienen del contrato generado (`tracer.20`).
  */

@@ -7,7 +7,14 @@
  * cambio en lib/; sin el, es un cambio en cada import de la app.
  */
 
-export { EstadoViaje, ESTADOS_VIAJE, esTerminal, ESTADO_INICIAL, esEstadoViaje } from './estados';
+export {
+  EstadoViaje,
+  ESTADOS_VIAJE,
+  esTerminal,
+  puedeTransicionar,
+  ESTADO_INICIAL,
+  esEstadoViaje,
+} from './estados';
 
 export type { Fresco } from './freshness';
 export {
@@ -44,6 +51,7 @@ export type {
   IncidenciaCurada,
   CrearViajeEntrada,
   OpcionCatalogo,
+  TransicionEntrada,
   EmergenciaCliente,
   EmergenciasCliente,
   ActivarEmergenciaClienteEntrada,

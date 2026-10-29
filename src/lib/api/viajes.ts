@@ -7,8 +7,21 @@
  */
 
 import { api } from './client';
-import type { CrearViajeEntrada, EstadoViaje, ViajeSeguimiento } from '../contracts';
+import type {
+  CrearViajeEntrada,
+  EstadoViaje,
+  TransicionEntrada,
+  ViajeSeguimiento,
+} from '../contracts';
 import type { ViajeResumen } from '../contracts';
+
+/**
+ * Las dos aristas que el cliente puede pedir sobre SU viaje (E1-HU-002, DEC-005/DEC-111):
+ *   - `CANCELADO`: ya no quiere el servicio (antes de la salida).
+ *   - `RECHAZADO_POR_CLIENTE`: no acepta el servicio asignado.
+ * Cualquier otra arista la rechaza `operacion` (no es parte del carril del cliente).
+ */
+export type EstadoDestinoCliente = Extract<EstadoViaje, 'CANCELADO' | 'RECHAZADO_POR_CLIENTE'>;
 
 /**
  * Filtro del listado. Hoy el contrato `bff` (listarViajes) solo acepta `estado`
@@ -44,6 +57,29 @@ export async function getViaje(viajeId: string, signal?: AbortSignal): Promise<V
  */
 export async function crearViaje(entrada: CrearViajeEntrada): Promise<ViajeResumen> {
   return api.post<ViajeResumen>('/viajes', entrada);
+}
+
+/**
+ * Cancela o rechaza un viaje (audiencia cliente, E1-HU-002 / E9-T7, AI27-26).
+ *
+ * `POST /viajes/{id}/transiciones-cliente` con `TransicionEntrada = { a_estado, causa }`.
+ * El cliente solo puede pedir `CANCELADO` o `RECHAZADO_POR_CLIENTE` (lo fija el tipo
+ * `EstadoDestinoCliente`); la máquina de estados y el aislamiento por tenant los valida
+ * `operacion`, no el navegador (DEC-005/DEC-111). `causa` (el motivo) es OBLIGATORIA en
+ * ambas acciones: la UI la exige antes de habilitar el botón, pero aquí también se manda
+ * siempre porque el servidor responde 400 sin ella.
+ *
+ * Devuelve `ViajeSeguimiento` —la MISMA vista curada que `getViaje`—, ya con el viaje
+ * actualizado. Por eso el llamante NO hace un segundo GET: siembra esa respuesta en la
+ * query `['viaje', viajeId]` (DEC-006: nunca el estado canónico ni las condiciones).
+ */
+export async function transicionarViajeCliente(
+  viajeId: string,
+  aEstado: EstadoDestinoCliente,
+  causa: string,
+): Promise<ViajeSeguimiento> {
+  const entrada: TransicionEntrada = { a_estado: aEstado, causa };
+  return api.post<ViajeSeguimiento>(`/viajes/${viajeId}/transiciones-cliente`, entrada);
 }
 
 /*
