@@ -1,86 +1,102 @@
 /*
- * Custodia del token en el navegador.
+ * Custodia de la sesión.
  *
- * DECISION ABIERTA — y por eso esto es una interfaz y no una implementacion.
- *
- * Lo que SI esta cerrado (ADR 8): el proveedor de identidad es Amazon Cognito
- * detras del servicio `identidad`, y el front-end hace login contra `bff`
- * (POST /api/v1/sesion), no contra Cognito. Por eso este repo no instala
- * next-auth, aws-amplify ni ningun cliente OIDC.
- *
- * Lo que NO esta cerrado es donde vive el token:
- *
- *   a) localStorage        — comodo, sobrevive al refresco de pagina, y es la peor
- *                            opcion ante XSS: cualquier script inyectado lo lee.
- *   b) memoria + cookie    — el access token en memoria y el refresh en cookie
- *      httpOnly              httpOnly/SameSite. Mas seguro, pero exige que `bff`
- *                            ponga y rote esa cookie, y el contrato no lo dice hoy.
- *
- * La implementacion de abajo es (a) SOLO para que el scaffold arranque, y esta
- * aislada tras esta interfaz precisamente para que elegir (b) sea cambiar un
- * archivo. No propagues `localStorage` al resto de la app.
- *
- * TODO(auth): decidir a) o b) y, si es b), confirmar con el contrato de bff que
- * la cookie de refresh existe. Ver "decisiones abiertas" en el README.
+ * El refreshToken vive únicamente en memoria: no se persiste en localStorage ni
+ * sessionStorage. El accessToken y los metadatos de sesión conservan la
+ * persistencia provisional existente para que una recarga pueda llegar al
+ * siguiente 401; después de la recarga ya no hay refreshToken utilizable y el
+ * corte es la reacción esperada.
  */
+
+export interface SessionTokens {
+  readonly sesionId: string;
+  readonly accessToken: string;
+  readonly expiraEn: string;
+  readonly refreshToken?: string;
+}
 
 export interface TokenStore {
   getAccessToken(): string | null;
-  /** `expiraEn` es ISO-8601. Se usa para refrescar con margen, no para confiar. */
-  set(accessToken: string, expiraEn: string): void;
+  getRefreshToken(): string | null;
+  getSession(): SessionTokens | null;
+  set(session: SessionTokens): void;
   clear(): void;
-  /** Milisegundos hasta la expiracion, o null si no hay sesion. */
   msHastaExpiracion(now?: number): number | null;
   subscribe(listener: () => void): () => void;
 }
 
 const STORAGE_KEY = 'ai27.sesion';
+let refreshTokenEnMemoria: string | undefined;
 
-interface StoredSession {
-  readonly accessToken: string;
-  readonly expiraEn: string;
-}
-
-function read(): StoredSession | null {
+function cargarPersistida(): Omit<SessionTokens, 'refreshToken'> | null {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (raw === null || raw === undefined) return null;
     const parsed: unknown = JSON.parse(raw);
     if (
-      typeof parsed === 'object' &&
-      parsed !== null &&
-      'accessToken' in parsed &&
-      'expiraEn' in parsed &&
-      typeof parsed.accessToken === 'string' &&
-      typeof parsed.expiraEn === 'string'
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      !('sesionId' in parsed) ||
+      !('accessToken' in parsed) ||
+      !('expiraEn' in parsed) ||
+      typeof parsed.sesionId !== 'string' ||
+      typeof parsed.accessToken !== 'string' ||
+      typeof parsed.expiraEn !== 'string'
     ) {
-      return { accessToken: parsed.accessToken, expiraEn: parsed.expiraEn };
+      return null;
     }
-    return null;
+    return {
+      sesionId: parsed.sesionId,
+      accessToken: parsed.accessToken,
+      expiraEn: parsed.expiraEn,
+    };
   } catch {
     return null;
   }
 }
 
+function guardarPersistida(session: SessionTokens): void {
+  globalThis.localStorage?.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      sesionId: session.sesionId,
+      accessToken: session.accessToken,
+      expiraEn: session.expiraEn,
+    }),
+  );
+}
+
+function obtenerSesion(): SessionTokens | null {
+  const persistida = cargarPersistida();
+  if (persistida === null) return null;
+  return refreshTokenEnMemoria === undefined
+    ? persistida
+    : { ...persistida, refreshToken: refreshTokenEnMemoria };
+}
+
 function createBrowserTokenStore(): TokenStore {
   const listeners = new Set<() => void>();
-  const notify = (): void => listeners.forEach((listener) => listener());
+  const notify: () => void = () => listeners.forEach((listener) => listener());
 
   return {
-    getAccessToken: () => read()?.accessToken ?? null,
+    getAccessToken: () => obtenerSesion()?.accessToken ?? null,
+    getRefreshToken: () => refreshTokenEnMemoria ?? null,
+    getSession: () => obtenerSesion(),
 
-    set: (accessToken, expiraEn) => {
-      globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify({ accessToken, expiraEn }));
+    set: (session) => {
+      refreshTokenEnMemoria = session.refreshToken;
+      guardarPersistida(session);
       notify();
     },
 
     clear: () => {
+      refreshTokenEnMemoria = undefined;
       globalThis.localStorage?.removeItem(STORAGE_KEY);
       notify();
     },
 
     msHastaExpiracion: (now = Date.now()) => {
-      const session = read();
+      const session = obtenerSesion();
       if (session === null) return null;
       return new Date(session.expiraEn).getTime() - now;
     },

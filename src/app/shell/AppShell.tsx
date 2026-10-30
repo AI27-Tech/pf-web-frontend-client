@@ -1,12 +1,5 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import {
-  MessageSquare,
-  Plus,
-  RotateCcwClock,
-  ShieldHalf,
-  SquarePlus,
-  type LucideIcon,
-} from 'lucide-react';
+import { Plus, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
 import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
 
 type NavItem = {
@@ -45,8 +38,10 @@ const nav: readonly NavItem[] = [
   { to: '/viajes', label: 'Historial de Viajes', icon: RotateCcwClock, exact: false },
   // `exact: true`: es hijo de `/viajes`, no debe activar tambien a Historial.
   { to: '/viajes/new', label: 'Solicitar Servicio', icon: SquarePlus, exact: true },
-  // `exact: false`: activo tambien en el detalle `/conversaciones/$conversacionId`.
-  { to: '/conversaciones', label: 'Mensajes', icon: MessageSquare, exact: false },
+  // "Mensajes" (/conversaciones) NO vuelve a la navegación global: en V1 la conversación
+  // es POR VIAJE (E9-T8 / E3-HU-014), no una bandeja de conversaciones del cliente. Su
+  // entrada vive en el detalle del viaje (`ViajeDetailSection` → /viajes/$viajeId/
+  // conversacion), que es donde el contrato la ancla. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 ];
 
 /**

@@ -21,155 +21,129 @@
  * `prototipos-v2/seguimiento-vivo/`.
  */
 
+import type { components } from '@ai27-tech/contracts/openapi/bff';
+
 export const DEV_USER = {
   usuario: 'cliente@demo.ai27',
-  password: 'demo1234',
+  contrasena: 'demo1234',
+  // Segundo factor (TOTP) del dev user. En el sistema real lo valida el IdP; el mock
+  // solo exige un codigo conocido para reproducir el camino feliz y, por contraste,
+  // el 401 uniforme ante un codigo ausente o incorrecto (DEC-094).
+  segundoFactor: '123456',
 } as const;
+
+/**
+ * Respuesta de sesion en FORMA DE CONTRATO. Tipada contra el `Sesion` generado del
+ * tracer: si el contrato renombra o quita un campo, este builder deja de compilar.
+ * Es la pieza que ata el mock al contrato (contract test en tests/contracts/sesion).
+ */
+export function sesionWire(): components['schemas']['Sesion'] {
+  return {
+    sesion_id: 'ses-mock-1',
+    access_token: 'mock.jwt.no-firmado',
+    refresh_token: 'mock.refresh-1',
+    // Vida corta a propósito: hace visible el bucle de refresco de SessionContext.
+    expira_en: new Date(Date.now() + 15 * 60_000).toISOString(),
+  };
+}
 
 /** Valor JSON. Los mocks devuelven JSON crudo, no modelos de la app. */
 export type Json = string | number | boolean | null | Json[] | { readonly [key: string]: Json };
 
-/** Mensaje en forma de contrato. Tipado porque el handler de envio calcula su `seq`. */
-export interface MensajeWireMock {
-  readonly id: string;
-  /** Secuencia DE DOMINIO, asignada por el servidor. */
-  readonly seq: number;
-  readonly cuerpo: string;
-  readonly enviado_en: string;
-  readonly de_cliente: boolean;
-}
-
 /*
- * El listado de viajes.
- *
- * TODO(contracts): confirmar nombres de campo (`origenSitio`, `unidad`,
- * `reporteSeguridad`, ...) contra contracts/openapi/bff.yaml cuando exista.
+ * El listado de viajes, en la FORMA DE CONTRATO `ViajeResumen` ({id, estado, origen}).
+ * Los estados son los del enum del contrato (ADR 19). Los campos que el portal
+ * mostraba antes (folio, destino, unidad, reporteSeguridad, fecha) se retiraron: el
+ * contrato no los define. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
 export const viajesWire = [
-  {
-    id: 'viaje-1',
-    folio: 'AI27-000101',
-    estado: 'EN_RUTA',
-    origen: 'CDMX · Vallejo',
-    destino: 'Queretaro · Parque Industrial',
-    solicitadoEn: '2026-09-07T08:15:00Z',
-    origenSitio: 'Almacen Central',
-    destinoSitio: 'Planta Industrial Sur',
-    unidad: { descripcion: 'Volvo FH16', placa: 'AB-123', conductorNombre: 'Juan Perez' },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-2',
-    folio: 'AI27-000102',
-    estado: 'EN_RUTA',
-    origen: 'Guadalajara · El Salto',
-    destino: 'Leon · Zona Franca',
-    solicitadoEn: '2026-09-07T06:40:00Z',
-    origenSitio: 'Centro Logistico',
-    destinoSitio: 'Parque Industrial',
-    unidad: { descripcion: 'Kenworth T680', placa: 'CD-456', conductorNombre: 'Miguel Silva' },
-    reporteSeguridad: 'CON_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-3',
-    folio: 'AI27-000103',
-    estado: 'SOLICITADO',
-    origen: 'Monterrey · Apodaca',
-    destino: 'Saltillo · Derramadero',
-    solicitadoEn: '2026-09-07T15:05:00Z',
-    origenSitio: 'Patio de Origen',
-    destinoSitio: 'Derramadero',
-    // Recien solicitado: aun no hay unidad asignada. La celda dira "Sin asignar".
-    unidad: null,
-    reporteSeguridad: 'PENDIENTE',
-  },
-  {
-    id: 'viaje-6',
-    folio: 'AI27-000106',
-    estado: 'COMPLETADO',
-    origen: 'Puebla · Parque Vw',
-    destino: 'Veracruz · Puerto Nuevo',
-    solicitadoEn: '2026-09-05T06:00:00Z',
-    origenSitio: 'Planta Vw',
-    destinoSitio: 'Puerto Nuevo',
-    unidad: {
-      descripcion: 'Freightliner Cascadia',
-      placa: 'EF-789',
-      conductorNombre: 'Carlos Gomez',
-    },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-7',
-    folio: 'AI27-000107',
-    estado: 'CANCELADO',
-    origen: 'Tijuana · Otay',
-    destino: 'Mexicali · Ejido Nuevo Leon',
-    solicitadoEn: '2026-09-04T09:30:00Z',
-    origenSitio: 'Otay Industrial',
-    destinoSitio: 'Ejido Nuevo Leon',
-    unidad: { descripcion: 'Scania R450', placa: 'GH-012', conductorNombre: 'Laura Mendez' },
-    reporteSeguridad: 'CON_INCIDENCIAS',
-  },
-  {
-    id: 'viaje-8',
-    folio: 'AI27-000108',
-    estado: 'COMPLETADO',
-    origen: 'CDMX · Iztapalapa',
-    destino: 'Toluca · Lerma',
-    solicitadoEn: '2026-09-03T11:20:00Z',
-    origenSitio: 'CEDIS Oriente',
-    destinoSitio: 'Zona Industrial Lerma',
-    unidad: { descripcion: 'International LT', placa: 'IJ-345', conductorNombre: 'Roberto Diaz' },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
-  },
+  { id: 'viaje-1', estado: 'EN_TRANSITO', origen: 'CDMX · Vallejo' },
+  { id: 'viaje-2', estado: 'EN_TRANSITO', origen: 'Guadalajara · El Salto' },
+  { id: 'viaje-3', estado: 'SOLICITADO', origen: 'Monterrey · Apodaca' },
+  { id: 'viaje-6', estado: 'CERRADO', origen: 'Puebla · Parque Vw' },
+  { id: 'viaje-7', estado: 'CANCELADO', origen: 'Tijuana · Otay' },
+  { id: 'viaje-8', estado: 'CERRADO', origen: 'CDMX · Iztapalapa' },
 ] as const;
 
 export const viajeDetalleWire: Record<string, Json> = {
+  // Forma de contrato `ViajeSeguimiento`: {id, hito, eta, incidencias}. Vista curada
+  // del cliente (DEC-006): sin folio/origen/destino ni tipo interno de incidencia.
   'viaje-1': {
-    ...viajesWire[0],
-    condicionesActivas: [],
-    contratoId: 'contrato-77',
-    rutaId: 'ruta-12',
+    id: 'viaje-1',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito a destino' },
+    eta: { valor: '2026-09-07T18:30:00Z', obsoleto: false },
+    incidencias: [],
   },
   'viaje-2': {
-    ...viajesWire[1],
-    condicionesActivas: [
+    id: 'viaje-2',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito a destino' },
+    eta: { valor: '2026-09-07T16:00:00Z', obsoleto: true },
+    incidencias: [
       {
-        codigo: 'SIN_SENAL',
-        descripcion: 'Sin senal del dispositivo',
-        desde: '2026-09-07T14:20:00Z',
+        categoria: 'Incidencia de seguridad',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-09-07T14:20:00Z',
       },
     ],
-    contratoId: 'contrato-77',
-    rutaId: 'ruta-31',
   },
   'viaje-3': {
-    ...viajesWire[2],
-    condicionesActivas: [],
-    contratoId: 'contrato-90',
-    rutaId: null,
+    id: 'viaje-3',
+    hito: { estado: 'SOLICITADO', etiqueta: 'Servicio solicitado' },
+    eta: null,
+    incidencias: [],
   },
-  'viaje-6': {
-    ...viajesWire[3],
-    condicionesActivas: [],
-    contratoId: 'contrato-45',
-    rutaId: 'ruta-58',
+  // viaje-9 y viaje-10 son SOLO de detalle (no están en `viajesWire`, así que no
+  // aparecen en el historial ni alteran su paginación): se alcanzan por URL directa
+  // (/viajes/viaje-9, /viajes/viaje-10) para la prueba manual de E9-T6.
+  //
+  // viaje-9: VARIAS incidencias, incluyendo una RESUELTA y una con IMPACTO EN EL ETA.
+  // Cubre de un tiro tres de los cinco estados del ticket E9-T6. Las categorías son
+  // las cinco CURADAS (DEC-006); nunca el tipo interno. `impacto_eta` es opcional en
+  // el contrato: el portal lo pinta solo cuando viene (aquí, "+45 min").
+  'viaje-9': {
+    id: 'viaje-9',
+    hito: { estado: 'EN_TRANSITO', etiqueta: 'En tránsito a destino' },
+    eta: { valor: '2026-10-23T20:00:00Z', obsoleto: false },
+    incidencias: [
+      {
+        categoria: 'Retraso/desvío en ruta',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-10-23T15:30:00Z',
+        impacto_eta: '+45 min',
+      },
+      {
+        categoria: 'Falla mecánica/de equipo',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-23T16:00:00Z',
+      },
+      {
+        categoria: 'Pérdida de contacto',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-10-23T17:10:00Z',
+      },
+    ],
   },
-  'viaje-7': {
-    ...viajesWire[4],
-    condicionesActivas: [],
-    contratoId: 'contrato-62',
-    rutaId: 'ruta-71',
-  },
-  'viaje-8': {
-    ...viajesWire[5],
-    condicionesActivas: [],
-    contratoId: 'contrato-83',
-    rutaId: 'ruta-19',
+  // viaje-10: UNA sola incidencia RESUELTA, sin impacto en el ETA. Aísla el caso
+  // "resuelta" (y confirma que sin `impacto_eta` no se pinta la línea de impacto).
+  'viaje-10': {
+    id: 'viaje-10',
+    hito: { estado: 'EN_DESTINO', etiqueta: 'En destino' },
+    eta: { valor: '2026-10-23T12:00:00Z', obsoleto: true },
+    incidencias: [
+      {
+        categoria: 'Accidente/percance',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-23T09:15:00Z',
+      },
+    ],
   },
 };
 
+/*
+ * `bitacoraWire` — DESCONECTADO (recorte al contrato): su handler se retiró porque el
+ * contrato bff no define la bitácora. El dato se conserva para cuando se reconecte el
+ * componente de src/_desconectado/bitacora/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ */
 export const bitacoraWire: Record<string, Json> = {
   'viaje-1': [
     { id: 'b-1', ocurrioEn: '2026-09-07T08:15:00Z', descripcion: 'Servicio solicitado' },
@@ -183,59 +157,85 @@ export const bitacoraWire: Record<string, Json> = {
   'viaje-3': [{ id: 'b-6', ocurrioEn: '2026-09-07T15:05:00Z', descripcion: 'Servicio solicitado' }],
 };
 
-export const conversacionesWire = [
-  {
-    id: 'conv-1',
-    asunto: 'Demora en aduana · AI27-000101',
-    viajeId: 'viaje-1',
-    ultimoMensajeEn: '2026-09-07T13:40:00Z',
-    noLeidos: 2,
-  },
-  {
-    id: 'conv-2',
-    asunto: 'Cambio de ventana de entrega',
-    viajeId: 'viaje-2',
-    ultimoMensajeEn: '2026-09-07T11:10:00Z',
-    noLeidos: 0,
-  },
-] as const;
-
 /*
- * `seq` aqui es la secuencia DE DOMINIO. Los mensajes salen a proposito en un orden
- * distinto al de su secuencia, para que se vea que la app ordena por dominio y no por
- * el orden en que llegan.
+ * Conversación del viaje, en FORMA DE CONTRATO (E9-T8 / E3-HU-014, ADR audiencia Cliente).
+ *
+ * El modelo V1 es UNA conversación POR VIAJE (anclada al viaje, no a un `conversacion_id`),
+ * así que el estado del mock se indexa por `viajeId`. La vista del cliente es mínima:
+ * `{ viaje_id, estado, atendida }` para la metadata y `{ id, secuencia, cuerpo, enviado_en,
+ * de_cliente }` por mensaje. Nunca hay `actor_real`, rol interno, bandeja ni pool: el
+ * `bff` recorta eso aguas arriba, así que el mock simplemente no lo tiene.
+ *
+ * `secuencia` es la secuencia DE DOMINIO. Los mensajes seed salen a propósito en un orden
+ * distinto al de su secuencia, para que se vea que la app ordena por dominio y no por el
+ * orden en que llegan.
  */
-export const mensajesWire: Record<string, MensajeWireMock[]> = {
-  'conv-1': [
+export interface ConversacionWireMock {
+  readonly viaje_id: string;
+  estado: 'abierta' | 'solo_lectura' | 'cerrada';
+  atendida: boolean;
+}
+
+export interface MensajeClienteWireMock {
+  readonly id: string;
+  /** Secuencia DE DOMINIO, asignada por el servidor. */
+  readonly secuencia: number;
+  readonly cuerpo: string;
+  readonly enviado_en: string;
+  readonly de_cliente: boolean;
+  /** Clave de idempotencia del envío; NO se expone al cliente, es base del mock. */
+  readonly client_message_id?: string;
+}
+
+export const conversacionesWire: Record<string, ConversacionWireMock> = {
+  // viaje-1: abierta y atendida, con historial. Camino feliz.
+  'viaje-1': { viaje_id: 'viaje-1', estado: 'abierta', atendida: true },
+  // viaje-2: abierta, aún no atendida.
+  'viaje-2': { viaje_id: 'viaje-2', estado: 'abierta', atendida: false },
+  // viaje-6: cerrada (viaje terminal) → solo lectura: el envío responde 409.
+  'viaje-6': { viaje_id: 'viaje-6', estado: 'solo_lectura', atendida: true },
+};
+
+export const mensajesWire: Record<string, MensajeClienteWireMock[]> = {
+  'viaje-1': [
     {
       id: 'm-3',
-      seq: 3,
+      secuencia: 3,
       cuerpo: 'Confirmado, la unidad sale en cuanto liberen.',
       enviado_en: '2026-09-07T13:40:00Z',
       de_cliente: false,
     },
     {
       id: 'm-1',
-      seq: 1,
-      cuerpo: 'Buenas, la unidad sigue detenida en aduana?',
+      secuencia: 1,
+      cuerpo: '¿Buenas, la unidad sigue detenida en aduana?',
       enviado_en: '2026-09-07T13:05:00Z',
       de_cliente: true,
     },
     {
       id: 'm-2',
-      seq: 2,
-      cuerpo: 'Si, estamos esperando la liberacion documental.',
+      secuencia: 2,
+      cuerpo: 'Sí, estamos esperando la liberación documental.',
       enviado_en: '2026-09-07T13:22:00Z',
       de_cliente: false,
     },
   ],
-  'conv-2': [
+  'viaje-2': [
     {
       id: 'm-4',
-      seq: 1,
-      cuerpo: 'Podemos mover la entrega a las 18:00?',
+      secuencia: 1,
+      cuerpo: '¿Podemos mover la entrega a las 18:00?',
       enviado_en: '2026-09-07T11:10:00Z',
       de_cliente: true,
+    },
+  ],
+  'viaje-6': [
+    {
+      id: 'm-5',
+      secuencia: 1,
+      cuerpo: 'El viaje se cerró con éxito. Gracias.',
+      enviado_en: '2026-09-05T18:00:00Z',
+      de_cliente: false,
     },
   ],
 };
@@ -264,6 +264,11 @@ export const mensajesWire: Record<string, MensajeWireMock[]> = {
  * Los numeros de los indicadores (24 viajes activos, 98%, 2 alertas) son los del
  * diseno y NO se derivan de `viajesWire`: son agregados de toda la cuenta, no de los
  * tres viajes de ejemplo.
+ */
+/*
+ * `panelWire` — DESCONECTADO (recorte al contrato): su handler GET /api/v1/panel se
+ * retiró porque el contrato bff no lo define. Se conserva para cuando se reconecte el
+ * panel de src/_desconectado/panel/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
 export function panelWire(): Json {
   const now = Date.now();
@@ -299,10 +304,10 @@ export function panelWire(): Json {
     viajes_en_curso: [
       {
         viaje_id: 'viaje-1',
-        folio: viajesWire[0].folio,
-        origen: viajesWire[0].origen,
-        destino: viajesWire[0].destino,
-        estado: viajesWire[0].estado,
+        folio: 'AI27-000101',
+        origen: 'CDMX · Vallejo',
+        destino: 'Queretaro · Parque Industrial',
+        estado: 'EN_TRANSITO',
         condiciones_activas: [],
         eta: {
           estado: 'presente',
@@ -312,10 +317,10 @@ export function panelWire(): Json {
       },
       {
         viaje_id: 'viaje-2',
-        folio: viajesWire[1].folio,
-        origen: viajesWire[1].origen,
-        destino: viajesWire[1].destino,
-        estado: viajesWire[1].estado,
+        folio: 'AI27-000102',
+        origen: 'Guadalajara · El Salto',
+        destino: 'Leon · Zona Franca',
+        estado: 'EN_TRANSITO',
         condiciones_activas: [
           {
             codigo: 'RETRASADO',
@@ -331,10 +336,10 @@ export function panelWire(): Json {
       },
       {
         viaje_id: 'viaje-3',
-        folio: viajesWire[2].folio,
-        origen: viajesWire[2].origen,
-        destino: viajesWire[2].destino,
-        estado: viajesWire[2].estado,
+        folio: 'AI27-000103',
+        origen: 'Monterrey · Apodaca',
+        destino: 'Saltillo · Derramadero',
+        estado: 'SOLICITADO',
         condiciones_activas: [],
         // Nunca hubo ETA. No es lo mismo que no poder calcularlo ahora.
         eta: null,
@@ -374,7 +379,7 @@ export function panelWire(): Json {
         id: 'notif-1',
         severidad: 'critica',
         titulo: 'Desvío de ruta detectado',
-        cuerpo: `La unidad del viaje ${viajesWire[1].folio} salió de la geocerca en un tramo peligroso.`,
+        cuerpo: 'La unidad del viaje AI27-000102 salió de la geocerca en un tramo peligroso.',
         ocurrio_en: minutesAgo(2),
       },
       {
@@ -389,6 +394,34 @@ export function panelWire(): Json {
     ],
   };
 }
+
+/*
+ * Emergencias del cliente, en FORMA DE CONTRATO (E9-T9, ADR 21 §6).
+ *
+ * viaje-2 arranca con un caso `en_atencion` para cubrir "emergencia activa" y "un solo
+ * caso" por URL directa; el resto de viajes arranca sin emergencias.
+ */
+export interface CasoEmergenciaWireMock {
+  readonly id: string;
+  estado: 'abierta' | 'en_atencion' | 'resuelta';
+  readonly activada_en: string;
+  /** Las notas NO se exponen al cliente; se guardan para que el mock no las pierda. */
+  readonly notas: string[];
+  /** `activacion_id` que creó el caso: base de la idempotencia del mock. */
+  readonly activacion_id: string;
+}
+
+export const emergenciasWire: Record<string, CasoEmergenciaWireMock[]> = {
+  'viaje-2': [
+    {
+      id: 'emg-seed-1',
+      estado: 'en_atencion',
+      activada_en: '2026-10-23T14:05:00Z',
+      notas: [],
+      activacion_id: 'seed-activacion-1',
+    },
+  ],
+};
 
 export const catalogosWire: Record<string, Json[]> = {
   rutas: [

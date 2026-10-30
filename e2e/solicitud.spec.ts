@@ -1,34 +1,29 @@
 /*
- * El asistente "Solicitar nuevo servicio", contra el `bff` simulado.
+ * "Solicitar nuevo servicio" — alta de servicio del portal (E1-HU-001, E9-T4).
  *
- * Cubre:
- *   - el recorrido completo de los cuatro pasos con los catalogos del mock
- *   - que el borrador se conserva al ir y volver entre pasos.
- *   - que "Editar" desde Revisar salta al paso correcto sin perder lo capturado
- *   - que "Enviar solicitud" (tras confirmar) muestra la confirmacion con un ID
- *     simulado con formato AI27-YYMMDD-NNN, sin crear ningun registro (por ahora).
- *   - que "Volver al inicio" regresa al primer paso con el formulario limpio
- *   - que el tema oscuro cambia los colores sin tocar ningun componente
+ * El formulario captura la forma del contrato `CrearViajeEntrada`
+ * ({ origen, destinos:[{nombre, numero_envio?}], tipo_servicio?, fecha_hora_servicio? })
+ * y crea un viaje real (POST /viajes), que entra en `Solicitado`. Reglas cubiertas:
+ *   - Origen y destino son obligatorios: el envío está deshabilitado hasta tenerlos.
+ *   - Múltiples paradas: "Agregar paradas" permite añadir y quitar destinos 1..N.
+ *
+ * Los campos se localizan por su ROL y nombre accesible (`textbox`/`checkbox`), no por
+ * `getByLabel`: el `FormField` de `@ai27-tech/ui` añade un asterisco de requerido dentro
+ * del `<label>`, así que el texto del label es "Destino*" pero el nombre accesible es
+ * "Destino". El checkbox se alterna pulsando su etiqueta (un overlay estilizado
+ * intercepta el clic sobre el input nativo).
+ *
+ * El asistente rico de 4 pasos sigue desconectado (src/_desconectado/solicitud/); su
+ * recorrido se cubre en pruebas unitarias.
  */
 
 import { expect, test } from '@playwright/test';
 import { login } from './support/login';
 
-/** Llena el paso 1 con datos validos. Deja el asistente listo para Continuar. */
-async function llenarServicioYFecha(page: import('@playwright/test').Page): Promise<void> {
-  await page.getByRole('radio', { name: /Monitoreo Activo/ }).check({ force: true });
-  await page.getByLabel('Fecha de salida *').fill('2026-11-24');
-  await page.getByLabel('Hora de salida estimada *').fill('08:00');
-  await page.getByLabel('Prioridad del servicio').selectOption({ label: 'Alta' });
-  await page.getByLabel('Nombre del contacto en sitio *').fill('Ana G.');
-  await page.getByLabel('Teléfono del contacto *').fill('+52 55 1234 5678');
-}
-
-test.describe('solicitud · recorrido completo', () => {
-  test('el enlace del sidebar lleva al asistente', async ({ page }) => {
+test.describe('solicitud · formulario mínimo', () => {
+  test('el enlace del sidebar lleva al formulario', async ({ page }) => {
     await login(page);
 
-    // El sidebar es un <nav> sin nombre accesible; se apunta al enlace directamente.
     await page.getByRole('link', { name: 'Solicitar Servicio', exact: true }).click();
 
     await expect(page).toHaveURL(/\/viajes\/new/);
@@ -37,103 +32,68 @@ test.describe('solicitud · recorrido completo', () => {
     ).toBeVisible();
   });
 
-  test('recorre los cuatro pasos, conserva datos y confirma con ID simulado', async ({ page }) => {
+  test('el envío está deshabilitado mientras falte origen o destino', async ({ page }) => {
     await login(page);
-    await page.goto('/viajes/new?paso=servicio');
+    await page.goto('/viajes/new');
 
-    // --- Paso 1: Servicio y Fecha ---
-    await llenarServicioYFecha(page);
-    await page.getByRole('button', { name: /Continuar/ }).click();
-
-    // --- Paso 2: Ruta ---
-    const origen = page.getByRole('region', { name: 'Origen' });
-    await origen.getByLabel('Nombre del lugar o empresa *').fill('CDMX Vallejo');
-    const destino = page.getByRole('region', { name: 'Destino' });
-    await destino.getByLabel('Nombre del lugar o empresa *').fill('Laredo, US');
-
-    // El resumen refleja lo capturado, sin inventar distancia.
-    const resumen = page.getByRole('region', { name: 'Resumen de Ruta' });
-    await expect(resumen.getByText('CDMX Vallejo')).toBeVisible();
-    await expect(resumen.getByText('-- km')).toBeVisible();
-
-    // Regresar conserva los datos del paso 1.
-    await page.getByRole('button', { name: /Regresar/ }).click();
-    await expect(page.getByLabel('Nombre del contacto en sitio *')).toHaveValue('Ana G.');
-    await page.getByRole('button', { name: /Continuar/ }).click();
-
-    // Y el paso 2 tambien sigue lleno.
-    await expect(
-      page.getByRole('region', { name: 'Origen' }).getByLabel('Nombre del lugar o empresa *'),
-    ).toHaveValue('CDMX Vallejo');
-    await page.getByRole('button', { name: /Continuar/ }).click();
-
-    // --- Paso 3: Detalles ---
-    await page.getByLabel('Categoría de la carga').selectOption({ label: 'Electrónicos' });
-    await page.getByLabel('Requerimientos del vehículo/unidad').fill('Caja seca 53 pies');
-    // El `Checkbox` del design system oculta el input nativo tras un recuadro
-    // estilizado que intercepta el clic; se fuerza, igual que el radio del paso 1.
-    await page.getByLabel('Alto Valor').check({ force: true });
-    await page.getByRole('button', { name: /Continuar/ }).click();
-
-    // --- Paso 4: Revisar ---
-    const servicio = page.getByRole('region', { name: 'Servicio y Fecha' });
-    await expect(servicio.getByText('Monitoreo Activo')).toBeVisible();
-    await expect(servicio.getByText('Alta')).toBeVisible();
-
-    // "Editar" en Ruta salta al paso 2 sin perder lo capturado.
-    await page
-      .getByRole('region', { name: 'Ruta' })
-      .getByRole('button', { name: /Editar/ })
-      .click();
-    await expect(page).toHaveURL(/paso=ruta/);
-    await expect(
-      page.getByRole('region', { name: 'Origen' }).getByLabel('Nombre del lugar o empresa *'),
-    ).toHaveValue('CDMX Vallejo');
-
-    // Volver a Revisar y enviar (tras confirmar).
-    await page.getByRole('button', { name: /Continuar/ }).click();
-    await page.getByRole('button', { name: /Continuar/ }).click();
-
-    const enviar = page.getByRole('button', { name: /Enviar solicitud/ });
+    const enviar = page.getByRole('button', { name: /Solicitar servicio/ });
     await expect(enviar).toBeDisabled();
-    // Mismo `Checkbox` del design system: el recuadro estilizado intercepta el clic.
-    await page.getByLabel(/Confirmo que la información/).check({ force: true });
+
+    // Solo origen: sigue deshabilitado.
+    await page.getByRole('textbox', { name: 'Origen' }).fill('CDMX Vallejo');
+    await expect(enviar).toBeDisabled();
+
+    // Origen + destino: habilitado.
+    const destino = page.getByRole('textbox', { name: 'Destino', exact: true });
+    await destino.fill('Laredo, US');
     await expect(enviar).toBeEnabled();
-    await enviar.click();
 
-    // --- Confirmacion ---
-    // La tarjeta de confirmacion lleva aria-label pero el `Card` del design system no
-    // es un landmark `region`; se afirma sobre el contenido visible, no sobre el rol.
-    // La ruta se pinta en un solo nodo "origen → destino".
-    await expect(page.getByRole('heading', { name: 'Solicitud enviada' })).toBeVisible();
-    await expect(page.getByText(/^AI27-\d{6}-\d{3}$/)).toBeVisible();
-    await expect(page.getByText(/CDMX Vallejo → Laredo, US/)).toBeVisible();
-
-    // "Volver al inicio" regresa al paso 1 limpio.
-    await page.getByRole('button', { name: 'Volver al inicio' }).click();
-    await expect(page).toHaveURL(/paso=servicio/);
-    await expect(page.getByLabel('Nombre del contacto en sitio *')).toHaveValue('');
-    await expect(page.getByRole('radio', { name: /Monitoreo Activo/ })).not.toBeChecked();
+    // Borrar el destino lo vuelve a deshabilitar.
+    await destino.fill('');
+    await expect(enviar).toBeDisabled();
   });
-});
 
-test.describe('solicitud · tema oscuro', () => {
-  // Misma razon que en historial.spec.ts: V1 no tiene conmutador de tema y `.dark`
-  // no altera el fondo. Se omite hasta que exista la funcionalidad de theming.
-  test.skip('el tema oscuro cambia los colores sin tocar ningun componente', async ({ page }) => {
+  test('agrega y quita paradas', async ({ page }) => {
     await login(page);
-    await page.goto('/viajes/new?paso=servicio');
-    await page.getByRole('heading', { name: 'Solicitar nuevo servicio', level: 1 }).waitFor();
+    await page.goto('/viajes/new');
 
-    const fondoBody = () =>
-      page.locator('body').evaluate((nodo) => globalThis.getComputedStyle(nodo).backgroundColor);
+    await page.getByText('Agregar paradas').click();
+    await expect(page.getByRole('textbox', { name: 'Destino 1', exact: true })).toBeVisible();
 
-    const claro = await fondoBody();
+    await page.getByRole('button', { name: 'Agregar otra parada' }).click();
+    await expect(page.getByRole('textbox', { name: 'Destino 2', exact: true })).toBeVisible();
 
-    await page.evaluate(() => {
-      globalThis.document.documentElement.classList.add('dark');
-    });
+    await page.getByRole('button', { name: 'Agregar otra parada' }).click();
+    await expect(page.getByRole('textbox', { name: 'Destino 3', exact: true })).toBeVisible();
 
-    await expect.poll(async () => (await fondoBody()) !== claro).toBe(true);
+    await page.getByRole('button', { name: 'Quitar parada 2' }).click();
+    await expect(page.getByRole('textbox', { name: 'Destino 3', exact: true })).toBeHidden();
+    await expect(page.getByRole('textbox', { name: 'Destino 2', exact: true })).toBeVisible();
+  });
+
+  test('crea un viaje con origen, varias paradas y tipo de servicio hasta Solicitado', async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto('/viajes/new');
+
+    await page.getByRole('textbox', { name: 'Origen' }).fill('CDMX Vallejo');
+    await page.getByRole('textbox', { name: 'Destino', exact: true }).fill('Laredo, US');
+    await page.getByText('Agregar paradas').click();
+    await page.getByRole('button', { name: 'Agregar otra parada' }).click();
+    await page.getByRole('textbox', { name: 'Destino 2', exact: true }).fill('Nuevo Laredo');
+    await page.getByLabel('Tipo de servicio').selectOption({ label: 'Monitoreo Activo' });
+
+    await page.getByRole('button', { name: /Solicitar servicio/ }).click();
+
+    // El mock devuelve la forma de contrato ViajeResumen con el id del viaje creado,
+    // en estado SOLICITADO (el estado inicial lo fija el servidor, no el cliente).
+    await expect(page.getByRole('heading', { name: 'Solicitud enviada' })).toBeVisible();
+    await expect(page.getByText('viaje-nuevo')).toBeVisible();
+    await expect(page.getByText(/estado Solicitado/i)).toBeVisible();
+
+    // "Ver mis viajes" lleva al historial.
+    await page.getByRole('button', { name: 'Ver mis viajes' }).click();
+    await expect(page).toHaveURL(/\/viajes$/);
   });
 });

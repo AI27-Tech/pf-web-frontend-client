@@ -7,17 +7,24 @@
  *
  */
 
-import type { ViajeResumen } from '@/lib/contracts';
+import type { EstadoViaje, ViajeResumen } from '@/lib/contracts';
 import { HistorialHeader } from './HistorialHeader';
 import { HistorialViajesTable } from './HistorialViajesTable';
 
-export function HistorialViajesSection({ viajes }: { readonly viajes: readonly ViajeResumen[] }) {
+export function HistorialViajesSection({
+  viajes,
+  estado,
+}: {
+  readonly viajes: readonly ViajeResumen[];
+  /** Estado seleccionado hoy, leido del search param de la ruta. */
+  readonly estado?: EstadoViaje | undefined;
+}) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
       <HistorialHeader />
       {/* La tabla absorbe el alto sobrante: crece hasta el borde inferior del area. */}
       <div className="min-h-0 flex-1">
-        <HistorialViajesTable viajes={viajes} />
+        <HistorialViajesTable viajes={viajes} estado={estado} />
       </div>
     </div>
   );
