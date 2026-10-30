@@ -56,4 +56,8 @@ export type {
   EmergenciasCliente,
   ActivarEmergenciaClienteEntrada,
   NotaEmergenciaClienteEntrada,
+  ConversacionCliente,
+  MensajeCliente,
+  PaginaMensajesCliente,
+  EnviarMensajeClienteEntrada,
 } from './dominio';

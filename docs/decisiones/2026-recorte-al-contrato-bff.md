@@ -77,11 +77,22 @@ Lo único que el portal cliente puede consumir hoy:
 - `GET /viajes/{id}/bitacora` y `EntradaBitacora` no existen en el contrato. Ruta
   retirada del enrutado; componente y API conservados en `src/_desconectado/bitacora/`.
 
-### Conversaciones — desconectadas
+### Conversaciones — RECONECTADA (E9-T8 / E3-HU-014, AI27-27)
 
-- El `bff` no expone conversación al cliente (está en `mensajeria.yaml`, interno).
-  Lista, detalle, API y tipos conservados en `src/_desconectado/conversacion/`. Entrada
-  "Mensajes" retirada del `AppShell`.
+- El `bff` **sí** expone la conversación al cliente desde `tracer.26` (`GET/POST
+/api/v1/viajes/{id}/conversacion[...]`), anclada al **viaje**, no a un
+  `conversacion_id`. Se reconectó contra `tracer.27`:
+  - Wrapper `src/lib/api/conversacion.ts`, hook `src/features/conversacion/useConversacion.ts`
+    y componente `src/features/conversacion/ConversacionSection.tsx`.
+  - Ruta colgada del viaje: `src/routes/_private/viajes/$viajeId/conversacion/`.
+  - Tipos del contrato generado en el barrel (`ConversacionCliente`, `MensajeCliente`,
+    `PaginaMensajesCliente`, `EnviarMensajeClienteEntrada`).
+- `src/_desconectado/conversacion/` se **retiró** (su `api.ts` asumía una forma inventada:
+  `idempotencyKey` como opción, rutas `/conversaciones/{id}`, paginación por cursor). El
+  modelo real es una conversación POR VIAJE, paginada POR SECUENCIA (`antes_de`/`despues_de`),
+  con el envío idempotente por `client_message_id` en el cuerpo.
+- La entrada "Mensajes" NO vuelve a la navegación global: la conversación cuelga del
+  detalle del viaje (`ViajeDetailSection`), que es donde el contrato la ancla.
 
 ### Panel de control — desconectado
 

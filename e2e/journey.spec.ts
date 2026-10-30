@@ -62,41 +62,10 @@ test.describe('sesion', () => {
  * se sigue cubriendo en la prueba unitaria de FreshnessMark.
  */
 
-// DESCONECTADO (recorte al contrato): las rutas /conversaciones se retiraron porque el
-// contrato bff no expone conversación al cliente (mensajeria.yaml es superficie interna).
-// La feature se conservó en src/_desconectado/conversacion/. Reconectar estas pruebas al
-// recrear las rutas. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
-test.describe.skip('conversacion · orden por secuencia de dominio', () => {
-  test('ordena por secuencia de dominio y no por orden de llegada', async ({ page }) => {
-    await login(page);
-    await page.goto('/conversaciones/conv-1');
-
-    await expect(page.locator('ol li').first()).toBeVisible();
-    const cuerpos = await page.locator('ol li p:first-child').allInnerTexts();
-
-    /*
-     * El mock devuelve los mensajes en orden de `seq` 3, 1, 2 a proposito. Si la app
-     * los pintara en el orden recibido, el primero seria "Confirmado…".
-     */
-    expect(cuerpos[0]).toMatch(/sigue detenida en aduana/i);
-    expect(cuerpos[1]).toMatch(/liberacion documental/i);
-    expect(cuerpos[2]).toMatch(/Confirmado/i);
-  });
-
-  test('enviar un mensaje lo anade a la historia', async ({ page }) => {
-    await login(page);
-    await page.goto('/conversaciones/conv-2');
-
-    const items = page.locator('ol li');
-    const antes = await items.count();
-
-    await page.getByLabel('Nuevo mensaje').fill('Mensaje desde la prueba e2e');
-    await page.getByRole('button', { name: 'Enviar' }).click();
-
-    await expect(items).toHaveCount(antes + 1);
-    await expect(items.last()).toContainText('Mensaje desde la prueba e2e');
-  });
-});
+// RECONECTADO (E9-T8 / E3-HU-014, AI27-27): la conversación del viaje volvió al contrato
+// —ahora anclada al VIAJE (`/viajes/{id}/conversacion`), no a un `conversacion_id`—. El
+// recorrido de orden por secuencia de dominio, envío idempotente y solo lectura se cubre
+// en e2e/conversacion.spec.ts; el bloque de `/conversaciones/conv-1` de antes se retiró.
 
 test.describe('viajes', () => {
   test('el detalle muestra el seguimiento curado: hito, ETA e incidencias', async ({ page }) => {

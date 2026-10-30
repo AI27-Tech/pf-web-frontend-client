@@ -1,5 +1,46 @@
 # CHANGELOG
 
+## 2026:10:30 15:56
+
+**Resumen:** Se **reconectó la conversación del viaje** en el portal del cliente (E9-T8 / E3-HU-014, AI27-27): el cliente lee los mensajes de su viaje y envía los suyos; las respuestas de AI27 aparecen con la etiqueta fija **"AI27 Operations"** (DEC-021 #4); la conversación muestra su indicador **atendida/resuelto** (DEC-014). El `bff` ya expone la superficie Cliente desde `tracer.26`, **anclada al viaje** (no a un `conversacion_id`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.23` a `0.1.0-tracer.28` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`: +2 de conversación, y se retiraron 2 pruebas `.skip` obsoletas de `/conversaciones`).
+
+> **Nota de pin (verificada contra el repo de contratos):** se fijó `tracer.28`, el pin que el `bff` de E9 (`pf-bff-m`, pin `v0.1.9`) ya tiene desplegado; **nunca `.26`** (ola a medias). Para la conversación, `.27` y `.28` son idénticos: el `diff .27→.28` del `bff.yaml` **no toca la conversación**, solo agrega el catálogo `listarTiposServicio` + `TipoServicioCliente`/`PaginaTiposServicio` (E9-T4, otra HU) —por eso se tomó `.28` de una vez, para no volver a mover el pin cuando se tome E9-T4—. Al reinstalar, el lockfile aún referenciaba `.27` (republicado dentro de la ventana de `minimumReleaseAge`): se regeneró con `pnpm clean --lockfile && pnpm install`, tal como indica el propio error de política. La ramificación del `409` es sobre el `codigo` de máquina `conversacion_solo_lectura`, no sobre el status ni el mensaje.
+
+**Formas tomadas del contrato (NO inventadas):** las rutas y los tipos son los del contrato generado `bff` `tracer.28`: `obtenerConversacionViaje` (`GET /viajes/{id}/conversacion` → `ConversacionCliente`), `listarMensajesViaje` (`GET .../mensajes` → `PaginaMensajesCliente`) y `enviarMensajeViaje` (`POST .../mensajes` → `MensajeCliente`), reexportados por el barrel `@/lib/contracts`. El código desconectado (y los briefs viejos) decían "cursor", `idempotencyKey` como opción y rutas `/conversaciones/{id}`: todo eso quedó obsoleto. El modelo real es **una conversación POR VIAJE**, **paginada POR SECUENCIA** de dominio (`antes_de`/`despues_de`/`limite`, mutuamente excluyentes; respuesta `{ items, hay_mas }`, **sin `cursor_siguiente`**), con el envío **idempotente por `client_message_id` en el CUERPO**.
+
+**Decisiones de patrón (y por qué):**
+
+- **La idempotencia del envío viaja en el CUERPO, no en un header.** El contrato pide `client_message_id` dentro de `EnviarMensajeClienteEntrada`: lo genera el hook **por intento** (`crypto.randomUUID()`). Un reintento técnico de la misma mutación reusa ese id → el servidor devuelve el mensaje original (`200`) y no se duplica; un envío nuevo genera otro id → otro mensaje (`201`). Por eso NO se usó el `Idempotency-Key` del cliente HTTP (mismo criterio que la familia de emergencia).
+- **Paginación por secuencia de dominio, no por cursor.** `antes_de` lee la historia hacia atrás (botón "Cargar mensajes anteriores"); `despues_de` recupera lo nuevo tras cada poll (catch-up). Son excluyentes: si llegaran ambos, gana `antes_de`. La historia se acumula en una sola clave de caché y se ordena/deduplica con `orderByDomainSequence` del barrel (ante la misma identidad gana la secuencia mayor).
+- **Lectura por `useQuery` + polling (sin SSE en V1).** La metadata y la historia se refrescan con la MISMA cadencia del seguimiento (`VIAJE_POLLING_INTERVAL_MS`, ADR 27). La entrega viva por stream es mejora posterior, no requisito V1.
+- **"AI27 Operations" es una etiqueta CONSTANTE del frontend.** El contrato nunca trae `actor_real` ni rol interno: cuando `de_cliente=false`, la UI pinta el alias fijo. Hay prueba de que el DOM no contiene vocabulario interno (monitorista, supervisor, reclamo, bandeja, pool…).
+- **La conversación cuelga del viaje, no de la navegación global.** La entrada "Mensajes" NO vuelve al `AppShell`: en V1 no hay bandeja de conversaciones del cliente. El enlace vive en el detalle del viaje (`ViajeDetailSection`), que es donde el contrato la ancla.
+- **Taxonomía del envío (verificada con el contrato):** `400` (cuerpo/`client_message_id` inválido) · `401`/`403` · `404` · **`409 conversacion_solo_lectura`** (ventana de escritura vencida tras el cierre, DEC-030/DEC-041): la UI deshabilita el compositor cuando la conversación está `solo_lectura`/`cerrada`, y si el `409` llega en carrera lo explica en vez de presentarlo como fallo genérico.
+
+**Fuera de alcance V1:** el cliente no ve `actor_real`, reclamo, bandeja ni pool (lo recorta el `bff`); sin recibos de lectura individuales (DEC-014/Q113: solo el indicador atendido/resuelto); sin SSE.
+
+**Estados obligatorios (cubiertos por pruebas):** vacía · con historial (paginación por secuencia, `hay_mas`) · enviando (optimista, sin duplicar por reintento) · solo lectura/cerrada (envío deshabilitado con la razón; `409` si llega) · atendida/resuelta (indicador visible) · error de carga.
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml`: pin de `@ai27-tech/contracts` a `0.1.0-tracer.27`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `ConversacionCliente`, `MensajeCliente`, `PaginaMensajesCliente`, `EnviarMensajeClienteEntrada` del contrato generado, reexportados por el barrel.
+- `src/lib/api/conversacion.ts` (nuevo): wrappers `obtenerConversacionViaje`, `listarMensajesViaje(viajeId, { antesDe?|despuesDe?, limite? })`, `enviarMensajeViaje(viajeId, { cuerpo, clientMessageId })`; la `secuencia` int64 se marca como `DomainSeq` para ordenar/deduplicar.
+- `src/features/conversacion/useConversacion.ts` (nuevo): hook dueño del estado de servidor (metadata + historia por polling con catch-up por `despues_de`, `cargarMasAntiguos` por `antes_de`) y la mutación idempotente.
+- `src/features/conversacion/ConversacionSection.tsx` (nuevo): historia ordenada por secuencia, etiqueta constante "AI27 Operations", indicador `atendida`, compositor deshabilitado en solo lectura/cerrada y manejo del `409`.
+- `src/routes/_private/viajes/$viajeId/conversacion/index.tsx` (nueva ruta colgada del viaje).
+- `src/features/viajes/ViajeDetailSection.tsx`: enlace "Conversación" en el encabezado del detalle.
+- `src/app/shell/AppShell.tsx`: nota actualizada (la conversación es por viaje, no entra a la navegación global).
+- `src/mocks/data.ts` + `handlers.ts`: conversación POR VIAJE en forma de contrato (estado + atendida; mensajes con `secuencia`), handlers con paginación por secuencia, idempotencia por `client_message_id` y `409 conversacion_solo_lectura`.
+- `tests/conversacion/conversacion.test.ts` (nuevo): idempotencia por `client_message_id` en el cuerpo; paginación por secuencia (`antes_de`/`despues_de` excluyentes, `hay_mas`); orden y dedup por secuencia de dominio.
+- `tests/conversacion/ConversacionSection.test.tsx` (nuevo): etiqueta "AI27 Operations", indicador `atendida`, no renderiza datos internos, solo lectura/cerrada y `409` deshabilitan/explican el envío.
+- `e2e/conversacion.spec.ts` (nuevo): abrir la conversación del viaje, enviar un mensaje y verlo (sin duplicar); conversación en solo lectura deshabilita el envío.
+- `src/_desconectado/conversacion/` **retirado** (reconectado); `src/_desconectado/README.md` y `docs/decisiones/2026-recorte-al-contrato-bff.md` actualizados; bloque `.skip` de `/conversaciones` en `e2e/journey.spec.ts` retirado (cubierto por el spec dedicado).
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/api/conversacion.ts` · `src/features/conversacion/useConversacion.ts` · `src/features/conversacion/ConversacionSection.tsx` · `src/routes/_private/viajes/$viajeId/conversacion/index.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/app/shell/AppShell.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/conversacion/conversacion.test.ts` · `tests/conversacion/ConversacionSection.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `e2e/conversacion.spec.ts` · `e2e/journey.spec.ts` · `src/_desconectado/README.md` · `docs/decisiones/2026-recorte-al-contrato-bff.md` · `CHANGELOG.md` · (retirado) `src/_desconectado/conversacion/`
+
 ## 2026:10:29 17:10
 
 **Resumen:** Se implementó **cancelar y rechazar el servicio** desde el portal del cliente (E1-HU-002 / E9-T7, AI27-26): dos acciones distintas con dos desenlaces distintos, no una con variantes. **Cancelar** (`CANCELADO`) para el viaje aún no salido; **rechazar** (`RECHAZADO_POR_CLIENTE`) para no aceptar el servicio asignado. Ambas pegan a `POST /api/v1/viajes/{id}/transiciones-cliente` del contrato `bff` (`tracer.23`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.20` a `0.1.0-tracer.23` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (31 archivos, 202 pruebas) en verde; e2e en verde (24 activos: +1 de cancelación).

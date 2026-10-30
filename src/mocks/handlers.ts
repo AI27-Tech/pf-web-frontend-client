@@ -24,10 +24,13 @@ import { EstadoViaje, puedeTransicionar } from '@/lib/contracts';
 import {
   DEV_USER,
   catalogosWire,
+  conversacionesWire,
   emergenciasWire,
+  mensajesWire,
   sesionWire,
   viajeDetalleWire,
   viajesWire,
+  type MensajeClienteWireMock,
 } from './data';
 
 /** Latencia artificial: sin ella los estados de carga nunca se ven. */
@@ -254,10 +257,146 @@ export const handlers = [
     return HttpResponse.json(catalogosWire[String(params.familia)] ?? []);
   }),
 
-  // --- Conversaciones: DESCONECTADAS (recorte al contrato) ----------------------
-  // El contrato bff no expone conversación al cliente (mensajeria.yaml es superficie
-  // interna). Los handlers de /conversaciones se retiraron; los datos mock
-  // (conversacionesWire, mensajesWire) se conservan en data.ts para cuando se
-  // reconecte la feature de src/_desconectado/conversacion/.
-  // Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+  // --- Conversación del viaje (E9-T8 / E3-HU-014, audiencia Cliente) ------------
+  // Una conversación POR VIAJE, anclada al viaje (nunca a un conversacion_id). El mock
+  // imita la PROYECCIÓN del bff: el cliente ve {viaje_id, estado, atendida} y, por
+  // mensaje, {id, secuencia, cuerpo, enviado_en, de_cliente} — nunca actor_real, rol
+  // interno, bandeja ni pool. La historia se pagina POR SECUENCIA (antes_de/despues_de),
+  // no por cursor. El envío es idempotente por client_message_id del CUERPO.
+  http.get('*/api/v1/viajes/:viajeId/conversacion', async ({ params }) => {
+    await delay(LATENCY_MS);
+    const conv = conversacionesWire[String(params.viajeId)];
+    if (conv === undefined) {
+      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+    }
+    // Vista mínima del cliente: sin conversacion_id ni nada interno.
+    return HttpResponse.json({
+      viaje_id: conv.viaje_id,
+      estado: conv.estado,
+      atendida: conv.atendida,
+    });
+  }),
+
+  http.get('*/api/v1/viajes/:viajeId/conversacion/mensajes', async ({ params, request }) => {
+    await delay(LATENCY_MS);
+    const viajeId = String(params.viajeId);
+    if (conversacionesWire[viajeId] === undefined) {
+      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+    }
+    const url = new URL(request.url);
+    const antesDe = url.searchParams.get('antes_de');
+    const despuesDe = url.searchParams.get('despues_de');
+    const limiteParam = url.searchParams.get('limite');
+    const limite = Math.min(200, Math.max(1, limiteParam === null ? 50 : Number(limiteParam)));
+
+    // Fuente ordenada por secuencia de dominio. El mock la ordena aquí para imitar al
+    // servidor; el cliente igual reordena/deduplica.
+    const todos = [...(mensajesWire[viajeId] ?? [])].sort((a, b) => a.secuencia - b.secuencia);
+
+    // `antes_de` y `despues_de` son mutuamente excluyentes: `antes_de` manda si ambos.
+    let seleccion: MensajeClienteWireMock[];
+    let hayMas: boolean;
+    if (antesDe !== null) {
+      // Hacia atrás (historia): los de secuencia menor, la página más cercana al corte.
+      const menores = todos.filter((m) => m.secuencia < Number(antesDe));
+      seleccion = menores.slice(Math.max(0, menores.length - limite));
+      hayMas = menores.length > limite;
+    } else if (despuesDe !== null) {
+      // Hacia adelante (catch-up): los de secuencia mayor, en orden.
+      const mayores = todos.filter((m) => m.secuencia > Number(despuesDe));
+      seleccion = mayores.slice(0, limite);
+      hayMas = mayores.length > limite;
+    } else {
+      // Sin filtro: los más recientes (la cola de la historia).
+      seleccion = todos.slice(Math.max(0, todos.length - limite));
+      hayMas = todos.length > limite;
+    }
+
+    // Proyección a la vista cliente: se DESCARTA client_message_id.
+    return HttpResponse.json({
+      items: seleccion.map((m) => ({
+        id: m.id,
+        secuencia: m.secuencia,
+        cuerpo: m.cuerpo,
+        enviado_en: m.enviado_en,
+        de_cliente: m.de_cliente,
+      })),
+      hay_mas: hayMas,
+    });
+  }),
+
+  http.post('*/api/v1/viajes/:viajeId/conversacion/mensajes', async ({ params, request }) => {
+    await delay(LATENCY_MS);
+    const viajeId = String(params.viajeId);
+    const conv = conversacionesWire[viajeId];
+    if (conv === undefined) {
+      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+    }
+
+    const body = (await request.json().catch(() => ({}))) as {
+      cuerpo?: string;
+      client_message_id?: string;
+    };
+    const cuerpo = (body.cuerpo ?? '').trim();
+    const clientMessageId = body.client_message_id ?? '';
+
+    // 400: el cuerpo es obligatorio (minLength 1). El client_message_id también.
+    if (cuerpo === '' || clientMessageId === '') {
+      return HttpResponse.json(
+        { codigo: 'cuerpo_requerido', error: 'El mensaje no puede ir vacío.' },
+        { status: 400 },
+      );
+    }
+
+    // 409: la conversación no admite escritura (ventana vencida tras el cierre,
+    // DEC-030/DEC-041). `codigo` de máquina `conversacion_solo_lectura`.
+    if (conv.estado !== 'abierta') {
+      return HttpResponse.json(
+        {
+          codigo: 'conversacion_solo_lectura',
+          error: 'La conversación no admite nuevos mensajes.',
+        },
+        { status: 409 },
+      );
+    }
+
+    const historia = (mensajesWire[viajeId] ??= []);
+
+    // Idempotencia por client_message_id: reentrega del MISMO id → mensaje original (200);
+    // id nuevo → mensaje nuevo (201). Es la regla contractual del ticket.
+    const existente = historia.find((m) => m.client_message_id === clientMessageId);
+    if (existente !== undefined) {
+      return HttpResponse.json(
+        {
+          id: existente.id,
+          secuencia: existente.secuencia,
+          cuerpo: existente.cuerpo,
+          enviado_en: existente.enviado_en,
+          de_cliente: existente.de_cliente,
+        },
+        { status: 200 },
+      );
+    }
+
+    const siguienteSeq = historia.reduce((max, m) => Math.max(max, m.secuencia), 0) + 1;
+    const nuevo: MensajeClienteWireMock = {
+      id: `m-nuevo-${siguienteSeq}-${Date.now()}`,
+      secuencia: siguienteSeq,
+      cuerpo,
+      enviado_en: new Date().toISOString(),
+      de_cliente: true,
+      client_message_id: clientMessageId,
+    };
+    historia.push(nuevo);
+    return HttpResponse.json(
+      {
+        id: nuevo.id,
+        secuencia: nuevo.secuencia,
+        cuerpo: nuevo.cuerpo,
+        enviado_en: nuevo.enviado_en,
+        de_cliente: nuevo.de_cliente,
+      },
+      { status: 201 },
+    );
+  }),
 ];

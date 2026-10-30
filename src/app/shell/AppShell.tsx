@@ -38,9 +38,10 @@ const nav: readonly NavItem[] = [
   { to: '/viajes', label: 'Historial de Viajes', icon: RotateCcwClock, exact: false },
   // `exact: true`: es hijo de `/viajes`, no debe activar tambien a Historial.
   { to: '/viajes/new', label: 'Solicitar Servicio', icon: SquarePlus, exact: true },
-  // "Mensajes" (/conversaciones) se desconectó: el contrato bff no expone conversación
-  // al cliente (mensajeria.yaml es superficie interna). La feature se conservó en
-  // src/_desconectado/conversacion/. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+  // "Mensajes" (/conversaciones) NO vuelve a la navegación global: en V1 la conversación
+  // es POR VIAJE (E9-T8 / E3-HU-014), no una bandeja de conversaciones del cliente. Su
+  // entrada vive en el detalle del viaje (`ViajeDetailSection` → /viajes/$viajeId/
+  // conversacion), que es donde el contrato la ancla. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 ];
 
 /**
