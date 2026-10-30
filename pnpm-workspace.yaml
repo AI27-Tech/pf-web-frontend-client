@@ -20,4 +20,4 @@ minimumReleaseAgeExclude:
   - typescript-eslint@8.70.0
   - msw@2.15.0
   - lucide-react@1.43.0
-  - '@ai27-tech/contracts@0.1.0-tracer.23'
+  - '@ai27-tech/contracts@0.1.0-tracer.28'

@@ -19,9 +19,14 @@ Ver `docs/decisiones/2026-recorte-al-contrato-bff.md` para el porqué de cada re
 
 ## Inventario
 
-| Pieza           | Pantalla / función                                                                | Contrato que falta                                                                    |
-| --------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| `bitacora/`     | Bitácora visible al cliente de un viaje                                           | `GET /viajes/{id}/bitacora` + `EntradaBitacora`                                       |
-| `solicitud/`    | Asistente de alta de servicio en 4 pasos (pantalla activa: formulario mínimo)     | Campos extendidos de `CrearViajeEntrada` (contactos, carga, documentación, prioridad) |
-| `conversacion/` | Lista y detalle de conversación del cliente                                       | Conversación en `bff` (hoy solo en `mensajeria.yaml`, superficie interna)             |
-| `panel/`        | Panel de control (indicadores, viajes en curso, notificaciones) + su parser y ETA | `GET /api/v1/panel` y toda la superficie de composición del panel                     |
+| Pieza        | Pantalla / función                                                                | Contrato que falta                                                                    |
+| ------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `bitacora/`  | Bitácora visible al cliente de un viaje                                           | `GET /viajes/{id}/bitacora` + `EntradaBitacora`                                       |
+| `solicitud/` | Asistente de alta de servicio en 4 pasos (pantalla activa: formulario mínimo)     | Campos extendidos de `CrearViajeEntrada` (contactos, carga, documentación, prioridad) |
+| `panel/`     | Panel de control (indicadores, viajes en curso, notificaciones) + su parser y ETA | `GET /api/v1/panel` y toda la superficie de composición del panel                     |
+
+> `conversacion/` se **reconectó** en E9-T8 / E3-HU-014 (AI27-27): el `bff` ya expone la
+> conversación al cliente desde `tracer.26`, anclada al viaje. La feature vive ahora en
+> `src/lib/api/conversacion.ts`, `src/features/conversacion/` y
+> `src/routes/_private/viajes/$viajeId/conversacion/`. El modelo antiguo (lista de
+> conversaciones con forma inventada) se retiró.

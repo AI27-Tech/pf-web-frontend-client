@@ -81,12 +81,11 @@ export type ActivarEmergenciaClienteEntrada =
   components['schemas']['ActivarEmergenciaClienteEntrada'];
 export type NotaEmergenciaClienteEntrada = components['schemas']['NotaEmergenciaClienteEntrada'];
 
-/*
- * NOTA (recorte al contrato): `ConversacionResumen`, `Mensaje` y `ReciboLectura` se
- * desconectaron del barrel: el contrato bff no expone conversación al cliente (vive en
- * mensajeria.yaml, superficie interna). Sus tipos locales están en
- * src/_desconectado/conversacion/api.ts.
- */
+// Conversación del viaje para la audiencia Cliente (E9-T8 / E3-HU-014).
+export type ConversacionCliente = components['schemas']['ConversacionCliente'];
+export type MensajeCliente = components['schemas']['MensajeCliente'];
+export type PaginaMensajesCliente = components['schemas']['PaginaMensajesCliente'];
+export type EnviarMensajeClienteEntrada = components['schemas']['EnviarMensajeClienteEntrada'];
 
 /** Entrada de catalogo para selects y filtros. */
 export interface OpcionCatalogo {

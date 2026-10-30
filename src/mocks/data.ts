@@ -50,16 +50,6 @@ export function sesionWire(): components['schemas']['Sesion'] {
 /** Valor JSON. Los mocks devuelven JSON crudo, no modelos de la app. */
 export type Json = string | number | boolean | null | Json[] | { readonly [key: string]: Json };
 
-/** Mensaje en forma de contrato. Tipado porque el handler de envio calcula su `seq`. */
-export interface MensajeWireMock {
-  readonly id: string;
-  /** Secuencia DE DOMINIO, asignada por el servidor. */
-  readonly seq: number;
-  readonly cuerpo: string;
-  readonly enviado_en: string;
-  readonly de_cliente: boolean;
-}
-
 /*
  * El listado de viajes, en la FORMA DE CONTRATO `ViajeResumen` ({id, estado, origen}).
  * Los estados son los del enum del contrato (ADR 19). Los campos que el portal
@@ -167,59 +157,85 @@ export const bitacoraWire: Record<string, Json> = {
   'viaje-3': [{ id: 'b-6', ocurrioEn: '2026-09-07T15:05:00Z', descripcion: 'Servicio solicitado' }],
 };
 
-export const conversacionesWire = [
-  {
-    id: 'conv-1',
-    asunto: 'Demora en aduana · AI27-000101',
-    viajeId: 'viaje-1',
-    ultimoMensajeEn: '2026-09-07T13:40:00Z',
-    noLeidos: 2,
-  },
-  {
-    id: 'conv-2',
-    asunto: 'Cambio de ventana de entrega',
-    viajeId: 'viaje-2',
-    ultimoMensajeEn: '2026-09-07T11:10:00Z',
-    noLeidos: 0,
-  },
-] as const;
-
 /*
- * `seq` aqui es la secuencia DE DOMINIO. Los mensajes salen a proposito en un orden
- * distinto al de su secuencia, para que se vea que la app ordena por dominio y no por
- * el orden en que llegan.
+ * Conversación del viaje, en FORMA DE CONTRATO (E9-T8 / E3-HU-014, ADR audiencia Cliente).
+ *
+ * El modelo V1 es UNA conversación POR VIAJE (anclada al viaje, no a un `conversacion_id`),
+ * así que el estado del mock se indexa por `viajeId`. La vista del cliente es mínima:
+ * `{ viaje_id, estado, atendida }` para la metadata y `{ id, secuencia, cuerpo, enviado_en,
+ * de_cliente }` por mensaje. Nunca hay `actor_real`, rol interno, bandeja ni pool: el
+ * `bff` recorta eso aguas arriba, así que el mock simplemente no lo tiene.
+ *
+ * `secuencia` es la secuencia DE DOMINIO. Los mensajes seed salen a propósito en un orden
+ * distinto al de su secuencia, para que se vea que la app ordena por dominio y no por el
+ * orden en que llegan.
  */
-export const mensajesWire: Record<string, MensajeWireMock[]> = {
-  'conv-1': [
+export interface ConversacionWireMock {
+  readonly viaje_id: string;
+  estado: 'abierta' | 'solo_lectura' | 'cerrada';
+  atendida: boolean;
+}
+
+export interface MensajeClienteWireMock {
+  readonly id: string;
+  /** Secuencia DE DOMINIO, asignada por el servidor. */
+  readonly secuencia: number;
+  readonly cuerpo: string;
+  readonly enviado_en: string;
+  readonly de_cliente: boolean;
+  /** Clave de idempotencia del envío; NO se expone al cliente, es base del mock. */
+  readonly client_message_id?: string;
+}
+
+export const conversacionesWire: Record<string, ConversacionWireMock> = {
+  // viaje-1: abierta y atendida, con historial. Camino feliz.
+  'viaje-1': { viaje_id: 'viaje-1', estado: 'abierta', atendida: true },
+  // viaje-2: abierta, aún no atendida.
+  'viaje-2': { viaje_id: 'viaje-2', estado: 'abierta', atendida: false },
+  // viaje-6: cerrada (viaje terminal) → solo lectura: el envío responde 409.
+  'viaje-6': { viaje_id: 'viaje-6', estado: 'solo_lectura', atendida: true },
+};
+
+export const mensajesWire: Record<string, MensajeClienteWireMock[]> = {
+  'viaje-1': [
     {
       id: 'm-3',
-      seq: 3,
+      secuencia: 3,
       cuerpo: 'Confirmado, la unidad sale en cuanto liberen.',
       enviado_en: '2026-09-07T13:40:00Z',
       de_cliente: false,
     },
     {
       id: 'm-1',
-      seq: 1,
-      cuerpo: 'Buenas, la unidad sigue detenida en aduana?',
+      secuencia: 1,
+      cuerpo: '¿Buenas, la unidad sigue detenida en aduana?',
       enviado_en: '2026-09-07T13:05:00Z',
       de_cliente: true,
     },
     {
       id: 'm-2',
-      seq: 2,
-      cuerpo: 'Si, estamos esperando la liberacion documental.',
+      secuencia: 2,
+      cuerpo: 'Sí, estamos esperando la liberación documental.',
       enviado_en: '2026-09-07T13:22:00Z',
       de_cliente: false,
     },
   ],
-  'conv-2': [
+  'viaje-2': [
     {
       id: 'm-4',
-      seq: 1,
-      cuerpo: 'Podemos mover la entrega a las 18:00?',
+      secuencia: 1,
+      cuerpo: '¿Podemos mover la entrega a las 18:00?',
       enviado_en: '2026-09-07T11:10:00Z',
       de_cliente: true,
+    },
+  ],
+  'viaje-6': [
+    {
+      id: 'm-5',
+      secuencia: 1,
+      cuerpo: 'El viaje se cerró con éxito. Gracias.',
+      enviado_en: '2026-09-05T18:00:00Z',
+      de_cliente: false,
     },
   ],
 };

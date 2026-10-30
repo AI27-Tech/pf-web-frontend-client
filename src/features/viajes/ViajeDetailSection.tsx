@@ -12,6 +12,8 @@
  * Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
 
+import { Link } from '@tanstack/react-router';
+import { MessageSquare } from 'lucide-react';
 import type { EstadoViaje, ViajeSeguimiento } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
 import { CancelarRechazarPanel } from './CancelarRechazarPanel';
@@ -23,10 +25,20 @@ export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-wrap items-baseline gap-3">
-        <h1 className="text-on-surface text-xl font-semibold">Viaje {viaje.id}</h1>
-        {/* El estado del hito es un token del enum del contrato (ADR 19). */}
-        <EstadoViajeChip estado={hito.estado as EstadoViaje} />
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h1 className="text-on-surface text-xl font-semibold">Viaje {viaje.id}</h1>
+          {/* El estado del hito es un token del enum del contrato (ADR 19). */}
+          <EstadoViajeChip estado={hito.estado as EstadoViaje} />
+        </div>
+        <Link
+          to="/viajes/$viajeId/conversacion"
+          params={{ viajeId: viaje.id }}
+          className="border-outline-variant text-on-surface hover:bg-surface-container inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium"
+        >
+          <MessageSquare className="size-4" />
+          Conversación
+        </Link>
       </header>
 
       <dl className="grid gap-4 sm:grid-cols-2">

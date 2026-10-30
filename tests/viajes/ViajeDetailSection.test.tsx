@@ -15,11 +15,32 @@
  * fabrica una forma propia del portal.
  */
 
+import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import type { IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
 import { renderConQuery as render } from '../support/query';
+
+/*
+ * El detalle enlaza a la conversación del viaje (E9-T8) con un `Link` de TanStack. Aquí
+ * no se prueba la navegación (eso lo cubre el e2e), así que se sustituye el `Link` por un
+ * `<a>` simple para que la sección siga renderizando SIN un router en contexto —igual
+ * que HistorialViajesTable.test.tsx—. El resto del módulo del router se conserva.
+ */
+vi.mock('@tanstack/react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
+  return {
+    ...actual,
+    Link: ({
+      children,
+      className,
+    }: {
+      readonly children: ReactNode;
+      readonly className?: string;
+    }) => <a className={className}>{children}</a>,
+  };
+});
 
 /*
  * El detalle ahora monta `EmergenciaPanel` (E9-T9), que pide sus casos al `bff`. Estas
