@@ -155,7 +155,12 @@ describe('listarMensajesViaje — paginación por secuencia (E9-T8)', () => {
 
 describe('obtenerConversacionViaje (E9-T8)', () => {
   it('lee la vista mínima del cliente (estado + atendida)', async () => {
-    const vista: ConversacionCliente = { viaje_id: 'viaje-1', estado: 'abierta', atendida: true };
+    const vista: ConversacionCliente = {
+      viaje_id: 'viaje-1',
+      estado: 'abierta',
+      atendida: true,
+      ultima_secuencia: 4,
+    };
     get.mockResolvedValueOnce(vista);
 
     const resultado = await obtenerConversacionViaje('viaje-1');
