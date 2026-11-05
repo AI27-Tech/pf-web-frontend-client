@@ -23,7 +23,7 @@ import { HttpResponse, delay, http } from 'msw';
 import { EstadoViaje, puedeTransicionar } from '@/lib/contracts';
 import {
   DEV_USER,
-  catalogosWire,
+  tiposServicioWire,
   conversacionesWire,
   emergenciasWire,
   mensajesWire,
@@ -252,9 +252,16 @@ export const handlers = [
   }),
 
   // --- Catalogos ----------------------------------------------------------------
-  http.get('*/api/v1/catalogos/:familia', async ({ params }) => {
+  // `listarTiposServicio`: página por cursor (`items` + `cursor_siguiente`). El cursor del
+  // mock es el desplazamiento; el real es opaco, el portal solo lo reenvía.
+  http.get('*/api/v1/catalogos/tipos-servicio', async ({ request }) => {
     await delay(LATENCY_MS);
-    return HttpResponse.json(catalogosWire[String(params.familia)] ?? []);
+    const desde = Number(new URL(request.url).searchParams.get('cursor') ?? '0');
+    const hasta = desde + 2;
+    return HttpResponse.json({
+      items: tiposServicioWire.slice(desde, hasta),
+      cursor_siguiente: hasta < tiposServicioWire.length ? String(hasta) : null,
+    });
   }),
 
   // --- Conversación del viaje (E9-T8 / E3-HU-014, audiencia Cliente) ------------

@@ -7,8 +7,8 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
-import type { OpcionCatalogo } from '@/lib/contracts';
-import { listCatalogo } from '@/lib/api/catalogos';
+import type { TipoServicioCliente } from '@/lib/contracts';
+import { listarTiposServicio } from '@/lib/api/catalogos';
 import { NuevaSolicitudForm } from '@/features/viajes/NuevaSolicitudForm';
 import { Spinner } from '@/components/ui/Feedback';
 
@@ -21,9 +21,9 @@ export const Route = createFileRoute('/_private/viajes/new')({
    * pantalla al `errorComponent`. Origen y destino (los campos obligatorios) no
    * dependen de ningún catálogo (DEC-010 #1).
    */
-  loader: async (): Promise<readonly OpcionCatalogo[]> => {
+  loader: async ({ abortController }): Promise<readonly TipoServicioCliente[]> => {
     try {
-      return await listCatalogo('tipos-servicio');
+      return await listarTiposServicio(abortController.signal);
     } catch {
       return [];
     }
