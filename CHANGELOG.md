@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026:11:05 15:55
+
+**Resumen:** El select **Tipo de servicio** del alta (E9-T4 / E1-HU-001) lee ahora el catálogo real del `bff`: operación `listarTiposServicio` (`GET /api/v1/catalogos/tipos-servicio`), que devuelve una **página** `{ items: [{ codigo, etiqueta }], cursor_siguiente }`. Antes el portal esperaba una lista simple `[{ id, nombre }]` de un `/catalogos/{familia}` genérico que el `bff` no expone, así que contra el backend real el select habría quedado vacío. `lint`, `format:check`, `typecheck` y `test` (34 archivos, 222 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
+
+**Decisiones de patrón (y por qué):**
+
+- **Se sigue el cursor hasta `null`.** El select necesita la lista completa; `listarTiposServicio` junta las páginas en orden. El catálogo sigue siendo no bloqueante: si falla, el loader degrada a lista vacía como antes.
+- **Se usan los tipos del contrato tal cual** (`TipoServicioCliente`, `PaginaTiposServicio`). `codigo` es lo que viaja en `tipo_servicio` al crear; `etiqueta` es lo que se pinta. Se retiró `OpcionCatalogo` del barrel y el hook `useCatalogo`, que ya no tenían llamadores.
+- **El mock pagina de dos en dos** y el e2e elige un tipo de la segunda página, así que la prueba falla si el portal deja de seguir el cursor (comprobado rompiendo el bucle: falla el e2e y la prueba unitaria).
+
+**Cambios:**
+
+- `src/lib/api/catalogos.ts`: `listarTiposServicio(signal?)` en lugar de `listCatalogo(familia)`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `TipoServicioCliente` y `PaginaTiposServicio`; fuera `OpcionCatalogo`.
+- `src/routes/_private/viajes/new.tsx`: el loader usa `listarTiposServicio` y le pasa la señal de aborto del router.
+- `src/features/viajes/NuevaSolicitudForm.tsx`: opciones por `codigo`/`etiqueta`.
+- `src/features/catalogos/useCatalogo.ts`: retirado (sin llamadores).
+- `src/mocks/data.ts` + `handlers.ts`: `tiposServicioWire` en forma de contrato y handler paginado; se retiró el handler genérico `/catalogos/:familia` y las familias que el `bff` no sirve.
+- `tests/viajes/catalogos.test.ts` (nuevo), `tests/viajes/NuevaSolicitudForm.test.tsx`, `e2e/solicitud.spec.ts`.
+
+**Archivos modificados:**
+
+- `src/lib/api/catalogos.ts` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/routes/_private/viajes/new.tsx` · `src/features/viajes/NuevaSolicitudForm.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/viajes/catalogos.test.ts` · `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` · `CHANGELOG.md` · (retirado) `src/features/catalogos/useCatalogo.ts`
+
 ## 2026:11:05 15:30
 
 **Resumen:** Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.28` a `0.1.0-tracer.37` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se regeneró `pnpm-lock.yaml`. Es el contrato que sirve el `bff` dentro de `pf-svc-core` `v0.1.4` para el demo (DEC-137). `lint`, `format:check`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).

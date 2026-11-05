@@ -8,41 +8,37 @@
  *     aqui esta bien: es a lo que estan destinados.
  *   - Una lectura de catalogo NUNCA autoriza nada. Sirve para pintar un select o un
  *     filtro; la verificacion de aptitud la resuelve `operacion` en su transaccion.
+ *
+ * Reconciliacion con el contrato y las decisiones (E9-T4):
+ *   - La UNICA familia que el `bff` sirve al cliente en V1 es `tipos-servicio`
+ *     (operacion `listarTiposServicio`), para el select opcional del alta de servicio
+ *     (DEC-010 #3: el cliente PUEDE elegir el tipo; su obligatoriedad sigue sin
+ *     decidirse, asi que no se fuerza). El `bff` no expone un `/catalogos/{familia}`
+ *     generico: la familia va fija en la ruta.
+ *   - `rutas`, `marcas`, `kit de seguridad` y `operador logistico` son texto libre,
+ *     no catalogo (DEC-010 #1, DEC-017).
  */
 
 import { api } from './client';
-import type { OpcionCatalogo } from '../contracts';
+import type { PaginaTiposServicio, TipoServicioCliente } from '../contracts';
 
 /**
- * Familias de catalogo que esta app (Audiencia: Cliente) consume en V1.
- *
- * Reconciliacion con el contrato y las decisiones (E9-T4):
- *   - La UNICA familia que el portal activo consume es `tipos-servicio`, para el
- *     select opcional del alta de servicio (DEC-010 #3: el cliente PUEDE elegir el
- *     tipo; su obligatoriedad sigue sin decidirse, asi que no se fuerza).
- *   - `rutas` NO es catalogo en V1: origen y destino son texto libre (DEC-010 #1,
- *     DEC-017). `marcas`, `kit de seguridad` y `operador logistico` tambien son texto
- *     libre, no catalogo (DEC-017).
- *   - `zonas`, `prioridades-servicio`, `categorias-carga`, `rangos-valor` y
- *     `requisitos-manejo` alimentaban el asistente rico de 4 pasos, hoy desconectado
- *     en src/_desconectado/solicitud/. El portal activo no las consume, asi que se
- *     retiraron de esta union para no sugerir una superficie que nadie usa.
- *
- * TODO(contracts): el contrato `bff` (bff.yaml) NO define hoy un endpoint
- * `/catalogos/{familia}`. El select de tipo de servicio se lee contra ese path, que
- * por ahora solo responde el mock MSW. Cuando el `bff` publique el catalogo de tipos
- * de servicio para audiencia Cliente, se confirma esta familia contra el contrato
- * generado. Mientras tanto, el catalogo es NO BLOQUEANTE: si no esta disponible, el
- * alta sigue siendo usable sin el (ver loader de la ruta y el form).
+ * Lista TODOS los tipos de servicio seleccionables. El contrato pagina por cursor
+ * (`items` + `cursor_siguiente`); el select necesita la lista completa, asi que se
+ * sigue el cursor hasta que llega `null`. El `bff` ya filtro a los valores `activo`.
  */
-export type FamiliaCatalogo = 'tipos-servicio';
-
-export async function listCatalogo(
-  familia: FamiliaCatalogo,
+export async function listarTiposServicio(
   signal?: AbortSignal,
-): Promise<readonly OpcionCatalogo[]> {
-  return api.get<readonly OpcionCatalogo[]>(
-    `/catalogos/${familia}`,
-    signal !== undefined ? { signal } : {},
-  );
+): Promise<readonly TipoServicioCliente[]> {
+  const tipos: TipoServicioCliente[] = [];
+  let cursor: string | null = null;
+  do {
+    const pagina: PaginaTiposServicio = await api.get<PaginaTiposServicio>(
+      '/catalogos/tipos-servicio',
+      { query: { cursor: cursor ?? undefined }, ...(signal !== undefined ? { signal } : {}) },
+    );
+    tipos.push(...pagina.items);
+    cursor = pagina.cursor_siguiente;
+  } while (cursor !== null);
+  return tipos;
 }

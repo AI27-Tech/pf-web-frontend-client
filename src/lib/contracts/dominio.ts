@@ -87,8 +87,7 @@ export type MensajeCliente = components['schemas']['MensajeCliente'];
 export type PaginaMensajesCliente = components['schemas']['PaginaMensajesCliente'];
 export type EnviarMensajeClienteEntrada = components['schemas']['EnviarMensajeClienteEntrada'];
 
-/** Entrada de catalogo para selects y filtros. */
-export interface OpcionCatalogo {
-  readonly id: string;
-  readonly nombre: string;
-}
+// Catálogo de tipos de servicio para el selector del alta (E9-T4): `codigo` se manda en
+// `tipo_servicio`, `etiqueta` se muestra. Paginado por cursor.
+export type TipoServicioCliente = components['schemas']['TipoServicioCliente'];
+export type PaginaTiposServicio = components['schemas']['PaginaTiposServicio'];

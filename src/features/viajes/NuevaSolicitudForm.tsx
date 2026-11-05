@@ -30,7 +30,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { Button, Card, CardBody, Checkbox, FormField, Input, Select } from '@ai27-tech/ui';
 import { crearViaje } from '@/lib/api/viajes';
-import type { CrearViajeEntrada, OpcionCatalogo } from '@/lib/contracts';
+import type { CrearViajeEntrada, TipoServicioCliente } from '@/lib/contracts';
 import { isApiError } from '@/lib/api/errors';
 import { onCut } from '@/lib/api/sessionCut';
 
@@ -39,7 +39,7 @@ interface NuevaSolicitudFormProps {
    * Catálogo de tipos de servicio para el select opcional. Puede venir vacío: el
    * catálogo es de PRESENTACIÓN y no bloqueante (el loader degrada a [] si no está).
    */
-  readonly tiposServicio: readonly OpcionCatalogo[];
+  readonly tiposServicio: readonly TipoServicioCliente[];
 }
 
 /** Un destino en edición: el nombre es texto libre; el número de envío es opcional. */
@@ -272,9 +272,9 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
               aria-label="Tipo de servicio"
             >
               <option value="">Selecciona un tipo</option>
-              {tiposServicio.map((opcion) => (
-                <option key={opcion.id} value={opcion.id}>
-                  {opcion.nombre}
+              {tiposServicio.map((tipo) => (
+                <option key={tipo.codigo} value={tipo.codigo}>
+                  {tipo.etiqueta}
                 </option>
               ))}
             </Select>
