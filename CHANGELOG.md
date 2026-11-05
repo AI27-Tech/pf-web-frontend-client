@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 2026:11:05 16:45
+
+**Resumen:** Se reactivó la prueba e2e **"historial · tema oscuro"** (`e2e/historial.spec.ts`), que estaba en `skip`. Agregaba la clase `.dark` al `<html>`, pero el tema de los tokens lo conmuta `@ai27-tech/ui` por el atributo **`data-theme`** (index.html lo fija en `"dark"`); la clase solo ajusta `color-scheme`. Ahora la prueba alterna `data-theme` entre `light` y `dark` y comprueba que cambia el fondo y que el contenido sigue visible. No cambia nada para el usuario del portal. e2e en verde (27 activos, 12 `skip`; antes 26/13). Con la clase `.dark` en lugar de `data-theme`, la prueba falla (comprobado).
+
+**Archivos modificados:**
+
+- `e2e/historial.spec.ts` · `CHANGELOG.md`
+
 ## 2026:10:30 15:56
 
 **Resumen:** Se **reconectó la conversación del viaje** en el portal del cliente (E9-T8 / E3-HU-014, AI27-27): el cliente lee los mensajes de su viaje y envía los suyos; las respuestas de AI27 aparecen con la etiqueta fija **"AI27 Operations"** (DEC-021 #4); la conversación muestra su indicador **atendida/resuelto** (DEC-014). El `bff` ya expone la superficie Cliente desde `tracer.26`, **anclada al viaje** (no a un `conversacion_id`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.23` a `0.1.0-tracer.28` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`: +2 de conversación, y se retiraron 2 pruebas `.skip` obsoletas de `/conversaciones`).
