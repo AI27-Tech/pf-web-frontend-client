@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## 2026:11:05 16:45
+
+**Resumen:** Se reactivó la prueba e2e **"historial · tema oscuro"** (`e2e/historial.spec.ts`), que estaba en `skip`. Agregaba la clase `.dark` al `<html>`, pero el tema de los tokens lo conmuta `@ai27-tech/ui` por el atributo **`data-theme`** (index.html lo fija en `"dark"`); la clase solo ajusta `color-scheme`. Ahora la prueba alterna `data-theme` entre `light` y `dark` y comprueba que cambia el fondo y que el contenido sigue visible. No cambia nada para el usuario del portal. e2e en verde (27 activos, 12 `skip`; antes 26/13). Con la clase `.dark` en lugar de `data-theme`, la prueba falla (comprobado).
+
+**Archivos modificados:**
+
+- `e2e/historial.spec.ts` · `CHANGELOG.md`
 ## 2026:11:05 16:30
 
 **Resumen:** Se alineó `src/lib/api/` con el `bff.yaml` de `tracer.37`, operación por operación. El hallazgo que cambia algo para el usuario: **"Mis viajes" (`listarViajes`) responde una página `{ items, cursor_siguiente }`, no una lista**, y el portal la trataba como lista; contra el backend real el historial no habría pintado. Ahora se sigue el cursor y se junta el listado. Además, un **404** (viaje inexistente o de otra empresa, DEC-132) se presenta como "No encontramos lo que buscas" en lugar de "Algo se rompió". `lint`, `format:check`, `typecheck` y `test` (35 archivos, 225 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
