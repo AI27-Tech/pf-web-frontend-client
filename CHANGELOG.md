@@ -1,5 +1,76 @@
 # CHANGELOG
 
+## 2026:11:05 16:45
+
+**Resumen:** Se reactivó la prueba e2e **"historial · tema oscuro"** (`e2e/historial.spec.ts`), que estaba en `skip`. Agregaba la clase `.dark` al `<html>`, pero el tema de los tokens lo conmuta `@ai27-tech/ui` por el atributo **`data-theme`** (index.html lo fija en `"dark"`); la clase solo ajusta `color-scheme`. Ahora la prueba alterna `data-theme` entre `light` y `dark` y comprueba que cambia el fondo y que el contenido sigue visible. No cambia nada para el usuario del portal. e2e en verde (27 activos, 12 `skip`; antes 26/13). Con la clase `.dark` en lugar de `data-theme`, la prueba falla (comprobado).
+
+**Archivos modificados:**
+
+- `e2e/historial.spec.ts` · `CHANGELOG.md`
+## 2026:11:05 16:30
+
+**Resumen:** Se alineó `src/lib/api/` con el `bff.yaml` de `tracer.37`, operación por operación. El hallazgo que cambia algo para el usuario: **"Mis viajes" (`listarViajes`) responde una página `{ items, cursor_siguiente }`, no una lista**, y el portal la trataba como lista; contra el backend real el historial no habría pintado. Ahora se sigue el cursor y se junta el listado. Además, un **404** (viaje inexistente o de otra empresa, DEC-132) se presenta como "No encontramos lo que buscas" en lugar de "Algo se rompió". `lint`, `format:check`, `typecheck` y `test` (35 archivos, 225 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
+
+**Revisado contra el contrato y sin cambios (ya coincidía):** sesión (`iniciarSesion` con `segundo_factor`, `refrescarSesion`, `cerrarSesion`), `seguirViaje` (hito + ETA con `obsoleto`, sin mapa; DEC-001/DEC-025), `crearViaje`, `transicionarViajeCliente`, las tres operaciones de emergencia (la UI pinta todos los `casos` que manda el servidor, sin filtrar por quién activó; DEC-133) y las tres de conversación (por viaje, DEC-124; compositor deshabilitado en `solo_lectura`/`cerrada` y `409 conversacion_solo_lectura`, DEC-041).
+
+**Decisiones de patrón (y por qué):**
+
+- **`listViajes` junta todas las páginas.** El historial pagina en pantalla, no contra el servidor. Es un atajo marcado en el código: cuando el volumen por empresa lo pida, el cursor pasa a la UI.
+- **El 404 no es un fallo.** Para el cliente, "no existe" y "es de otra empresa" son el mismo 404 a propósito (DEC-132); el mensaje no revela cuál de los dos es.
+- **Los errores del mock tienen la forma `Error` del contrato** (`{ codigo, mensaje }`), en lugar de `{ error }` o `{ detail }`. El mock de `/viajes` pagina de cuatro en cuatro; con el bucle del cursor roto fallan dos e2e de historial y la prueba unitaria (comprobado).
+
+**Cambios:**
+
+- `src/lib/api/viajes.ts`: `listViajes` lee `PaginaViajesResumen` y sigue `cursor_siguiente`, conservando el filtro `estado`.
+- `src/components/ui/Feedback.tsx`: `ErrorState` distingue `noEncontrado`.
+- `src/mocks/handlers.ts`: `/viajes` paginado; cuerpos de error `{ codigo, mensaje }`.
+- `tests/viajes/listViajes.test.ts`: el doble devuelve la página; prueba nueva de seguimiento del cursor.
+- `tests/ui/ErrorState.test.tsx` (nuevo).
+
+**Archivos modificados:**
+
+- `src/lib/api/viajes.ts` · `src/components/ui/Feedback.tsx` · `src/mocks/handlers.ts` · `tests/viajes/listViajes.test.ts` · `tests/ui/ErrorState.test.tsx` · `CHANGELOG.md`
+
+## 2026:11:05 15:55
+
+**Resumen:** El select **Tipo de servicio** del alta (E9-T4 / E1-HU-001) lee ahora el catálogo real del `bff`: operación `listarTiposServicio` (`GET /api/v1/catalogos/tipos-servicio`), que devuelve una **página** `{ items: [{ codigo, etiqueta }], cursor_siguiente }`. Antes el portal esperaba una lista simple `[{ id, nombre }]` de un `/catalogos/{familia}` genérico que el `bff` no expone, así que contra el backend real el select habría quedado vacío. `lint`, `format:check`, `typecheck` y `test` (34 archivos, 222 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
+
+**Decisiones de patrón (y por qué):**
+
+- **Se sigue el cursor hasta `null`.** El select necesita la lista completa; `listarTiposServicio` junta las páginas en orden. El catálogo sigue siendo no bloqueante: si falla, el loader degrada a lista vacía como antes.
+- **Se usan los tipos del contrato tal cual** (`TipoServicioCliente`, `PaginaTiposServicio`). `codigo` es lo que viaja en `tipo_servicio` al crear; `etiqueta` es lo que se pinta. Se retiró `OpcionCatalogo` del barrel y el hook `useCatalogo`, que ya no tenían llamadores.
+- **El mock pagina de dos en dos** y el e2e elige un tipo de la segunda página, así que la prueba falla si el portal deja de seguir el cursor (comprobado rompiendo el bucle: falla el e2e y la prueba unitaria).
+
+**Cambios:**
+
+- `src/lib/api/catalogos.ts`: `listarTiposServicio(signal?)` en lugar de `listCatalogo(familia)`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `TipoServicioCliente` y `PaginaTiposServicio`; fuera `OpcionCatalogo`.
+- `src/routes/_private/viajes/new.tsx`: el loader usa `listarTiposServicio` y le pasa la señal de aborto del router.
+- `src/features/viajes/NuevaSolicitudForm.tsx`: opciones por `codigo`/`etiqueta`.
+- `src/features/catalogos/useCatalogo.ts`: retirado (sin llamadores).
+- `src/mocks/data.ts` + `handlers.ts`: `tiposServicioWire` en forma de contrato y handler paginado; se retiró el handler genérico `/catalogos/:familia` y las familias que el `bff` no sirve.
+- `tests/viajes/catalogos.test.ts` (nuevo), `tests/viajes/NuevaSolicitudForm.test.tsx`, `e2e/solicitud.spec.ts`.
+
+**Archivos modificados:**
+
+- `src/lib/api/catalogos.ts` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/routes/_private/viajes/new.tsx` · `src/features/viajes/NuevaSolicitudForm.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/viajes/catalogos.test.ts` · `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` · `CHANGELOG.md` · (retirado) `src/features/catalogos/useCatalogo.ts`
+
+## 2026:11:05 15:30
+
+**Resumen:** Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.28` a `0.1.0-tracer.37` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se regeneró `pnpm-lock.yaml`. Es el contrato que sirve el `bff` dentro de `pf-svc-core` `v0.1.4` para el demo (DEC-137). `lint`, `format:check`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
+
+**Qué cambió para el portal (verificado contra el `bff.yaml` de las dos olas):** se compararon las 15 operaciones que usa o puede usar el cliente (sesión, viajes, transiciones-cliente, emergencias, conversación, `listarTiposServicio`, `listarIncidencias`) y todos los esquemas que alcanzan. Rutas, métodos y códigos de respuesta son idénticos. El único cambio es que `ConversacionCliente` trae ahora **`ultima_secuencia` obligatorio** (cursor de dominio del bootstrap, ADR 28 §2; `0` sin mensajes). `tracer.30` y `tracer.31` no existen para TS (DEC-120).
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml` + `pnpm-lock.yaml`: pin a `0.1.0-tracer.37`.
+- `src/mocks/handlers.ts`: `GET /viajes/:id/conversacion` devuelve `ultima_secuencia` (secuencia mayor de los mensajes del viaje, `0` si no hay), como el contrato.
+- `tests/conversacion/conversacion.test.ts` + `tests/conversacion/ConversacionSection.test.tsx`: los fixtures `ConversacionCliente` llevan el campo nuevo obligatorio.
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `pnpm-lock.yaml` · `src/mocks/handlers.ts` · `tests/conversacion/conversacion.test.ts` · `tests/conversacion/ConversacionSection.test.tsx` · `CHANGELOG.md`
+
 ## 2026:10:30 15:56
 
 **Resumen:** Se **reconectó la conversación del viaje** en el portal del cliente (E9-T8 / E3-HU-014, AI27-27): el cliente lee los mensajes de su viaje y envía los suyos; las respuestas de AI27 aparecen con la etiqueta fija **"AI27 Operations"** (DEC-021 #4); la conversación muestra su indicador **atendida/resuelto** (DEC-014). El `bff` ya expone la superficie Cliente desde `tracer.26`, **anclada al viaje** (no a un `conversacion_id`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.23` a `0.1.0-tracer.28` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`: +2 de conversación, y se retiraron 2 pruebas `.skip` obsoletas de `/conversaciones`).

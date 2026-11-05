@@ -18,7 +18,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { OpcionCatalogo, ViajeResumen } from '@/lib/contracts';
+import type { TipoServicioCliente, ViajeResumen } from '@/lib/contracts';
 import { NuevaSolicitudForm } from '@/features/viajes/NuevaSolicitudForm';
 import { renderConRouter } from '../support/router';
 
@@ -27,8 +27,8 @@ vi.mock('@/lib/api/viajes', () => ({
   crearViaje: (entrada: unknown) => crearViajeMock(entrada),
 }));
 
-const TIPOS_SERVICIO: readonly OpcionCatalogo[] = [
-  { id: 'monitoreo-activo', nombre: 'Monitoreo Activo' },
+const TIPOS_SERVICIO: readonly TipoServicioCliente[] = [
+  { codigo: 'monitoreo-activo', etiqueta: 'Monitoreo Activo' },
 ];
 
 function viajeCreado(): ViajeResumen {

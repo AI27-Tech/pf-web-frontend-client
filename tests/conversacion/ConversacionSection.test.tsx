@@ -56,16 +56,19 @@ const CONV_ABIERTA: ConversacionCliente = {
   viaje_id: 'viaje-1',
   estado: 'abierta',
   atendida: false,
+  ultima_secuencia: 0,
 };
 const CONV_ATENDIDA: ConversacionCliente = {
   viaje_id: 'viaje-1',
   estado: 'abierta',
   atendida: true,
+  ultima_secuencia: 0,
 };
 const CONV_SOLO_LECTURA: ConversacionCliente = {
   viaje_id: 'viaje-1',
   estado: 'solo_lectura',
   atendida: true,
+  ultima_secuencia: 0,
 };
 
 beforeEach(() => {
