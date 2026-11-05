@@ -9,7 +9,7 @@
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
 import { Button, Checkbox, FormField, Input } from '@ai27-tech/ui';
 import { isApiError } from '@/lib/api/errors';
@@ -25,6 +25,7 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
 
   const [usuario, setUsuario] = useState('');
   const [password, setPassword] = useState('');
+  const [segundoFactor, setSegundoFactor] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -38,31 +39,45 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
     setPending(true);
 
     try {
-      const sesion = await login({ usuario, password });
-
-      // ADR 13 abierto: si Cognito entrega el OTP, este desvio puede no existir.
-      if (sesion.requiereSegundoFactor) {
-        await navigate({ to: '/two-factor' });
-        return;
-      }
+      /*
+       * Paso unico. El contrato de sesion (`CredencialesEntrada`) recibe `usuario`,
+       * `contrasena` y `segundo_factor` opcional (TOTP, `tracer.20`). El portal NO
+       * construye un tramo propio de OTP: el reto es del IdP (Keycloak), que lo
+       * valida; `bff`/`identidad` solo lo transportan (DEC-031/ADR 13, DEC-071). Por
+       * eso el codigo viaja JUNTO a las credenciales en un solo `POST /sesion` y la
+       * ruta `/two-factor` separada se retira.
+       *
+       * Se envia `segundo_factor` solo cuando el usuario escribio algo; vacio se omite
+       * para no forzar la forma del cuerpo (el contrato lo declara opcional/nullable).
+       */
+      const codigo = segundoFactor.trim();
+      await login({
+        usuario,
+        contrasena: password,
+        ...(codigo.length > 0 ? { segundo_factor: codigo } : {}),
+      });
 
       await navigate({ to: redirectTo ?? '/' });
     } catch (cause) {
       /*
-       * Un login fallido no distingue "usuario no existe" de "password incorrecta":
-       * hacerlo es un oraculo de enumeracion de cuentas.
+       * Un login fallido no distingue "usuario no existe" de "password incorrecta" ni
+       * de "segundo factor invalido o vencido": todas son el mismo 401 uniforme del
+       * lado de `identidad` (DEC-094), y distinguirlas seria un oraculo de enumeracion
+       * de cuentas. El mensaje es, a proposito, identico exista o no el usuario.
        *
        * Lo que SI se distingue son las causas que no son del usuario, porque decirle
-       * "contrasena incorrecta" cuando el servicio no responde —o cuando el endpoint
-       * no esta desplegado— es la misma clase de mentira que el diseno persigue en la
+       * "credenciales incorrectas" cuando el servicio no responde —o cuando el IdP no
+       * esta disponible— es la misma clase de mentira que el diseno persigue en la
        * ruta de datos: presentar un fallo nuestro como un fallo suyo.
        */
       if (isApiError(cause) && cause.esDegradacion) {
-        setError('El servicio de identidad no responde. Intenta de nuevo en un momento.');
+        setError(
+          'El servicio de identidad no esta disponible en este momento. Intenta de nuevo en unos minutos.',
+        );
       } else if (isApiError(cause) && cause.kind === 'noEncontrado') {
         setError('No encontramos el servicio de sesion. Revisa la configuracion del entorno.');
       } else if (isApiError(cause) && cause.kind === 'noAutorizado') {
-        setError('Usuario o contrasena incorrectos.');
+        setError('Usuario, contrasena o codigo de verificacion incorrectos.');
       } else {
         setError('No pudimos completar el acceso. Intentalo de nuevo.');
       }
@@ -108,6 +123,23 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
+        />
+      </FormField>
+
+      {/*
+       * Segundo factor (TOTP). La politica de MFA es del IdP,
+       * no del portal; por eso el campo no es `required` en el cliente.
+       */}
+      <FormField label="Codigo de verificacion">
+        <Input
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          placeholder="123456"
+          startAdornment={<KeyRound aria-hidden="true" className="size-4" />}
+          value={segundoFactor}
+          onChange={(event) => setSegundoFactor(event.target.value)}
         />
       </FormField>
 

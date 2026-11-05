@@ -12,12 +12,14 @@
 
 import { expect, test } from '@playwright/test';
 
-test('la pagina de login renderiza', async ({ page }) => {
+test('la pagina de login renderiza, con el campo de segundo factor', async ({ page }) => {
   await page.goto('/login');
 
   await expect(page.getByRole('heading', { name: 'Iniciar sesion' })).toBeVisible();
   await expect(page.getByLabel('Correo electronico empresarial')).toBeVisible();
   await expect(page.getByLabel('Contrasena', { exact: true })).toBeVisible();
+  // El segundo factor es un paso único dentro del login, no una ruta aparte.
+  await expect(page.getByLabel('Codigo de verificacion')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Iniciar sesion' })).toBeVisible();
 });
 

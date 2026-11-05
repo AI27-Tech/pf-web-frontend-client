@@ -9,12 +9,14 @@
 Archivo: `.github/workflows/ci.yml`.
 
 **Disparo (estilo plataforma, igual que `pf-svc-identidad`):**
+
 ```yaml
 on:
   push:
     branches: [pf-wfc-m, pf-wfc-d, pf-wfc-q]
   pull_request:
 ```
+
 El `pull_request` sin filtro de rama valida cualquier PR; el `push` a las tres ramas da señal tras cada promoción fusionada.
 
 **Entorno:** `ubuntu-latest`, Node 22, pnpm 12.3.4 (las versiones que fija `package.json`: `engines.node >=22`, `packageManager pnpm@12.3.4`).
@@ -51,13 +53,15 @@ Ambos con `permissions: pull-requests: write` y `GH_TOKEN: secrets.GITHUB_TOKEN`
 
 ## Compuerta de fusión (branch protection)
 
-GitHub Actions ejecuta; no bloquea el merge por sí solo. El bloqueo real exige marcar los checks del workflow como *required* en branch protection de `pf-wfc-d`. Como eso no es código del repo, se entrega:
+GitHub Actions ejecuta; no bloquea el merge por sí solo. El bloqueo real exige marcar los checks del workflow como _required_ en branch protection de `pf-wfc-d`. Como eso no es código del repo, se entrega:
+
 - El workflow con nombres de job estables (`calidad`, `e2e`) para referenciarlos como required checks.
 - Una guía (artifact) con los pasos exactos en la UI de GitHub o por `gh` CLI.
 
 ## Prueba negativa deliberada
 
 Para cumplir R5 sin dejar basura en el historial:
+
 1. En la rama de trabajo, introducir un error de tipos trivial en un archivo de prueba o fuente.
 2. Abrir/actualizar el PR y confirmar que el job `calidad` queda en rojo.
 3. Revertir el error (commit de reversión o descartar) y confirmar verde.

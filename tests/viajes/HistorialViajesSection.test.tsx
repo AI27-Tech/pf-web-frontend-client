@@ -12,15 +12,8 @@ import { renderConRouter } from '../support/router';
 const viajes: readonly ViajeResumen[] = [
   {
     id: 'viaje-1',
-    folio: 'AI27-000101',
-    estado: 'EN_RUTA',
+    estado: 'EN_TRANSITO',
     origen: 'CDMX',
-    origenSitio: 'Almacen Central',
-    destino: 'Monterrey',
-    destinoSitio: 'Planta Sur',
-    solicitadoEn: '2026-09-07T08:15:00Z',
-    unidad: { descripcion: 'Volvo FH16', placa: 'AB-123', conductorNombre: 'Juan Perez' },
-    reporteSeguridad: 'SIN_INCIDENCIAS',
   },
 ];
 
@@ -38,11 +31,11 @@ describe('HistorialViajesSection', () => {
     renderConRouter(<HistorialViajesSection viajes={viajes} />);
 
     const titulo = await screen.findByRole('heading', { level: 1 });
-    const filtrar = screen.getByRole('button', { name: 'Filtrar' });
+    const filtroEstado = screen.getByLabelText('Estado');
     const tabla = screen.getByRole('table');
 
-    expect(titulo.compareDocumentPosition(filtrar)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
-    expect(filtrar.compareDocumentPosition(tabla)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(titulo.compareDocumentPosition(filtroEstado)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(filtroEstado.compareDocumentPosition(tabla)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('ya no ofrece el enlace "Solicitar servicio"', async () => {

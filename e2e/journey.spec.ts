@@ -6,10 +6,13 @@
  */
 
 import { expect, test } from '@playwright/test';
-import { login } from './support/login';
+import { DEV_USER, login } from './support/login';
 
 test.describe('sesion', () => {
-  test('entra con el usuario de desarrollo y aterriza en el historial', async ({ page }) => {
+  test('recorrido completo login → segundo factor → panel', async ({ page }) => {
+    // El helper `login` llena correo, contrasena y SEGUNDO FACTOR, y envia: un solo
+    // paso, un solo POST /sesion. Si el segundo factor no viajara con las credenciales,
+    // el mock responderia 401 y este recorrido no llegaria al historial.
     await login(page);
     // La home redirige a `/viajes`: el Panel de Control se cerro mientras
     // `GET /api/v1/panel` no exista en el contrato (ver AppShell / panel.spec.ts).
@@ -25,9 +28,27 @@ test.describe('sesion', () => {
     await page.goto('/login');
     await page.getByLabel('Correo electronico empresarial').fill('nadie@demo.ai27');
     await page.getByLabel('Contrasena', { exact: true }).fill('incorrecta');
+    await page.getByLabel('Codigo de verificacion').fill('000000');
     await page.getByRole('button', { name: 'Iniciar sesion' }).click();
 
     // El mock devuelve 401, y la app lo traduce a fallo de credenciales.
+    await expect(page.getByRole('alert').first()).toContainText(/incorrectos/i);
+    await expect(page).toHaveURL(/\/login/);
+  });
+
+  test('un segundo factor incorrecto da el mismo mensaje, sin revelar que el usuario existe', async ({
+    page,
+  }) => {
+    await page.goto('/login');
+    // Credenciales VÁLIDAS pero segundo factor MALO: el IdP (aquí el mock) responde el
+    // mismo 401 uniforme (DEC-094). La UI no debe decir "el código es incorrecto" de
+    // forma distinta a "la contraseña es incorrecta": eso filtraría que la cuenta
+    // existe y que solo falló el factor.
+    await page.getByLabel('Correo electronico empresarial').fill(DEV_USER.usuario);
+    await page.getByLabel('Contrasena', { exact: true }).fill(DEV_USER.password);
+    await page.getByLabel('Codigo de verificacion').fill('999999');
+    await page.getByRole('button', { name: 'Iniciar sesion' }).click();
+
     await expect(page.getByRole('alert').first()).toContainText(/incorrectos/i);
     await expect(page).toHaveURL(/\/login/);
   });
@@ -41,69 +62,46 @@ test.describe('sesion', () => {
  * se sigue cubriendo en la prueba unitaria de FreshnessMark.
  */
 
-test.describe('conversacion · orden por secuencia de dominio', () => {
-  test('ordena por secuencia de dominio y no por orden de llegada', async ({ page }) => {
-    await login(page);
-    await page.goto('/conversaciones/conv-1');
-
-    await expect(page.locator('ol li').first()).toBeVisible();
-    const cuerpos = await page.locator('ol li p:first-child').allInnerTexts();
-
-    /*
-     * El mock devuelve los mensajes en orden de `seq` 3, 1, 2 a proposito. Si la app
-     * los pintara en el orden recibido, el primero seria "Confirmado…".
-     */
-    expect(cuerpos[0]).toMatch(/sigue detenida en aduana/i);
-    expect(cuerpos[1]).toMatch(/liberacion documental/i);
-    expect(cuerpos[2]).toMatch(/Confirmado/i);
-  });
-
-  test('enviar un mensaje lo anade a la historia', async ({ page }) => {
-    await login(page);
-    await page.goto('/conversaciones/conv-2');
-
-    const items = page.locator('ol li');
-    const antes = await items.count();
-
-    await page.getByLabel('Nuevo mensaje').fill('Mensaje desde la prueba e2e');
-    await page.getByRole('button', { name: 'Enviar' }).click();
-
-    await expect(items).toHaveCount(antes + 1);
-    await expect(items.last()).toContainText('Mensaje desde la prueba e2e');
-  });
-});
+// RECONECTADO (E9-T8 / E3-HU-014, AI27-27): la conversación del viaje volvió al contrato
+// —ahora anclada al VIAJE (`/viajes/{id}/conversacion`), no a un `conversacion_id`—. El
+// recorrido de orden por secuencia de dominio, envío idempotente y solo lectura se cubre
+// en e2e/conversacion.spec.ts; el bloque de `/conversaciones/conv-1` de antes se retiró.
 
 test.describe('viajes', () => {
-  test('el detalle muestra las condiciones activas superpuestas al estado', async ({ page }) => {
+  test('el detalle muestra el seguimiento curado: hito, ETA e incidencias', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/viaje-2');
 
-    await expect(page.getByRole('heading', { name: /AI27-000102/ })).toBeVisible();
-    // Una condicion activa MANDA sobre el estado: `EstadoViajeChip` pinta la
-    // descripcion de la condicion en lugar de la etiqueta del estado (ver el propio
-    // componente). Por eso en el chip se ve "Sin senal del dispositivo" y no "EN_RUTA".
-    // La condicion aparece ademas en la seccion "Condiciones activas" del detalle.
-    await expect(page.getByText(/Sin senal del dispositivo/i).first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Condiciones activas' })).toBeVisible();
+    // Recorte al contrato: el detalle es la vista curada `ViajeSeguimiento` (DEC-006).
+    // El encabezado usa el id (ya no el folio, que no está en el contrato), y las
+    // incidencias se listan por categoría curada, no por tipo interno.
+    await expect(page.getByRole('heading', { name: 'Viaje viaje-2' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Incidencias' })).toBeVisible();
+    await expect(page.getByText(/Incidencia de seguridad/i)).toBeVisible();
+    // El ETA de viaje-2 está marcado obsoleto.
+    await expect(page.getByText('(obsoleto)')).toBeVisible();
   });
 
-  test('solicitar un servicio abre el asistente en su primer paso', async ({ page }) => {
+  test('solicitar un servicio abre el formulario mínimo de alta', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/new');
 
     /*
-     * El alta de servicio ya no es un formulario unico que POSTea y redirige: es un
-     * asistente de cuatro pasos que NO crea registro (no hay backend). El recorrido
-     * completo —incluida la confirmacion con ID simulado— vive en `solicitud.spec.ts`;
-     * aqui solo se comprueba que la ruta abre el asistente en su primer paso.
+     * Recorte al contrato: el alta es un formulario mínimo con los campos de
+     * `CrearViajeEntrada` (origen, destino, tipo de servicio, fecha). El asistente
+     * rico se conservó desconectado; su recorrido vive en pruebas unitarias.
      */
     await expect(
       page.getByRole('heading', { name: 'Solicitar nuevo servicio', level: 1 }),
     ).toBeVisible();
-    await expect(page.getByRole('radio', { name: /Monitoreo Activo/ })).toBeVisible();
+    await expect(page.getByLabel('Origen')).toBeVisible();
+    await expect(page.getByLabel('Destino')).toBeVisible();
   });
 
-  test('la bitacora visible al cliente se lista', async ({ page }) => {
+  // DESCONECTADO (recorte al contrato): la ruta /viajes/$viajeId/bitacora se retiró
+  // porque el contrato bff no define la bitácora. El componente se conserva en
+  // src/_desconectado/bitacora/. Reconectar esta prueba al recrear la ruta.
+  test.skip('la bitacora visible al cliente se lista', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/viaje-1/bitacora');
 

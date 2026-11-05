@@ -1,8 +1,308 @@
 # CHANGELOG
 
+## 2026:10:30 15:56
+
+**Resumen:** Se **reconectó la conversación del viaje** en el portal del cliente (E9-T8 / E3-HU-014, AI27-27): el cliente lee los mensajes de su viaje y envía los suyos; las respuestas de AI27 aparecen con la etiqueta fija **"AI27 Operations"** (DEC-021 #4); la conversación muestra su indicador **atendida/resuelto** (DEC-014). El `bff` ya expone la superficie Cliente desde `tracer.26`, **anclada al viaje** (no a un `conversacion_id`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.23` a `0.1.0-tracer.28` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`: +2 de conversación, y se retiraron 2 pruebas `.skip` obsoletas de `/conversaciones`).
+
+> **Nota de pin (verificada contra el repo de contratos):** se fijó `tracer.28`, el pin que el `bff` de E9 (`pf-bff-m`, pin `v0.1.9`) ya tiene desplegado; **nunca `.26`** (ola a medias). Para la conversación, `.27` y `.28` son idénticos: el `diff .27→.28` del `bff.yaml` **no toca la conversación**, solo agrega el catálogo `listarTiposServicio` + `TipoServicioCliente`/`PaginaTiposServicio` (E9-T4, otra HU) —por eso se tomó `.28` de una vez, para no volver a mover el pin cuando se tome E9-T4—. Al reinstalar, el lockfile aún referenciaba `.27` (republicado dentro de la ventana de `minimumReleaseAge`): se regeneró con `pnpm clean --lockfile && pnpm install`, tal como indica el propio error de política. La ramificación del `409` es sobre el `codigo` de máquina `conversacion_solo_lectura`, no sobre el status ni el mensaje.
+
+**Formas tomadas del contrato (NO inventadas):** las rutas y los tipos son los del contrato generado `bff` `tracer.28`: `obtenerConversacionViaje` (`GET /viajes/{id}/conversacion` → `ConversacionCliente`), `listarMensajesViaje` (`GET .../mensajes` → `PaginaMensajesCliente`) y `enviarMensajeViaje` (`POST .../mensajes` → `MensajeCliente`), reexportados por el barrel `@/lib/contracts`. El código desconectado (y los briefs viejos) decían "cursor", `idempotencyKey` como opción y rutas `/conversaciones/{id}`: todo eso quedó obsoleto. El modelo real es **una conversación POR VIAJE**, **paginada POR SECUENCIA** de dominio (`antes_de`/`despues_de`/`limite`, mutuamente excluyentes; respuesta `{ items, hay_mas }`, **sin `cursor_siguiente`**), con el envío **idempotente por `client_message_id` en el CUERPO**.
+
+**Decisiones de patrón (y por qué):**
+
+- **La idempotencia del envío viaja en el CUERPO, no en un header.** El contrato pide `client_message_id` dentro de `EnviarMensajeClienteEntrada`: lo genera el hook **por intento** (`crypto.randomUUID()`). Un reintento técnico de la misma mutación reusa ese id → el servidor devuelve el mensaje original (`200`) y no se duplica; un envío nuevo genera otro id → otro mensaje (`201`). Por eso NO se usó el `Idempotency-Key` del cliente HTTP (mismo criterio que la familia de emergencia).
+- **Paginación por secuencia de dominio, no por cursor.** `antes_de` lee la historia hacia atrás (botón "Cargar mensajes anteriores"); `despues_de` recupera lo nuevo tras cada poll (catch-up). Son excluyentes: si llegaran ambos, gana `antes_de`. La historia se acumula en una sola clave de caché y se ordena/deduplica con `orderByDomainSequence` del barrel (ante la misma identidad gana la secuencia mayor).
+- **Lectura por `useQuery` + polling (sin SSE en V1).** La metadata y la historia se refrescan con la MISMA cadencia del seguimiento (`VIAJE_POLLING_INTERVAL_MS`, ADR 27). La entrega viva por stream es mejora posterior, no requisito V1.
+- **"AI27 Operations" es una etiqueta CONSTANTE del frontend.** El contrato nunca trae `actor_real` ni rol interno: cuando `de_cliente=false`, la UI pinta el alias fijo. Hay prueba de que el DOM no contiene vocabulario interno (monitorista, supervisor, reclamo, bandeja, pool…).
+- **La conversación cuelga del viaje, no de la navegación global.** La entrada "Mensajes" NO vuelve al `AppShell`: en V1 no hay bandeja de conversaciones del cliente. El enlace vive en el detalle del viaje (`ViajeDetailSection`), que es donde el contrato la ancla.
+- **Taxonomía del envío (verificada con el contrato):** `400` (cuerpo/`client_message_id` inválido) · `401`/`403` · `404` · **`409 conversacion_solo_lectura`** (ventana de escritura vencida tras el cierre, DEC-030/DEC-041): la UI deshabilita el compositor cuando la conversación está `solo_lectura`/`cerrada`, y si el `409` llega en carrera lo explica en vez de presentarlo como fallo genérico.
+
+**Fuera de alcance V1:** el cliente no ve `actor_real`, reclamo, bandeja ni pool (lo recorta el `bff`); sin recibos de lectura individuales (DEC-014/Q113: solo el indicador atendido/resuelto); sin SSE.
+
+**Estados obligatorios (cubiertos por pruebas):** vacía · con historial (paginación por secuencia, `hay_mas`) · enviando (optimista, sin duplicar por reintento) · solo lectura/cerrada (envío deshabilitado con la razón; `409` si llega) · atendida/resuelta (indicador visible) · error de carga.
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml`: pin de `@ai27-tech/contracts` a `0.1.0-tracer.27`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `ConversacionCliente`, `MensajeCliente`, `PaginaMensajesCliente`, `EnviarMensajeClienteEntrada` del contrato generado, reexportados por el barrel.
+- `src/lib/api/conversacion.ts` (nuevo): wrappers `obtenerConversacionViaje`, `listarMensajesViaje(viajeId, { antesDe?|despuesDe?, limite? })`, `enviarMensajeViaje(viajeId, { cuerpo, clientMessageId })`; la `secuencia` int64 se marca como `DomainSeq` para ordenar/deduplicar.
+- `src/features/conversacion/useConversacion.ts` (nuevo): hook dueño del estado de servidor (metadata + historia por polling con catch-up por `despues_de`, `cargarMasAntiguos` por `antes_de`) y la mutación idempotente.
+- `src/features/conversacion/ConversacionSection.tsx` (nuevo): historia ordenada por secuencia, etiqueta constante "AI27 Operations", indicador `atendida`, compositor deshabilitado en solo lectura/cerrada y manejo del `409`.
+- `src/routes/_private/viajes/$viajeId/conversacion/index.tsx` (nueva ruta colgada del viaje).
+- `src/features/viajes/ViajeDetailSection.tsx`: enlace "Conversación" en el encabezado del detalle.
+- `src/app/shell/AppShell.tsx`: nota actualizada (la conversación es por viaje, no entra a la navegación global).
+- `src/mocks/data.ts` + `handlers.ts`: conversación POR VIAJE en forma de contrato (estado + atendida; mensajes con `secuencia`), handlers con paginación por secuencia, idempotencia por `client_message_id` y `409 conversacion_solo_lectura`.
+- `tests/conversacion/conversacion.test.ts` (nuevo): idempotencia por `client_message_id` en el cuerpo; paginación por secuencia (`antes_de`/`despues_de` excluyentes, `hay_mas`); orden y dedup por secuencia de dominio.
+- `tests/conversacion/ConversacionSection.test.tsx` (nuevo): etiqueta "AI27 Operations", indicador `atendida`, no renderiza datos internos, solo lectura/cerrada y `409` deshabilitan/explican el envío.
+- `e2e/conversacion.spec.ts` (nuevo): abrir la conversación del viaje, enviar un mensaje y verlo (sin duplicar); conversación en solo lectura deshabilita el envío.
+- `src/_desconectado/conversacion/` **retirado** (reconectado); `src/_desconectado/README.md` y `docs/decisiones/2026-recorte-al-contrato-bff.md` actualizados; bloque `.skip` de `/conversaciones` en `e2e/journey.spec.ts` retirado (cubierto por el spec dedicado).
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/api/conversacion.ts` · `src/features/conversacion/useConversacion.ts` · `src/features/conversacion/ConversacionSection.tsx` · `src/routes/_private/viajes/$viajeId/conversacion/index.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/app/shell/AppShell.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/conversacion/conversacion.test.ts` · `tests/conversacion/ConversacionSection.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `e2e/conversacion.spec.ts` · `e2e/journey.spec.ts` · `src/_desconectado/README.md` · `docs/decisiones/2026-recorte-al-contrato-bff.md` · `CHANGELOG.md` · (retirado) `src/_desconectado/conversacion/`
+
+## 2026:10:29 17:10
+
+**Resumen:** Se implementó **cancelar y rechazar el servicio** desde el portal del cliente (E1-HU-002 / E9-T7, AI27-26): dos acciones distintas con dos desenlaces distintos, no una con variantes. **Cancelar** (`CANCELADO`) para el viaje aún no salido; **rechazar** (`RECHAZADO_POR_CLIENTE`) para no aceptar el servicio asignado. Ambas pegan a `POST /api/v1/viajes/{id}/transiciones-cliente` del contrato `bff` (`tracer.23`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.20` a `0.1.0-tracer.23` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (31 archivos, 202 pruebas) en verde; e2e en verde (24 activos: +1 de cancelación).
+
+**Formas tomadas del contrato:** la ruta y el cuerpo son los del contrato generado `bff` `tracer.23` —operación `transicionarViajeCliente`, cuerpo `TransicionEntrada = { a_estado, causa }`—, y la respuesta `200` es **`ViajeSeguimiento`**, la MISMA vista curada que devuelve `getViaje` (DEC-006: nunca el estado canónico ni las condiciones). El tipo `TransicionEntrada` se reexporta por el barrel `@/lib/contracts`. La ventana de cada acción se deriva del enum y las aristas **del contrato generado** (`@ai27-tech/contracts/estados`: `puedeTransicionar`, `esTerminal`), no de una tabla propia.
+
+**Decisiones de patrón (y por qué):**
+
+- **Dos acciones, dos desenlaces, dos diálogos.** Cada botón abre su propio `Modal` con título, descripción, etiqueta de motivo y botón de confirmar propios (`Confirmar cancelación` vs `Confirmar rechazo`). La etiqueta de confirmar es DISTINTA de la del disparador, para que la acción sea inequívoca y el cliente sepa cuál ejecutó.
+- **El motivo (`causa`) es OBLIGATORIO en ambas (DEC-111, supera DEC-020 #7).** El botón de confirmar queda deshabilitado mientras el motivo esté vacío (recortando espacios). Es guarda de UI, no solo del `400`: no dependemos de que el servidor rechace el envío.
+- **La disponibilidad se DERIVA del estado, no se deja fallar al pulsar.** Cancelar se ofrece en `SOLICITADO`/`APROBADO`/`ASIGNADO`/`APTO_PARA_SALIDA`; rechazar solo en `ASIGNADO`/`APTO_PARA_SALIDA`. Fuera de ventana (el viaje ya salió) o en estado terminal NO se ofrece botón: se explica por qué ya no aplica.
+- **El `200` refresca SIN un segundo GET.** La mutación (`useTransicionViaje`) escribe el `ViajeSeguimiento` devuelto directo en la query `['viaje', id]` con `setQueryData`. El polling de `useViajeSeguimiento` (ADR 27) sigue su cadencia y confirma después; no se fuerza un refetch.
+- **Taxonomía de respuestas (verificada con contrato/servicio):** `400` → falta/!válido el motivo (mensaje en el formulario); `409 transicion_no_permitida` → carrera de la máquina de estados, mensaje claro + la vista se actualiza con el polling; `404` → viaje ajeno/fuera de alcance tratado como «no encontrado» (el servicio devuelve 404, no 403, a propósito); `403`/`401` no son parte del carril normal del cliente.
+
+**Fuera de alcance V1:** cancelar/rechazar SOLO cambian de estado. Sin penalizaciones, reembolsos ni flujo de aprobación. Único cambio de regla frente al brief: el motivo ahora es obligatorio (DEC-111).
+
+**Estados obligatorios (cubiertos por pruebas):** ventana ABIERTA (acción ofrecida en los estados esperados) · ventana CERRADA (`EN_EMBARQUE`/`EN_TRANSITO`: acción ausente + explicación, no un fallo) · viaje TERMINAL (ausente + explicación) · el botón EXIGE motivo (vacío/solo-espacios no habilita ni envía) · los dos desenlaces (`CANCELADO` vs `RECHAZADO_POR_CLIENTE`) distinguibles · el `200` refresca la caché sin segundo GET · carrera con operación (`409`) con mensaje claro · e2e de cancelar en `SOLICITADO`.
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml`: pin de `@ai27-tech/contracts` a `0.1.0-tracer.23`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `TransicionEntrada` del contrato generado, reexportado por el barrel; se reexporta además `puedeTransicionar` de `estados`.
+- `src/lib/contracts/estados.ts`: reexporta `puedeTransicionar` del contrato generado.
+- `src/lib/api/viajes.ts` (nuevo wrapper): `transicionarViajeCliente(viajeId, aEstado, causa)` sobre `POST /viajes/{id}/transiciones-cliente`; tipo `EstadoDestinoCliente` que fija las dos únicas aristas del cliente. Devuelve `ViajeSeguimiento`.
+- `src/features/viajes/useTransicionViaje.ts` (nuevo): mutación dueña de la escritura; en éxito siembra `['viaje', id]` con el seguimiento devuelto (sin segundo GET).
+- `src/features/viajes/CancelarRechazarPanel.tsx` (nuevo): dos acciones con diálogo de confirmación (`Modal`) y captura de motivo obligatorio; deriva disponibilidad del estado; maneja `400`/`409`/`404`.
+- `src/features/viajes/ViajeDetailSection.tsx`: monta `CancelarRechazarPanel` con el seguimiento completo.
+- `src/mocks/handlers.ts`: handler `POST /viajes/{id}/transiciones-cliente` que imita `400` (sin motivo), `409` (fuera de la máquina de estados), `403` (arista no-cliente), `404` (fuera de alcance) y `200` (devuelve el `ViajeSeguimiento` ya actualizado, mutando el estado del detalle).
+- `tests/viajes/transicionViaje.test.ts` (nuevo): el wrapper manda `{ a_estado, causa }` por las dos aristas y devuelve el seguimiento sin segundo GET.
+- `tests/viajes/CancelarRechazarPanel.test.tsx` (nuevo): ventana (ofrecida vs no ofrecida por estado), motivo obligatorio, dos desenlaces distinguibles, `200` que refresca la caché sin segundo GET, `409` con mensaje claro.
+- `e2e/cancelar-rechazar.spec.ts` (nuevo): cancelar un viaje en `SOLICITADO` exigiendo motivo y reflejando el nuevo estado.
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/contracts/estados.ts` · `src/lib/api/viajes.ts` · `src/features/viajes/useTransicionViaje.ts` · `src/features/viajes/CancelarRechazarPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/mocks/handlers.ts` · `tests/viajes/transicionViaje.test.ts` · `tests/viajes/CancelarRechazarPanel.test.tsx` · `e2e/cancelar-rechazar.spec.ts` · `CHANGELOG.md`
+
+## 2026:10:29 09:55
+
+**Resumen:** Se implementó la **emergencia del cliente** en el portal (E9-T9, AI27-28): activación y notas sobre el carril que el `bff` ya tenía mergeado (`tracer.20`, ADR 21 §6). El pendiente técnico del ticket **ya no aplicaba**: las tres rutas (`GET/POST /viajes/{id}/emergencias` y `POST /viajes/{id}/emergencias/{eid}/notas`) existen en el contrato generado, respaldadas por `mensajeria` y proyectadas por audiencia. Este trabajo es **UI + wrappers**, sin dependencia de contrato pendiente. En el portal no había nada de emergencia; ahora el detalle del viaje incluye un **panel de emergencia** con botón de activación y captura de notas. `lint`, `typecheck` y `test` (29 archivos, 181 pruebas) en verde; el e2e en verde (26 activos: +3 de emergencia).
+
+**Formas tomadas del contrato (NO inventadas):** los tipos son los del contrato generado `bff` `tracer.20` —`EmergenciaCliente` (`{id, estado: abierta|en_atencion|resuelta, activada_en}`), `EmergenciasCliente` (`{emergencia_activa, casos[]}`), `ActivarEmergenciaClienteEntrada` (`{activacion_id}`) y `NotaEmergenciaClienteEntrada` (`{cuerpo}`)—, reexportados por el barrel `@/lib/contracts`. El ticket nombraba `CasoEmergencia`/`PaginaEmergencias`/`ActivarEmergenciaEntrada`/`NotaEmergenciaEntrada`; se usaron los nombres REALES del contrato tras leerlo.
+
+**Decisiones de patrón (y por qué):**
+
+- **La idempotencia de la activación viaja en el CUERPO, no en un header.** El contrato pide `activacion_id` dentro de `ActivarEmergenciaClienteEntrada`: es una clave de negocio que genera el cliente **por pulsación intencional** (del botón del diálogo de confirmación). Un reintento técnico de la misma mutación reusa ese id → no duplica; una pulsación nueva genera otro `crypto.randomUUID()` → crea otro caso. Por eso NO se usó el `Idempotency-Key` del cliente HTTP.
+- **El botón crea y envía de inmediato, sin exigir nota previa.** Las notas son **opcionales**, multilínea, de 1 a 1000 caracteres, **recortando espacios**; un valor vacío o de solo espacios **no se envía** (botón deshabilitado + guarda). El tope de 1000 es de captura (`maxLength`) y de envío (`NOTA_EMERGENCIA_MAX_CHARS`).
+- **Selector mínimo por fecha/hora solo cuando coexisten varios casos.** Con un caso no hay selector; con varios, un `<select>` identifica cada caso **solo por fecha/hora** (sin exponer notas, estado interno ni personal) y la nota va al id elegido.
+- **Proyección por audiencia (ADR 21 §6).** El cliente nunca ve cuerpos de nota, responsable, recursos ni datos de Reacción: la UI solo consume `{id, estado, activada_en}` y pinta `abierta`/`en_atencion` como «En atención» y `resuelta` como «Resuelta». Hay prueba de que el DOM no contiene vocabulario interno.
+- **Sin dependencia de SSE (ADR 28).** El panel es dueño de su estado de servidor (`useEmergencias` con `useQuery` + polling de ADR 27); activar y notar operan por HTTP. La entrega viva es mejora, no requisito.
+
+**Arreglo transversal (necesario para la nota):** el cliente HTTP (`lib/api/client.ts`) trataba como `roto` cualquier respuesta OK sin cuerpo que no fuera `204`. El contrato de `agregarNotaEmergencia` responde **`201` sin contenido**, así que se ajustó: antes de parsear JSON se lee el texto y un cuerpo vacío es un éxito sin contenido (`undefined`), no una respuesta rota. Solo un cuerpo NO vacío mal formado sigue siendo `roto`.
+
+**Estados obligatorios (cubiertos por pruebas):** sin emergencias · emergencia activa · varios casos (selector por fecha/hora) · reintento idempotente que no duplica (dos reentregas → un caso; dos pulsaciones → dos casos) · nota en el límite (1000 ok; vacía/solo-espacios no se envía) · la vista cliente no renderiza datos internos.
+
+**Cambios:**
+
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias de los cuatro tipos de emergencia del contrato generado, reexportados por el barrel.
+- `src/lib/api/emergencias.ts` (nuevo): wrappers `listEmergencias`, `activarEmergencia` (idempotente por `activacion_id` del cuerpo) y `agregarNotaEmergencia` sobre `api` de `client.ts`.
+- `src/lib/api/client.ts`: una respuesta OK con cuerpo vacío (no solo `204`) se resuelve como `undefined`; solo un cuerpo no vacío no-JSON es `roto`.
+- `src/lib/constants.ts`: `NOTA_EMERGENCIA_MAX_CHARS = 1000`.
+- `src/features/viajes/useEmergencias.ts` (nuevo): hook dueño del estado de servidor (lista + dos mutaciones; invalida la lista al terminar).
+- `src/features/viajes/EmergenciaPanel.tsx` (nuevo): activación con diálogo de confirmación (`Modal`), captura de notas (`Textarea`), selector por fecha/hora con varios casos, estados vacío/activo.
+- `src/features/viajes/ViajeDetailSection.tsx`: monta `EmergenciaPanel` con el `viajeId`.
+- `src/mocks/data.ts` + `handlers.ts`: `emergenciasWire` (estado mutable en memoria) y tres handlers que imitan la proyección por audiencia y la idempotencia por `activacion_id`; el handler de notas responde `201` sin cuerpo.
+- `tests/support/query.tsx` (nuevo): helper de render con `QueryClient` para componentes con estado de servidor.
+- `tests/viajes/emergencias.test.ts` (nuevo): idempotencia por `activacion_id` en el cuerpo (reentrega vs pulsación), forma de las notas y de la lista.
+- `tests/viajes/EmergenciaPanel.test.tsx` (nuevo): los seis estados obligatorios de la UI.
+- `tests/viajes/ViajeDetailSection.test.tsx`: se envuelve en `QueryClient` y se aísla el carril de emergencia (el detalle ahora monta el panel).
+- `e2e/emergencia.spec.ts` (nuevo): activar + agregar nota + la vista cliente sin datos internos.
+
+**Archivos modificados:**
+
+- `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/api/emergencias.ts` · `src/lib/api/client.ts` · `src/lib/constants.ts` · `src/features/viajes/useEmergencias.ts` · `src/features/viajes/EmergenciaPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/support/query.tsx` · `tests/viajes/emergencias.test.ts` · `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `e2e/emergencia.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó / fuera de alcance V1:** sin ubicación en el payload; la activación **no crea incidencia ni condición**; las notas son **unidireccionales** (sin conversación dentro del caso); no se dependió de SSE ni se tocó `prototipos-v2/`; no se trajo al portal ningún dato interno de `mensajeria` ni de Reacción (viven en superficie interna).
+
+## 2026:10:28 16:47
+
+**Resumen:** Se completó el **segundo factor del login** del portal del cliente (E9-T2, AI27-21). ADR 13 quedó resuelto (DEC-031/DEC-071): **el IdP (Keycloak) entrega y valida el OTP** como **TOTP**, y el `bff` ya propaga el campo en el contrato de sesión (`CredencialesEntrada.segundo_factor`, opcional/nullable, `tracer.20`). El portal **no construye tramo propio de OTP**: el código se captura en el login y **viaja JUNTO a las credenciales en un solo `POST /sesion`**. Se eligió el **flujo de un solo paso** porque el contrato solo admite `segundo_factor` dentro de `POST /sesion` y **no existe endpoint de OTP** (`/otp/...` es del IdP, no del portal); en consecuencia, la ruta placeholder `/two-factor` **se retiró** (no tenía endpoint propio que llamar). `lint`, `typecheck` y `test` (27 archivos, 167 pruebas) en verde; el e2e en verde (20 activos, incluido el recorrido login → segundo factor → panel).
+
+**Decisión del contrato (y por qué un solo paso):**
+
+- Se leyó el esquema real `CredencialesEntrada` del contrato generado antes de decidir. En `tracer.20` acepta `{ usuario, contrasena, segundo_factor? }`; el segundo factor es **TOTP, opcional en V1** (requerido en V2+), y `bff`/`identidad` **solo lo transportan** (el IdP lo valida). Con esa forma, un segundo paso en `/two-factor` sobraba: no hay nada que llamar entre contraseña y código. El flujo correcto es capturar todo junto y mandarlo en una sola llamada.
+- Se **bumpeó `@ai27-tech/contracts` de `0.1.0-tracer.11` a `0.1.0-tracer.20`**: la versión instalada no tenía `segundo_factor`, así que enviarlo de forma tipada exigía mover el paquete generado. También se ajustó `minimumReleaseAgeExclude` en `pnpm-workspace.yaml` para la nueva versión.
+
+**Estados obligatorios (y cómo se cumplen):**
+
+- **No enumeración de cuentas.** Credencial inválida, usuario inexistente y **segundo factor inválido o vencido** producen el **mismo 401 uniforme** del lado de `identidad` (DEC-094), y la UI muestra un **mensaje genérico idéntico** en los tres casos («Usuario, contrasena o codigo de verificacion incorrectos»). Hay prueba unitaria que compara el texto exacto exista o no el usuario, y e2e del segundo factor incorrecto con credenciales válidas.
+- **IdP no disponible.** Un fallo de degradación (503/504/red) no se presenta como culpa del usuario: el mensaje habla del servicio de identidad, no de credenciales. Cubierto por prueba unitaria.
+
+**Postura de `tokenStore` (confirmada, no cambiada):** V1 **mantiene** accessToken+metadatos en localStorage (`ai27.sesion`) y `refreshToken` solo en memoria. El salto a memoria + cookie httpOnly **no es decisión del portal** (exige `Set-Cookie` del `bff`, es decir, cambio de contrato); si se toma aguas arriba, el cambio ocurre **detrás de la interfaz `TokenStore`** sin tocar a sus consumidores. Se documentó en el encabezado del archivo.
+
+**Cambios:**
+
+- `src/features/sesion/LoginSection.tsx`: campo «Codigo de verificacion» (TOTP, no `required` en cliente: la política de MFA es del IdP), captura de `segundoFactor`, y envío en un solo paso con `segundo_factor` omitido cuando está vacío. Mensaje genérico ampliado para cubrir el segundo factor; mensaje de degradación que no culpa al usuario.
+- `src/routes/(auth)/two-factor.tsx`: **eliminado** (ruta placeholder sin endpoint propio). `src/routeTree.gen.ts` regenerado sin la ruta.
+- `src/lib/api/tokenStore.ts`: nota de la postura V1 confirmada y del porqué de la interfaz.
+- `src/mocks/handlers.ts` y `src/mocks/data.ts`: el `POST /sesion` del mock exige el segundo factor del dev user y devuelve el **mismo** 401 uniforme ante credencial o factor incorrectos; `DEV_USER.segundoFactor = '123456'`.
+- `tests/sesion/LoginSection.test.tsx` (nuevo): envío en un solo paso, omisión del campo vacío, no enumeración (mismo mensaje exista o no el usuario y ante factor inválido), y fallo del IdP sin culpar al usuario.
+- `tests/contracts/sesion.test.ts`: afirma que `CredencialesEntrada` admite `segundo_factor` opcional en `tracer.20`.
+- `e2e/login.spec.ts`, `e2e/journey.spec.ts`, `e2e/session-cut.spec.ts`, `e2e/support/login.ts`: el campo de segundo factor en el render, el recorrido completo login → segundo factor → panel, y el factor incorrecto con el mismo mensaje.
+- `package.json` y `pnpm-workspace.yaml`: `@ai27-tech/contracts` a `0.1.0-tracer.20`.
+- `README.md`: ADR 13 marcado RESUELTO y la nota de `/two-factor` retirada.
+
+**Archivos modificados:**
+
+- `src/features/sesion/LoginSection.tsx` · `src/routes/(auth)/two-factor.tsx` (eliminado) · `src/routeTree.gen.ts` · `src/lib/api/tokenStore.ts` · `src/mocks/handlers.ts` · `src/mocks/data.ts` · `tests/sesion/LoginSection.test.tsx` · `tests/contracts/sesion.test.ts` · `e2e/login.spec.ts` · `e2e/journey.spec.ts` · `e2e/session-cut.spec.ts` · `e2e/support/login.ts` · `package.json` · `pnpm-workspace.yaml` · `README.md` · `CHANGELOG.md`
+
+**Lo que NO se tocó / fuera de alcance:** el portal **no decide la política de MFA ni de reintentos** (son del IdP); **no hay recuperación de contraseña propia** (el enlace sigue inerte); no se construyó ningún endpoint ni tramo de OTP; no se cambió la postura de custodia de sesión (solo se confirmó y documentó).
+
+## 2026:10:28 13:44
+
+**Resumen:** Se completó el **alta de servicio del portal del cliente** (E1-HU-001, E9-T4, AI27-23). El formulario mínimo pasa de un solo destino a **múltiples paradas 1..N** y hace cumplir las reglas de la HU: **origen y destino son texto libre y obligatorios** (el botón de envío queda **deshabilitado** mientras falte cualquiera), un booleano **"Agregar paradas"** permite **añadir y quitar** destinos uno por uno, y el **doble clic** no reenvía (el botón queda deshabilitado mientras la creación está en vuelo). Tipo de servicio sigue siendo opcional (DEC-010 #3, sin forzar su obligatoriedad); fecha/hora opcional; el cliente/tenant no se captura (lo deriva la identidad en el `bff`). Al crear, el viaje entra en `Solicitado` (estado que fija el servidor). `lint`, `typecheck` y `test` (26 archivos, 161 pruebas) en verde; el e2e de solicitud (4) y el journey en verde.
+
+**Reconciliación de catálogos (parte central del ticket):**
+
+- **El contrato `bff` (bff.yaml) NO define hoy ningún endpoint `/catalogos/{familia}`.** El select de tipo de servicio se lee contra ese path, que por ahora solo responde el mock MSW. Se dejó anotado como `TODO(contracts)` en `catalogos.ts` y el catálogo se trató como **NO bloqueante**: el loader de la ruta **degrada a lista vacía** si el catálogo no responde, de modo que el alta sigue usable (origen/destino no dependen de ningún catálogo).
+- Se **recortó la unión `FamiliaCatalogo` a la única familia que el portal activo consume: `tipos-servicio`**. Las otras seis (`rutas`, `zonas`, `prioridades-servicio`, `categorias-carga`, `rangos-valor`, `requisitos-manejo`) alimentaban el asistente rico de 4 pasos, hoy desconectado en `src/_desconectado/solicitud/`, que no importa esta unión. `rutas` **no es catálogo en V1** (origen/destino texto libre, DEC-010 #1, DEC-017).
+
+**Decisiones de patrón (y por qué):**
+
+- **No se capturan operador ni tracto.** DEC-010 #4 los declara opcionales, pero `CrearViajeEntrada` no los modela; capturarlos sería inventar una superficie que el contrato no acepta (se dropearían en silencio). Los completa el operador interno en la bitácora.
+- **El envío se arma EXACTAMENTE con la forma del contrato** `{ origen, destinos:[{nombre, numero_envio?}], tipo_servicio?, fecha_hora_servicio? }`. `numero_envio` y los opcionales se omiten cuando están vacíos.
+- **El loader ya no tiene `errorComponent`**: como el único dato que carga es presentación no bloqueante, degradar a `[]` es coherente con no tirar la pantalla por un catálogo caído.
+
+**Cambios:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx`: estado de destinos 1..N, booleano "Agregar paradas" (agregar/quitar), botón de envío gobernado por origen + todos los destinos con texto, guarda anti-doble-clic (`if (pending) return`), y armado de la entrada del contrato con `numero_envio` opcional.
+- `src/routes/_private/viajes/new.tsx`: el loader de `tipos-servicio` degrada a `[]` ante fallo (catálogo no bloqueante); se retiró el `errorComponent`.
+- `src/lib/api/catalogos.ts`: `FamiliaCatalogo` se recorta a `'tipos-servicio'`; comentario de reconciliación y `TODO(contracts)` por la ausencia del endpoint en `bff.yaml`.
+- `tests/viajes/NuevaSolicitudForm.test.tsx` (nuevo): 7 pruebas del comportamiento de la HU (envío deshabilitado sin origen/destino, parada extra vacía bloquea, agregar/quitar paradas, desactivar paradas conserva el primer destino, armado de la forma de contrato con 1..N destinos, anti-doble-clic).
+- `e2e/solicitud.spec.ts`: pruebas e2e del envío deshabilitado, agregar/quitar paradas y el flujo completo hasta `Solicitado`.
+
+**Archivos modificados:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `src/routes/_private/viajes/new.tsx` · `src/lib/api/catalogos.ts` · `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se reconectó el asistente de 4 pasos (`src/_desconectado/solicitud/`); no se añadieron campos fuera de `CrearViajeEntrada` (operador, tracto, documentos); no se inventó un catálogo que el contrato `bff` no expone; el cliente/tenant no se captura (P9, P10: lo deriva el `bff` del token).
+
+## 2026:10:26 18:00
+
+**Resumen:** Se implementó E8-T6 en el Portal_Cliente: captura del `refresh_token` contractual, `refreshToken` solo en memoria, refresco reactivo coordinado ante `401`, corte idempotente, navegación al login con destino preservado y Mensaje_Sesion_Finalizada compuesto con `@ai27-tech/ui`.
+
+**Cambios:**
+
+- `src/lib/api/sesion.ts` y `tokenStore.ts`: `refresh_token` y `sesion_id` se conservan en memoria y el refresh envía `{ refresh_token }`.
+- `src/lib/api/client.ts`, `refreshCoordinator.ts` y `sessionCut.ts`: máquina de recuperabilidad del `401`, coalescencia del refresco y corte idempotente.
+- `src/context/SessionContext.tsx` y la ruta de login: navegación a `/login?motivo=sesion_finalizada` y aviso neutral.
+- Pruebas Vitest y `e2e/session-cut.spec.ts` para refresco exitoso, corte, degradación y evento observable.
+
+**Señalado fuera del alcance:** el contrato actual no distingue con un `codigo` entre token expirado y sesión revocada; el portal no inventa esa causa.
+
 Todos los cambios relevantes del proyecto se documentan en este archivo.
 Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
 Las entradas más recientes se colocan al inicio.
+
+## 2026:10:27 20:32
+
+**Resumen:** Se **cableó el filtro por estado del Historial de Viajes** (E9-T3, AI27-22), que pasa de ser **solo-frontend** a filtrar en el **servidor**. Antes la barra de filtros vivía en `useState` local y no filtraba nada, con un botón «Filtrar» deshabilitado. Ahora el select de **estado** navega con un **search param tipado** de la ruta; el `loader` lo lee con **`loaderDeps`** y llama `listViajes({ estado })`, que lo manda como query param `estado` al `GET /viajes`; el `bff` devuelve la página ya filtrada. El filtrado es del servidor: la lista completa no vive en el navegador. «En curso» (SOLICITADO/EN_TRANSITO) y «cerrado» (CERRADO) se distinguen porque producen llamadas y resultados distintos. `typecheck`, `lint` y `test` (24 archivos, 147 pruebas) en verde; el e2e del historial (7 activos) y el journey en verde.
+
+**Decisiones de patrón (y por qué):**
+
+- **El único filtro que el contrato soporta hoy es `estado`.** `listarViajes` (`bff.yaml`) acepta solo `estado` (string) y `cursor`: no hay búsqueda de texto, rango de fechas ni filtros ricos. Se cableó exactamente `estado` y nada más. No se inventaron filtros que el contrato no tiene.
+- **La URL es la fuente de verdad del filtro** (patrón de `login.tsx`). La ruta valida su search param con `esEstadoViaje` contra la unión cerrada `EstadoViaje` (ADR 19): un estado inventado se descarta como «sin filtro». El select toma su valor del search param, no de un `useState` local.
+- **Regla de seguridad (P9, P10).** `listViajes` nunca manda `tenantId` ni nada derivado del token: el alcance lo deriva `bff` del claim. Hay una prueba que lo afirma.
+- **Lo que el contrato no soporta queda deshabilitado y honesto.** El rango de fechas se deja visible pero inerte (todas sus opciones deshabilitadas); la búsqueda de texto no se renderiza (se omite `onSearchChange`, en vez de pintar un cuadro inerte); el «Exportar CSV» (fuera de alcance V1, DEC-023) sigue deshabilitado en el encabezado, sin duplicarse en la toolbar. Se retiró el botón «Filtrar»: el cambio de estado navega al instante, no hay nada que pulsar.
+- **La paginación no se forzó.** Sigue siendo estado de UI que recorta en cliente sobre la página que `bff` devolvió. El contrato expone `cursor`, pero moverla a search param + `cursor` es un paso aparte; aquí se priorizó cerrar el filtro por estado, con su `TODO(contracts)`.
+
+**Cambios:**
+
+- `src/lib/api/viajes.ts`: `listViajes` acepta un filtro opcional `{ estado? }` y, cuando viene, lo manda como query param `estado` a `GET /viajes` (el wrapper `api.get` ya soporta `query`). Sin filtro no manda el param: `bff` devuelve todo el alcance.
+- `src/lib/contracts/estados.ts` + `index.ts`: nueva guarda de tipo `esEstadoViaje` (valida un valor crudo contra la unión cerrada `EstadoViaje`), reexportada por el barrel.
+- `src/routes/_private/viajes/index.tsx`: search param tipado `estado?` con `validateSearch` (valida con `esEstadoViaje`), `loaderDeps` que entrega `estado` al `loader`, y `loader` que llama `listViajes({ estado })`. Pasa `estado` a la Section.
+- `src/features/viajes/historial/HistorialViajesSection.tsx`: propaga `estado` a la tabla.
+- `src/features/viajes/historial/HistorialViajesTable.tsx`: el select de estado navega con el nuevo search param (`''` = todos → limpia el param, vuelve a página 1); el valor del select viene del prop, no de `useState`. Rango de fechas con opciones deshabilitadas; sin cuadro de búsqueda; sin botón de acción en la toolbar. Un filtro sin coincidencias conserva la toolbar y muestra «Sin resultados» (vía `emptyState` de la tabla).
+- `src/mocks/handlers.ts`: el `GET /viajes` del mock honra `?estado=X` (filtra el dataset), para que dev y e2e reflejen el filtrado del servidor. No filtra por tenant (P9, P10).
+- `tests/viajes/listViajes.test.ts` (nuevo): 4 pruebas de que `listViajes` manda (o no) el query param `estado`, que «en curso» y «cerrado» difieren, y que nunca mete tenant en la query.
+- `tests/viajes/HistorialViajesTable.test.tsx`: se reemplazaron las pruebas de «solo frontend» por pruebas del cableado (elegir un estado navega con el search param; en curso vs cerrado; volver a «todos» limpia el param; refleja el estado activo; un filtro sin resultados conserva la toolbar) y de los controles sin contrato (rango inerte, sin searchbox, sin botón de acción).
+- `tests/viajes/HistorialViajesSection.test.tsx`: la prueba de orden de lectura usa el select de estado en vez del botón «Filtrar» retirado.
+- `e2e/historial.spec.ts`: se actualizaron los asertos (sin searchbox, sin «Filtrar») y se añadieron pruebas e2e del filtro por estado en el servidor (elegir «Cerrado» lleva `?estado=CERRADO` en la URL y la tabla trae solo cerrados; `?estado=EN_TRANSITO` no trae cerrados ni cancelados).
+
+**Archivos modificados:**
+
+- `src/lib/api/viajes.ts` · `src/lib/contracts/estados.ts` · `src/lib/contracts/index.ts` · `src/routes/_private/viajes/index.tsx` · `src/features/viajes/historial/HistorialViajesSection.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/mocks/handlers.ts` · `tests/viajes/listViajes.test.ts` · `tests/viajes/HistorialViajesTable.test.tsx` · `tests/viajes/HistorialViajesSection.test.tsx` · `e2e/historial.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se inventaron filtros fuera del contrato (sin búsqueda de texto ni rango de fechas); no se filtró en el cliente la lista completa; no se agregaron campos a `ViajeResumen`; no se cableó «Exportar CSV» (DEC-023); no se tocó `src/_desconectado/`; la paginación se dejó con su `TODO(contracts)`.
+
+## 2026:10:26 15:42
+
+**Resumen:** Se **agregó el polling HTTP del detalle/seguimiento del viaje** (E9-T5, AI27-24), que cumple ADR 27: el seguimiento V1 (hito + ETA estimado + incidencias curadas) se refresca por **pull inicial + polling periódico** mientras la vista está abierta, sin SSE. Antes el detalle se cargaba **una sola vez** en el `loader` de la ruta. Ahora el `loader` se conserva como **lectura inicial y puerta del primer fallo** (lo sigue cubriendo el `errorComponent` a pantalla completa), y el componente consume el detalle por **`useQuery`** con `refetchInterval`, sembrando su caché con el dato del `loader` (`initialData`). No se tocó la forma de `ViajeSeguimiento` ni el `bff`; `ViajeDetailSection` sigue siendo presentacional. `typecheck`, `lint` y `test` (22 archivos, 139 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (preexistentes).
+
+**Decisiones de patrón (y por qué):**
+
+- **`loader` + `useQuery` con `initialData`, no `ensureQueryData`.** El `router` no inyecta el `QueryClient` en su `context` (se crea dentro de `Providers`, uno por montaje), así que un `loader` no tiene acceso al `QueryClient` compartido para precargar la caché. El patrón coherente con el repo es: el `loader` hace la lectura inicial (gatea el primer render y su error), y `useQuery` toma ese resultado como `initialData` y a partir de ahí **posee** el polling. Así el primer fallo de carga sigue siendo del `errorComponent`, y los fallos posteriores del polling no.
+- **La cadencia es configuración, no contrato (ADR 27 §3).** Se añadió `VIAJE_POLLING_INTERVAL_MS` en `src/lib/constants.ts` con comentario explícito de que es **ajustable y no es criterio Pass/Fail**; los 5 s del scaffold V2 no se adoptaron.
+- **El polling corre solo mientras la ruta está montada** (comportamiento natural de `useQuery`: el intervalo se detiene al desmontar). `refetchIntervalInBackground` queda en su valor por defecto (`false`): si la pestaña no está visible, el poll de fondo se pausa y se reanuda al volver, sin gastar lecturas `bff → operacion`.
+- **Un refetch fallido no tira la pantalla.** TanStack Query conserva el último `data` bueno ante un refetch de fondo que falla y expone el fallo aparte (`isError`); el ETA ya trae su propia marca `obsoleto` en el contrato, así que no se forzó `Fresco<T>` donde el dato ya modela su frescura.
+
+**Cambios:**
+
+- `src/lib/constants.ts`: nueva constante `VIAJE_POLLING_INTERVAL_MS` (cadencia del polling de ADR 27) con nota de que es ajustable y no contrato.
+- `src/features/viajes/useViajeSeguimiento.ts` (nuevo): hook `useQuery` dueño del estado de servidor del detalle. Clave `['viaje', viajeId]` (helper `viajeQueryKey`), `queryFn = getViaje` con `AbortSignal`, `initialData` del `loader`, `refetchInterval = VIAJE_POLLING_INTERVAL_MS`.
+- `src/routes/_private/viajes/$viajeId/index.tsx`: el `loader` se mantiene (lectura inicial + `errorComponent` del primer fallo); el componente pasa a `useViajeSeguimiento(viajeId, Route.useLoaderData())`.
+- `tests/viajes/ViajeDetailSection.test.tsx`: +3 pruebas de **frescura del ETA** (presente al día; presente pero obsoleto → marca «(obsoleto)», no se oculta; ausente → «Sin ETA»).
+- `tests/viajes/useViajeSeguimiento.test.tsx` (nuevo): 3 pruebas de comportamiento del polling (no refetch al montar con `initialData` + `staleTime`; el polling corre y se repite cada intervalo con timers falsos; un refetch fallido conserva el último dato bueno y marca el fallo aparte, afirmado contra la caché del `QueryClient`).
+
+**Archivos modificados:**
+
+- `src/lib/constants.ts` · `src/features/viajes/useViajeSeguimiento.ts` · `src/routes/_private/viajes/$viajeId/index.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `tests/viajes/useViajeSeguimiento.test.tsx` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se abrió SSE ni se tocó `prototipos-v2/seguimiento-vivo/` (seguimiento vivo es V2); no se inventó marcador de posición, señal ni ETA continua (DEC-001); no se cambió la forma de `ViajeSeguimiento` ni el `bff`; el `errorComponent` de la ruta sigue cubriendo el primer fallo de carga.
+
+## 2026:10:26 12:02
+
+**Resumen:** Se **cerró con pruebas la vista de incidencias curadas del viaje para el cliente** (E9-T6, AI27-93). La vista ya estaba implementada en `ViajeDetailSection.tsx` sobre `ViajeSeguimiento.incidencias` (contrato `bff`); este trabajo la verifica y la deja probada, sin reescribirla. Se confirmó que el portal solo consume los campos curados del contrato (`categoria`, `estado`, `marca_tiempo`) y que `estado` se traduce únicamente a «En atención»/«Resuelta». Se decidió **renderizar `impacto_eta`** (opcional y nullable en el contrato) de forma mínima: se muestra solo si el `bff` lo trae y se omite por completo cuando es `null` o ausente, sin texto de relleno. El mapeo tipo interno → categoría **sigue viviendo en el `bff`** (`internal/tracking/incidencias.go`), no se trajo al portal (DEC-006). `typecheck`, `lint` y `test` (21 archivos, 133 pruebas) en verde.
+
+**Estados cubiertos por las pruebas (`tests/viajes/ViajeDetailSection.test.tsx`, nuevo):**
+
+- Sin incidencias: estado vacío «Sin incidencias reportadas.» y ninguna lista.
+- Una incidencia en atención: categoría + «En atención» + fecha.
+- Una incidencia resuelta: estado traducido a «Resuelta».
+- Varias incidencias: una entrada por cada una, en orden.
+- Incidencia con impacto en el ETA: se muestra «Impacto en el ETA: …» cuando el contrato lo trae; se omite si es `null`/ausente.
+- **Invariante de seguridad (DEC-006):** dado un seguimiento con incidencias de las cinco categorías curadas, el DOM nunca contiene ningún nombre técnico interno del catálogo (p. ej. «Asalto o Robo», «Intercepción de custodia», «Sabotaje GPS»); solo aparecen las cinco categorías curadas. Fixtures con forma de contrato.
+
+**Cambios:**
+
+- `src/features/viajes/ViajeDetailSection.tsx`: render mínimo de `impacto_eta` por incidencia (se pinta solo si viene y no es `null`); comentario de por qué el `bff` hoy lo deja `nil`. Se actualizó el docblock de cabecera. No se tocó el consumo de campos ni los wrappers de `lib/api/`.
+- `tests/viajes/ViajeDetailSection.test.tsx` (nuevo): 7 pruebas unitarias (Vitest + Testing Library) con fixtures `ViajeSeguimiento`/`IncidenciaCurada` del barrel `@/lib/contracts`.
+
+**Archivos modificados:**
+
+- `src/features/viajes/ViajeDetailSection.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `CHANGELOG.md`
+
+**Señalado (no se tocó):** el catálogo interno y su mapeo no se trajeron al portal (DEC-006); `src/_desconectado/` quedó intacto; el contrato y los wrappers de `lib/api/` no se modificaron. Mientras el `bff` deje `impacto_eta` en `nil`, la línea de impacto no se pinta en producción; la rama queda cubierta por prueba para cuando el contrato lo publique.
+
+## 2026:10:20 12:00
+
+**Resumen:** Se **reestructuró el portal cliente para apegarse al contrato `bff`** (`@ai27-tech/contracts`, `v0.1.0-tracer.11`), como ampliación de alcance de **E8-T3** ("el sistema crece conforme al contrato, no al revés"). La sesión y los roles pasan a los tipos generados; las pantallas de viaje se recortan a su versión mínima funcional según lo que el contrato define; y lo que el contrato aún no modela (bitácora, conversación, panel de control, asistente de solicitud completo) se **desconecta sin borrarse**, conservado en `src/_desconectado/` con tipos locales y pruebas, para reconectarlo cuando el contrato crezca. El barrel `lib/contracts/` queda solo con lo que el `bff` define más utilidades de UI. `typecheck`, `lint` y `test` (20 archivos, 126 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (conversación y panel desconectados, más tema oscuro preexistente); `build:mock` compila.
+
+**Cambios:**
+
+- `src/lib/contracts/`: `ViajeResumen` recortado a `{id, estado, origen}`; `ViajeDetalle` inventado → `ViajeSeguimiento` del contrato; `EstadoViaje` pasa al enum generado (cerrado, 13 valores, ADR 19); se agregan `HitoCliente`, `IncidenciaCurada`, `CrearViajeEntrada`. Salen del barrel los tipos de panel, bitácora, conversación y asistente. Se conservan `Fresco`, `Eta` y secuencias (utilidades de UI).
+- `src/lib/api/sesion.ts`, `src/context/SessionContext.tsx`, `src/features/sesion/LoginSection.tsx`: consumo del contrato de sesión (`{usuario, contrasena}`, `sesion_id` conservado).
+- Historial (`HistorialViajesTable.tsx`, `EstadoViajeChip.tsx`): tabla a 3 columnas; chip mapea los 13 estados. Se retiran `RutaCell`/`UnidadCell`/`ReporteSeguridadCell`.
+- Detalle (`ViajeDetailSection.tsx`): reconstruido sobre `ViajeSeguimiento` (hito, ETA con obsolescencia, incidencias curadas, DEC-006).
+- Solicitud: nuevo `NuevaSolicitudForm.tsx` (campos de `CrearViajeEntrada`, POST real a `/viajes`); asistente de 4 pasos desconectado a `src/_desconectado/solicitud/`.
+- Desconectados a `src/_desconectado/` (componentes, API, tipos locales y pruebas): `bitacora/`, `conversacion/`, `panel/`, `solicitud/`. Entrada «Mensajes» retirada del `AppShell`; rutas sin respaldo en el contrato retiradas del enrutado.
+- `src/mocks/`: handlers de `/panel`, `/conversaciones` y bitácora desconectados (datos conservados con nota); `POST /viajes` responde forma `ViajeResumen`.
+- `tests/contracts/sesion.test.ts` (nuevo): ata el mock de sesión al tipo del tracer. Pruebas de las pantallas desconectadas conservadas junto a su pieza.
+- `docs/decisiones/2026-recorte-al-contrato-bff.md` y `src/_desconectado/README.md` (nuevos): decisión, inventario y procedimiento de reconexión.
+
+**Archivos modificados (resumen):**
+
+- `src/lib/contracts/{index,dominio,estados}.ts` · `src/lib/api/{sesion,viajes}.ts`
+- `src/features/viajes/{EstadoViajeChip,ViajeDetailSection,NuevaSolicitudForm}.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/features/sesion/LoginSection.tsx`
+- `src/context/SessionContext.tsx` · `src/app/shell/AppShell.tsx`
+- `src/mocks/{data,handlers}.ts` · `src/routes/_private/viajes/new.tsx`
+- `src/_desconectado/**` (bitácora, conversación, panel, solicitud) · `docs/decisiones/2026-recorte-al-contrato-bff.md`
+- `tests/contracts/sesion.test.ts` · `tests/ui/EstadoViajeChip.test.tsx` · `tests/viajes/*`
+
+**Señalado (no se tocó):** el refresh del cliente no persiste `refresh_token` (el contrato lo exige en el cuerpo; queda `TODO(auth)` en `lib/api/sesion.ts`). Ampliar el contrato `bff` para las pantallas desconectadas es trabajo aparte en `pf-pkg-contracts`. No se corrió `pnpm format:check` ni la verificación manual en `dev:mock` en esta sesión. La ruta `/configuracion` (placeholder sin HU) no se tocó.
 
 ## 2026:10:19 16:30
 

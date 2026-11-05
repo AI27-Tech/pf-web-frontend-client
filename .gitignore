@@ -17,6 +17,9 @@ blob-report
 .env.local
 .env.*.local
 
+# Registro privado: .npmrc contiene el token real de GitHub Packages. No se versiona.
+.npmrc
+
 # Codegen del router de TanStack
 src/routeTree.gen.ts
 

@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # necesitamos historia completa para el rango m..q
+          fetch-depth: 0 # necesitamos historia completa para el rango m..q
 
       - name: Crear o actualizar el PR q -> m con el resumen al día
         env:
