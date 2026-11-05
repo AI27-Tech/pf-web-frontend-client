@@ -48,18 +48,24 @@ export function ErrorState({
 }) {
   const degradado = isApiError(error) && error.esDegradacion;
   const noAutorizado = isApiError(error) && error.kind === 'noAutorizado';
+  // Para el cliente, "no existe" y "es de otra empresa" son el mismo 404 (DEC-132): no es un fallo.
+  const noEncontrado = isApiError(error) && error.kind === 'noEncontrado';
 
   const title = degradado
     ? 'No podemos mostrar esto ahora mismo'
     : noAutorizado
       ? 'Tu sesion no permite ver esto'
-      : 'Algo se rompio';
+      : noEncontrado
+        ? 'No encontramos lo que buscas'
+        : 'Algo se rompio';
 
   const detail = degradado
     ? 'Un servicio del que dependemos no esta respondiendo. No es que el dato no exista: es que no lo tenemos en este momento.'
     : noAutorizado
       ? 'Vuelve a iniciar sesion. Si el problema sigue, tu acceso pudo haber cambiado.'
-      : 'Se registro el fallo. Puedes reintentar.';
+      : noEncontrado
+        ? 'Revisa el enlace o vuelve a tu lista de viajes.'
+        : 'Se registro el fallo. Puedes reintentar.';
 
   return (
     <div
