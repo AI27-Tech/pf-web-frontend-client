@@ -33,16 +33,35 @@ export interface ListViajesFiltro {
   readonly estado?: EstadoViaje;
 }
 
+/** Página de `listarViajes` (`PaginaViajesResumen`), con el `estado` ya como token del enum. */
+interface PaginaViajes {
+  readonly items: readonly ViajeResumen[];
+  readonly cursor_siguiente: string | null;
+}
+
 export async function listViajes(
   filtro: ListViajesFiltro = {},
   signal?: AbortSignal,
 ): Promise<readonly ViajeResumen[]> {
   // `estado` vacio/ausente = todos: no se manda el query param y bff devuelve el
   // listado completo del alcance. El filtrado lo hace el SERVIDOR, no el navegador.
-  return api.get<readonly ViajeResumen[]>('/viajes', {
-    ...(filtro.estado !== undefined ? { query: { estado: filtro.estado } } : {}),
-    ...(signal !== undefined ? { signal } : {}),
-  });
+  // shortcut: junta todas las páginas porque el historial no pagina contra el servidor;
+  // llevar el cursor a la UI cuando el volumen de viajes por empresa lo pida.
+  const viajes: ViajeResumen[] = [];
+  let cursor: string | null = null;
+  do {
+    const query = {
+      ...(filtro.estado !== undefined ? { estado: filtro.estado } : {}),
+      ...(cursor !== null ? { cursor } : {}),
+    };
+    const pagina: PaginaViajes = await api.get<PaginaViajes>('/viajes', {
+      ...(Object.keys(query).length > 0 ? { query } : {}),
+      ...(signal !== undefined ? { signal } : {}),
+    });
+    viajes.push(...pagina.items);
+    cursor = pagina.cursor_siguiente;
+  } while (cursor !== null);
+  return viajes;
 }
 
 /** Detalle/seguimiento del viaje: hito, ETA e incidencias curadas (ViajeSeguimiento). */

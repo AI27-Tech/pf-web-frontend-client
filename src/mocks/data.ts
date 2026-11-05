@@ -423,48 +423,14 @@ export const emergenciasWire: Record<string, CasoEmergenciaWireMock[]> = {
   ],
 };
 
-export const catalogosWire: Record<string, Json[]> = {
-  rutas: [
-    { id: 'ruta-12', nombre: 'CDMX - Queretaro' },
-    { id: 'ruta-31', nombre: 'Guadalajara - Leon' },
-  ],
-  zonas: [
-    { id: 'zona-1', nombre: 'Bajio' },
-    { id: 'zona-2', nombre: 'Valle de Mexico' },
-  ],
-  /*
-   * Los `id` son estables y en ingles (se mapean a iconos/descripciones en la feature);
-   * el `nombre` es la etiqueta visible del diseno. Las descripciones y los iconos de las
-   * tarjetas de tipo de servicio NO viven aqui.
-   */
-  'tipos-servicio': [
-    { id: 'monitoreo-activo', nombre: 'Monitoreo Activo' },
-    { id: 'custodia-armada', nombre: 'Custodia Armada' },
-    { id: 'localizacion-gps', nombre: 'Localización GPS' },
-  ],
-  'prioridades-servicio': [
-    { id: 'estandar', nombre: 'Estándar' },
-    { id: 'alta', nombre: 'Alta' },
-    { id: 'critica', nombre: 'Crítica' },
-  ],
-  'categorias-carga': [
-    { id: 'electronicos', nombre: 'Electrónicos' },
-    { id: 'perecederos', nombre: 'Perecederos' },
-    { id: 'automotriz', nombre: 'Automotriz' },
-    { id: 'farmaceuticos', nombre: 'Farmacéuticos' },
-    { id: 'general', nombre: 'Carga general' },
-  ],
-  'rangos-valor': [
-    { id: 'menos-500k', nombre: 'Menos de $500,000' },
-    { id: '500k-2m', nombre: '$500,000 – $2,000,000' },
-    { id: '2m-10m', nombre: '$2,000,000 – $10,000,000' },
-    { id: 'mas-10m', nombre: 'Más de $10,000,000' },
-  ],
-  'requisitos-manejo': [
-    { id: 'fragil', nombre: 'Frágil' },
-    { id: 'temp-controlada', nombre: 'Temp. Controlada' },
-    { id: 'mat-peligroso', nombre: 'Mat. Peligroso' },
-    { id: 'alto-valor', nombre: 'Alto Valor' },
-    { id: 'sobredimensionado', nombre: 'Sobredimensionado' },
-  ],
-};
+/*
+ * Tipos de servicio en la forma de `TipoServicioCliente` (`codigo` + `etiqueta`), la única
+ * familia de catálogo que el `bff` sirve al cliente en V1 (E9-T4). El handler los pagina
+ * de dos en dos para que el portal tenga que seguir `cursor_siguiente`, como contra el
+ * `bff` real.
+ */
+export const tiposServicioWire: readonly components['schemas']['TipoServicioCliente'][] = [
+  { codigo: 'monitoreo-activo', etiqueta: 'Monitoreo Activo' },
+  { codigo: 'custodia-armada', etiqueta: 'Custodia Armada' },
+  { codigo: 'localizacion-gps', etiqueta: 'Localización GPS' },
+];
