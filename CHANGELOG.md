@@ -1,0 +1,1179 @@
+# CHANGELOG
+
+## 2026:10:30 15:56
+
+**Resumen:** Se **reconectó la conversación del viaje** en el portal del cliente (E9-T8 / E3-HU-014, AI27-27): el cliente lee los mensajes de su viaje y envía los suyos; las respuestas de AI27 aparecen con la etiqueta fija **"AI27 Operations"** (DEC-021 #4); la conversación muestra su indicador **atendida/resuelto** (DEC-014). El `bff` ya expone la superficie Cliente desde `tracer.26`, **anclada al viaje** (no a un `conversacion_id`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.23` a `0.1.0-tracer.28` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`: +2 de conversación, y se retiraron 2 pruebas `.skip` obsoletas de `/conversaciones`).
+
+> **Nota de pin (verificada contra el repo de contratos):** se fijó `tracer.28`, el pin que el `bff` de E9 (`pf-bff-m`, pin `v0.1.9`) ya tiene desplegado; **nunca `.26`** (ola a medias). Para la conversación, `.27` y `.28` son idénticos: el `diff .27→.28` del `bff.yaml` **no toca la conversación**, solo agrega el catálogo `listarTiposServicio` + `TipoServicioCliente`/`PaginaTiposServicio` (E9-T4, otra HU) —por eso se tomó `.28` de una vez, para no volver a mover el pin cuando se tome E9-T4—. Al reinstalar, el lockfile aún referenciaba `.27` (republicado dentro de la ventana de `minimumReleaseAge`): se regeneró con `pnpm clean --lockfile && pnpm install`, tal como indica el propio error de política. La ramificación del `409` es sobre el `codigo` de máquina `conversacion_solo_lectura`, no sobre el status ni el mensaje.
+
+**Formas tomadas del contrato (NO inventadas):** las rutas y los tipos son los del contrato generado `bff` `tracer.28`: `obtenerConversacionViaje` (`GET /viajes/{id}/conversacion` → `ConversacionCliente`), `listarMensajesViaje` (`GET .../mensajes` → `PaginaMensajesCliente`) y `enviarMensajeViaje` (`POST .../mensajes` → `MensajeCliente`), reexportados por el barrel `@/lib/contracts`. El código desconectado (y los briefs viejos) decían "cursor", `idempotencyKey` como opción y rutas `/conversaciones/{id}`: todo eso quedó obsoleto. El modelo real es **una conversación POR VIAJE**, **paginada POR SECUENCIA** de dominio (`antes_de`/`despues_de`/`limite`, mutuamente excluyentes; respuesta `{ items, hay_mas }`, **sin `cursor_siguiente`**), con el envío **idempotente por `client_message_id` en el CUERPO**.
+
+**Decisiones de patrón (y por qué):**
+
+- **La idempotencia del envío viaja en el CUERPO, no en un header.** El contrato pide `client_message_id` dentro de `EnviarMensajeClienteEntrada`: lo genera el hook **por intento** (`crypto.randomUUID()`). Un reintento técnico de la misma mutación reusa ese id → el servidor devuelve el mensaje original (`200`) y no se duplica; un envío nuevo genera otro id → otro mensaje (`201`). Por eso NO se usó el `Idempotency-Key` del cliente HTTP (mismo criterio que la familia de emergencia).
+- **Paginación por secuencia de dominio, no por cursor.** `antes_de` lee la historia hacia atrás (botón "Cargar mensajes anteriores"); `despues_de` recupera lo nuevo tras cada poll (catch-up). Son excluyentes: si llegaran ambos, gana `antes_de`. La historia se acumula en una sola clave de caché y se ordena/deduplica con `orderByDomainSequence` del barrel (ante la misma identidad gana la secuencia mayor).
+- **Lectura por `useQuery` + polling (sin SSE en V1).** La metadata y la historia se refrescan con la MISMA cadencia del seguimiento (`VIAJE_POLLING_INTERVAL_MS`, ADR 27). La entrega viva por stream es mejora posterior, no requisito V1.
+- **"AI27 Operations" es una etiqueta CONSTANTE del frontend.** El contrato nunca trae `actor_real` ni rol interno: cuando `de_cliente=false`, la UI pinta el alias fijo. Hay prueba de que el DOM no contiene vocabulario interno (monitorista, supervisor, reclamo, bandeja, pool…).
+- **La conversación cuelga del viaje, no de la navegación global.** La entrada "Mensajes" NO vuelve al `AppShell`: en V1 no hay bandeja de conversaciones del cliente. El enlace vive en el detalle del viaje (`ViajeDetailSection`), que es donde el contrato la ancla.
+- **Taxonomía del envío (verificada con el contrato):** `400` (cuerpo/`client_message_id` inválido) · `401`/`403` · `404` · **`409 conversacion_solo_lectura`** (ventana de escritura vencida tras el cierre, DEC-030/DEC-041): la UI deshabilita el compositor cuando la conversación está `solo_lectura`/`cerrada`, y si el `409` llega en carrera lo explica en vez de presentarlo como fallo genérico.
+
+**Fuera de alcance V1:** el cliente no ve `actor_real`, reclamo, bandeja ni pool (lo recorta el `bff`); sin recibos de lectura individuales (DEC-014/Q113: solo el indicador atendido/resuelto); sin SSE.
+
+**Estados obligatorios (cubiertos por pruebas):** vacía · con historial (paginación por secuencia, `hay_mas`) · enviando (optimista, sin duplicar por reintento) · solo lectura/cerrada (envío deshabilitado con la razón; `409` si llega) · atendida/resuelta (indicador visible) · error de carga.
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml`: pin de `@ai27-tech/contracts` a `0.1.0-tracer.27`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `ConversacionCliente`, `MensajeCliente`, `PaginaMensajesCliente`, `EnviarMensajeClienteEntrada` del contrato generado, reexportados por el barrel.
+- `src/lib/api/conversacion.ts` (nuevo): wrappers `obtenerConversacionViaje`, `listarMensajesViaje(viajeId, { antesDe?|despuesDe?, limite? })`, `enviarMensajeViaje(viajeId, { cuerpo, clientMessageId })`; la `secuencia` int64 se marca como `DomainSeq` para ordenar/deduplicar.
+- `src/features/conversacion/useConversacion.ts` (nuevo): hook dueño del estado de servidor (metadata + historia por polling con catch-up por `despues_de`, `cargarMasAntiguos` por `antes_de`) y la mutación idempotente.
+- `src/features/conversacion/ConversacionSection.tsx` (nuevo): historia ordenada por secuencia, etiqueta constante "AI27 Operations", indicador `atendida`, compositor deshabilitado en solo lectura/cerrada y manejo del `409`.
+- `src/routes/_private/viajes/$viajeId/conversacion/index.tsx` (nueva ruta colgada del viaje).
+- `src/features/viajes/ViajeDetailSection.tsx`: enlace "Conversación" en el encabezado del detalle.
+- `src/app/shell/AppShell.tsx`: nota actualizada (la conversación es por viaje, no entra a la navegación global).
+- `src/mocks/data.ts` + `handlers.ts`: conversación POR VIAJE en forma de contrato (estado + atendida; mensajes con `secuencia`), handlers con paginación por secuencia, idempotencia por `client_message_id` y `409 conversacion_solo_lectura`.
+- `tests/conversacion/conversacion.test.ts` (nuevo): idempotencia por `client_message_id` en el cuerpo; paginación por secuencia (`antes_de`/`despues_de` excluyentes, `hay_mas`); orden y dedup por secuencia de dominio.
+- `tests/conversacion/ConversacionSection.test.tsx` (nuevo): etiqueta "AI27 Operations", indicador `atendida`, no renderiza datos internos, solo lectura/cerrada y `409` deshabilitan/explican el envío.
+- `e2e/conversacion.spec.ts` (nuevo): abrir la conversación del viaje, enviar un mensaje y verlo (sin duplicar); conversación en solo lectura deshabilita el envío.
+- `src/_desconectado/conversacion/` **retirado** (reconectado); `src/_desconectado/README.md` y `docs/decisiones/2026-recorte-al-contrato-bff.md` actualizados; bloque `.skip` de `/conversaciones` en `e2e/journey.spec.ts` retirado (cubierto por el spec dedicado).
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/api/conversacion.ts` · `src/features/conversacion/useConversacion.ts` · `src/features/conversacion/ConversacionSection.tsx` · `src/routes/_private/viajes/$viajeId/conversacion/index.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/app/shell/AppShell.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/conversacion/conversacion.test.ts` · `tests/conversacion/ConversacionSection.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `e2e/conversacion.spec.ts` · `e2e/journey.spec.ts` · `src/_desconectado/README.md` · `docs/decisiones/2026-recorte-al-contrato-bff.md` · `CHANGELOG.md` · (retirado) `src/_desconectado/conversacion/`
+
+## 2026:10:29 17:10
+
+**Resumen:** Se implementó **cancelar y rechazar el servicio** desde el portal del cliente (E1-HU-002 / E9-T7, AI27-26): dos acciones distintas con dos desenlaces distintos, no una con variantes. **Cancelar** (`CANCELADO`) para el viaje aún no salido; **rechazar** (`RECHAZADO_POR_CLIENTE`) para no aceptar el servicio asignado. Ambas pegan a `POST /api/v1/viajes/{id}/transiciones-cliente` del contrato `bff` (`tracer.23`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.20` a `0.1.0-tracer.23` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (31 archivos, 202 pruebas) en verde; e2e en verde (24 activos: +1 de cancelación).
+
+**Formas tomadas del contrato:** la ruta y el cuerpo son los del contrato generado `bff` `tracer.23` —operación `transicionarViajeCliente`, cuerpo `TransicionEntrada = { a_estado, causa }`—, y la respuesta `200` es **`ViajeSeguimiento`**, la MISMA vista curada que devuelve `getViaje` (DEC-006: nunca el estado canónico ni las condiciones). El tipo `TransicionEntrada` se reexporta por el barrel `@/lib/contracts`. La ventana de cada acción se deriva del enum y las aristas **del contrato generado** (`@ai27-tech/contracts/estados`: `puedeTransicionar`, `esTerminal`), no de una tabla propia.
+
+**Decisiones de patrón (y por qué):**
+
+- **Dos acciones, dos desenlaces, dos diálogos.** Cada botón abre su propio `Modal` con título, descripción, etiqueta de motivo y botón de confirmar propios (`Confirmar cancelación` vs `Confirmar rechazo`). La etiqueta de confirmar es DISTINTA de la del disparador, para que la acción sea inequívoca y el cliente sepa cuál ejecutó.
+- **El motivo (`causa`) es OBLIGATORIO en ambas (DEC-111, supera DEC-020 #7).** El botón de confirmar queda deshabilitado mientras el motivo esté vacío (recortando espacios). Es guarda de UI, no solo del `400`: no dependemos de que el servidor rechace el envío.
+- **La disponibilidad se DERIVA del estado, no se deja fallar al pulsar.** Cancelar se ofrece en `SOLICITADO`/`APROBADO`/`ASIGNADO`/`APTO_PARA_SALIDA`; rechazar solo en `ASIGNADO`/`APTO_PARA_SALIDA`. Fuera de ventana (el viaje ya salió) o en estado terminal NO se ofrece botón: se explica por qué ya no aplica.
+- **El `200` refresca SIN un segundo GET.** La mutación (`useTransicionViaje`) escribe el `ViajeSeguimiento` devuelto directo en la query `['viaje', id]` con `setQueryData`. El polling de `useViajeSeguimiento` (ADR 27) sigue su cadencia y confirma después; no se fuerza un refetch.
+- **Taxonomía de respuestas (verificada con contrato/servicio):** `400` → falta/!válido el motivo (mensaje en el formulario); `409 transicion_no_permitida` → carrera de la máquina de estados, mensaje claro + la vista se actualiza con el polling; `404` → viaje ajeno/fuera de alcance tratado como «no encontrado» (el servicio devuelve 404, no 403, a propósito); `403`/`401` no son parte del carril normal del cliente.
+
+**Fuera de alcance V1:** cancelar/rechazar SOLO cambian de estado. Sin penalizaciones, reembolsos ni flujo de aprobación. Único cambio de regla frente al brief: el motivo ahora es obligatorio (DEC-111).
+
+**Estados obligatorios (cubiertos por pruebas):** ventana ABIERTA (acción ofrecida en los estados esperados) · ventana CERRADA (`EN_EMBARQUE`/`EN_TRANSITO`: acción ausente + explicación, no un fallo) · viaje TERMINAL (ausente + explicación) · el botón EXIGE motivo (vacío/solo-espacios no habilita ni envía) · los dos desenlaces (`CANCELADO` vs `RECHAZADO_POR_CLIENTE`) distinguibles · el `200` refresca la caché sin segundo GET · carrera con operación (`409`) con mensaje claro · e2e de cancelar en `SOLICITADO`.
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml`: pin de `@ai27-tech/contracts` a `0.1.0-tracer.23`.
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias `TransicionEntrada` del contrato generado, reexportado por el barrel; se reexporta además `puedeTransicionar` de `estados`.
+- `src/lib/contracts/estados.ts`: reexporta `puedeTransicionar` del contrato generado.
+- `src/lib/api/viajes.ts` (nuevo wrapper): `transicionarViajeCliente(viajeId, aEstado, causa)` sobre `POST /viajes/{id}/transiciones-cliente`; tipo `EstadoDestinoCliente` que fija las dos únicas aristas del cliente. Devuelve `ViajeSeguimiento`.
+- `src/features/viajes/useTransicionViaje.ts` (nuevo): mutación dueña de la escritura; en éxito siembra `['viaje', id]` con el seguimiento devuelto (sin segundo GET).
+- `src/features/viajes/CancelarRechazarPanel.tsx` (nuevo): dos acciones con diálogo de confirmación (`Modal`) y captura de motivo obligatorio; deriva disponibilidad del estado; maneja `400`/`409`/`404`.
+- `src/features/viajes/ViajeDetailSection.tsx`: monta `CancelarRechazarPanel` con el seguimiento completo.
+- `src/mocks/handlers.ts`: handler `POST /viajes/{id}/transiciones-cliente` que imita `400` (sin motivo), `409` (fuera de la máquina de estados), `403` (arista no-cliente), `404` (fuera de alcance) y `200` (devuelve el `ViajeSeguimiento` ya actualizado, mutando el estado del detalle).
+- `tests/viajes/transicionViaje.test.ts` (nuevo): el wrapper manda `{ a_estado, causa }` por las dos aristas y devuelve el seguimiento sin segundo GET.
+- `tests/viajes/CancelarRechazarPanel.test.tsx` (nuevo): ventana (ofrecida vs no ofrecida por estado), motivo obligatorio, dos desenlaces distinguibles, `200` que refresca la caché sin segundo GET, `409` con mensaje claro.
+- `e2e/cancelar-rechazar.spec.ts` (nuevo): cancelar un viaje en `SOLICITADO` exigiendo motivo y reflejando el nuevo estado.
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/contracts/estados.ts` · `src/lib/api/viajes.ts` · `src/features/viajes/useTransicionViaje.ts` · `src/features/viajes/CancelarRechazarPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/mocks/handlers.ts` · `tests/viajes/transicionViaje.test.ts` · `tests/viajes/CancelarRechazarPanel.test.tsx` · `e2e/cancelar-rechazar.spec.ts` · `CHANGELOG.md`
+
+## 2026:10:29 09:55
+
+**Resumen:** Se implementó la **emergencia del cliente** en el portal (E9-T9, AI27-28): activación y notas sobre el carril que el `bff` ya tenía mergeado (`tracer.20`, ADR 21 §6). El pendiente técnico del ticket **ya no aplicaba**: las tres rutas (`GET/POST /viajes/{id}/emergencias` y `POST /viajes/{id}/emergencias/{eid}/notas`) existen en el contrato generado, respaldadas por `mensajeria` y proyectadas por audiencia. Este trabajo es **UI + wrappers**, sin dependencia de contrato pendiente. En el portal no había nada de emergencia; ahora el detalle del viaje incluye un **panel de emergencia** con botón de activación y captura de notas. `lint`, `typecheck` y `test` (29 archivos, 181 pruebas) en verde; el e2e en verde (26 activos: +3 de emergencia).
+
+**Formas tomadas del contrato (NO inventadas):** los tipos son los del contrato generado `bff` `tracer.20` —`EmergenciaCliente` (`{id, estado: abierta|en_atencion|resuelta, activada_en}`), `EmergenciasCliente` (`{emergencia_activa, casos[]}`), `ActivarEmergenciaClienteEntrada` (`{activacion_id}`) y `NotaEmergenciaClienteEntrada` (`{cuerpo}`)—, reexportados por el barrel `@/lib/contracts`. El ticket nombraba `CasoEmergencia`/`PaginaEmergencias`/`ActivarEmergenciaEntrada`/`NotaEmergenciaEntrada`; se usaron los nombres REALES del contrato tras leerlo.
+
+**Decisiones de patrón (y por qué):**
+
+- **La idempotencia de la activación viaja en el CUERPO, no en un header.** El contrato pide `activacion_id` dentro de `ActivarEmergenciaClienteEntrada`: es una clave de negocio que genera el cliente **por pulsación intencional** (del botón del diálogo de confirmación). Un reintento técnico de la misma mutación reusa ese id → no duplica; una pulsación nueva genera otro `crypto.randomUUID()` → crea otro caso. Por eso NO se usó el `Idempotency-Key` del cliente HTTP.
+- **El botón crea y envía de inmediato, sin exigir nota previa.** Las notas son **opcionales**, multilínea, de 1 a 1000 caracteres, **recortando espacios**; un valor vacío o de solo espacios **no se envía** (botón deshabilitado + guarda). El tope de 1000 es de captura (`maxLength`) y de envío (`NOTA_EMERGENCIA_MAX_CHARS`).
+- **Selector mínimo por fecha/hora solo cuando coexisten varios casos.** Con un caso no hay selector; con varios, un `<select>` identifica cada caso **solo por fecha/hora** (sin exponer notas, estado interno ni personal) y la nota va al id elegido.
+- **Proyección por audiencia (ADR 21 §6).** El cliente nunca ve cuerpos de nota, responsable, recursos ni datos de Reacción: la UI solo consume `{id, estado, activada_en}` y pinta `abierta`/`en_atencion` como «En atención» y `resuelta` como «Resuelta». Hay prueba de que el DOM no contiene vocabulario interno.
+- **Sin dependencia de SSE (ADR 28).** El panel es dueño de su estado de servidor (`useEmergencias` con `useQuery` + polling de ADR 27); activar y notar operan por HTTP. La entrega viva es mejora, no requisito.
+
+**Arreglo transversal (necesario para la nota):** el cliente HTTP (`lib/api/client.ts`) trataba como `roto` cualquier respuesta OK sin cuerpo que no fuera `204`. El contrato de `agregarNotaEmergencia` responde **`201` sin contenido**, así que se ajustó: antes de parsear JSON se lee el texto y un cuerpo vacío es un éxito sin contenido (`undefined`), no una respuesta rota. Solo un cuerpo NO vacío mal formado sigue siendo `roto`.
+
+**Estados obligatorios (cubiertos por pruebas):** sin emergencias · emergencia activa · varios casos (selector por fecha/hora) · reintento idempotente que no duplica (dos reentregas → un caso; dos pulsaciones → dos casos) · nota en el límite (1000 ok; vacía/solo-espacios no se envía) · la vista cliente no renderiza datos internos.
+
+**Cambios:**
+
+- `src/lib/contracts/dominio.ts` + `index.ts`: alias de los cuatro tipos de emergencia del contrato generado, reexportados por el barrel.
+- `src/lib/api/emergencias.ts` (nuevo): wrappers `listEmergencias`, `activarEmergencia` (idempotente por `activacion_id` del cuerpo) y `agregarNotaEmergencia` sobre `api` de `client.ts`.
+- `src/lib/api/client.ts`: una respuesta OK con cuerpo vacío (no solo `204`) se resuelve como `undefined`; solo un cuerpo no vacío no-JSON es `roto`.
+- `src/lib/constants.ts`: `NOTA_EMERGENCIA_MAX_CHARS = 1000`.
+- `src/features/viajes/useEmergencias.ts` (nuevo): hook dueño del estado de servidor (lista + dos mutaciones; invalida la lista al terminar).
+- `src/features/viajes/EmergenciaPanel.tsx` (nuevo): activación con diálogo de confirmación (`Modal`), captura de notas (`Textarea`), selector por fecha/hora con varios casos, estados vacío/activo.
+- `src/features/viajes/ViajeDetailSection.tsx`: monta `EmergenciaPanel` con el `viajeId`.
+- `src/mocks/data.ts` + `handlers.ts`: `emergenciasWire` (estado mutable en memoria) y tres handlers que imitan la proyección por audiencia y la idempotencia por `activacion_id`; el handler de notas responde `201` sin cuerpo.
+- `tests/support/query.tsx` (nuevo): helper de render con `QueryClient` para componentes con estado de servidor.
+- `tests/viajes/emergencias.test.ts` (nuevo): idempotencia por `activacion_id` en el cuerpo (reentrega vs pulsación), forma de las notas y de la lista.
+- `tests/viajes/EmergenciaPanel.test.tsx` (nuevo): los seis estados obligatorios de la UI.
+- `tests/viajes/ViajeDetailSection.test.tsx`: se envuelve en `QueryClient` y se aísla el carril de emergencia (el detalle ahora monta el panel).
+- `e2e/emergencia.spec.ts` (nuevo): activar + agregar nota + la vista cliente sin datos internos.
+
+**Archivos modificados:**
+
+- `src/lib/contracts/dominio.ts` · `src/lib/contracts/index.ts` · `src/lib/api/emergencias.ts` · `src/lib/api/client.ts` · `src/lib/constants.ts` · `src/features/viajes/useEmergencias.ts` · `src/features/viajes/EmergenciaPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/mocks/data.ts` · `src/mocks/handlers.ts` · `tests/support/query.tsx` · `tests/viajes/emergencias.test.ts` · `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `e2e/emergencia.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó / fuera de alcance V1:** sin ubicación en el payload; la activación **no crea incidencia ni condición**; las notas son **unidireccionales** (sin conversación dentro del caso); no se dependió de SSE ni se tocó `prototipos-v2/`; no se trajo al portal ningún dato interno de `mensajeria` ni de Reacción (viven en superficie interna).
+
+## 2026:10:28 16:47
+
+**Resumen:** Se completó el **segundo factor del login** del portal del cliente (E9-T2, AI27-21). ADR 13 quedó resuelto (DEC-031/DEC-071): **el IdP (Keycloak) entrega y valida el OTP** como **TOTP**, y el `bff` ya propaga el campo en el contrato de sesión (`CredencialesEntrada.segundo_factor`, opcional/nullable, `tracer.20`). El portal **no construye tramo propio de OTP**: el código se captura en el login y **viaja JUNTO a las credenciales en un solo `POST /sesion`**. Se eligió el **flujo de un solo paso** porque el contrato solo admite `segundo_factor` dentro de `POST /sesion` y **no existe endpoint de OTP** (`/otp/...` es del IdP, no del portal); en consecuencia, la ruta placeholder `/two-factor` **se retiró** (no tenía endpoint propio que llamar). `lint`, `typecheck` y `test` (27 archivos, 167 pruebas) en verde; el e2e en verde (20 activos, incluido el recorrido login → segundo factor → panel).
+
+**Decisión del contrato (y por qué un solo paso):**
+
+- Se leyó el esquema real `CredencialesEntrada` del contrato generado antes de decidir. En `tracer.20` acepta `{ usuario, contrasena, segundo_factor? }`; el segundo factor es **TOTP, opcional en V1** (requerido en V2+), y `bff`/`identidad` **solo lo transportan** (el IdP lo valida). Con esa forma, un segundo paso en `/two-factor` sobraba: no hay nada que llamar entre contraseña y código. El flujo correcto es capturar todo junto y mandarlo en una sola llamada.
+- Se **bumpeó `@ai27-tech/contracts` de `0.1.0-tracer.11` a `0.1.0-tracer.20`**: la versión instalada no tenía `segundo_factor`, así que enviarlo de forma tipada exigía mover el paquete generado. También se ajustó `minimumReleaseAgeExclude` en `pnpm-workspace.yaml` para la nueva versión.
+
+**Estados obligatorios (y cómo se cumplen):**
+
+- **No enumeración de cuentas.** Credencial inválida, usuario inexistente y **segundo factor inválido o vencido** producen el **mismo 401 uniforme** del lado de `identidad` (DEC-094), y la UI muestra un **mensaje genérico idéntico** en los tres casos («Usuario, contrasena o codigo de verificacion incorrectos»). Hay prueba unitaria que compara el texto exacto exista o no el usuario, y e2e del segundo factor incorrecto con credenciales válidas.
+- **IdP no disponible.** Un fallo de degradación (503/504/red) no se presenta como culpa del usuario: el mensaje habla del servicio de identidad, no de credenciales. Cubierto por prueba unitaria.
+
+**Postura de `tokenStore` (confirmada, no cambiada):** V1 **mantiene** accessToken+metadatos en localStorage (`ai27.sesion`) y `refreshToken` solo en memoria. El salto a memoria + cookie httpOnly **no es decisión del portal** (exige `Set-Cookie` del `bff`, es decir, cambio de contrato); si se toma aguas arriba, el cambio ocurre **detrás de la interfaz `TokenStore`** sin tocar a sus consumidores. Se documentó en el encabezado del archivo.
+
+**Cambios:**
+
+- `src/features/sesion/LoginSection.tsx`: campo «Codigo de verificacion» (TOTP, no `required` en cliente: la política de MFA es del IdP), captura de `segundoFactor`, y envío en un solo paso con `segundo_factor` omitido cuando está vacío. Mensaje genérico ampliado para cubrir el segundo factor; mensaje de degradación que no culpa al usuario.
+- `src/routes/(auth)/two-factor.tsx`: **eliminado** (ruta placeholder sin endpoint propio). `src/routeTree.gen.ts` regenerado sin la ruta.
+- `src/lib/api/tokenStore.ts`: nota de la postura V1 confirmada y del porqué de la interfaz.
+- `src/mocks/handlers.ts` y `src/mocks/data.ts`: el `POST /sesion` del mock exige el segundo factor del dev user y devuelve el **mismo** 401 uniforme ante credencial o factor incorrectos; `DEV_USER.segundoFactor = '123456'`.
+- `tests/sesion/LoginSection.test.tsx` (nuevo): envío en un solo paso, omisión del campo vacío, no enumeración (mismo mensaje exista o no el usuario y ante factor inválido), y fallo del IdP sin culpar al usuario.
+- `tests/contracts/sesion.test.ts`: afirma que `CredencialesEntrada` admite `segundo_factor` opcional en `tracer.20`.
+- `e2e/login.spec.ts`, `e2e/journey.spec.ts`, `e2e/session-cut.spec.ts`, `e2e/support/login.ts`: el campo de segundo factor en el render, el recorrido completo login → segundo factor → panel, y el factor incorrecto con el mismo mensaje.
+- `package.json` y `pnpm-workspace.yaml`: `@ai27-tech/contracts` a `0.1.0-tracer.20`.
+- `README.md`: ADR 13 marcado RESUELTO y la nota de `/two-factor` retirada.
+
+**Archivos modificados:**
+
+- `src/features/sesion/LoginSection.tsx` · `src/routes/(auth)/two-factor.tsx` (eliminado) · `src/routeTree.gen.ts` · `src/lib/api/tokenStore.ts` · `src/mocks/handlers.ts` · `src/mocks/data.ts` · `tests/sesion/LoginSection.test.tsx` · `tests/contracts/sesion.test.ts` · `e2e/login.spec.ts` · `e2e/journey.spec.ts` · `e2e/session-cut.spec.ts` · `e2e/support/login.ts` · `package.json` · `pnpm-workspace.yaml` · `README.md` · `CHANGELOG.md`
+
+**Lo que NO se tocó / fuera de alcance:** el portal **no decide la política de MFA ni de reintentos** (son del IdP); **no hay recuperación de contraseña propia** (el enlace sigue inerte); no se construyó ningún endpoint ni tramo de OTP; no se cambió la postura de custodia de sesión (solo se confirmó y documentó).
+
+## 2026:10:28 13:44
+
+**Resumen:** Se completó el **alta de servicio del portal del cliente** (E1-HU-001, E9-T4, AI27-23). El formulario mínimo pasa de un solo destino a **múltiples paradas 1..N** y hace cumplir las reglas de la HU: **origen y destino son texto libre y obligatorios** (el botón de envío queda **deshabilitado** mientras falte cualquiera), un booleano **"Agregar paradas"** permite **añadir y quitar** destinos uno por uno, y el **doble clic** no reenvía (el botón queda deshabilitado mientras la creación está en vuelo). Tipo de servicio sigue siendo opcional (DEC-010 #3, sin forzar su obligatoriedad); fecha/hora opcional; el cliente/tenant no se captura (lo deriva la identidad en el `bff`). Al crear, el viaje entra en `Solicitado` (estado que fija el servidor). `lint`, `typecheck` y `test` (26 archivos, 161 pruebas) en verde; el e2e de solicitud (4) y el journey en verde.
+
+**Reconciliación de catálogos (parte central del ticket):**
+
+- **El contrato `bff` (bff.yaml) NO define hoy ningún endpoint `/catalogos/{familia}`.** El select de tipo de servicio se lee contra ese path, que por ahora solo responde el mock MSW. Se dejó anotado como `TODO(contracts)` en `catalogos.ts` y el catálogo se trató como **NO bloqueante**: el loader de la ruta **degrada a lista vacía** si el catálogo no responde, de modo que el alta sigue usable (origen/destino no dependen de ningún catálogo).
+- Se **recortó la unión `FamiliaCatalogo` a la única familia que el portal activo consume: `tipos-servicio`**. Las otras seis (`rutas`, `zonas`, `prioridades-servicio`, `categorias-carga`, `rangos-valor`, `requisitos-manejo`) alimentaban el asistente rico de 4 pasos, hoy desconectado en `src/_desconectado/solicitud/`, que no importa esta unión. `rutas` **no es catálogo en V1** (origen/destino texto libre, DEC-010 #1, DEC-017).
+
+**Decisiones de patrón (y por qué):**
+
+- **No se capturan operador ni tracto.** DEC-010 #4 los declara opcionales, pero `CrearViajeEntrada` no los modela; capturarlos sería inventar una superficie que el contrato no acepta (se dropearían en silencio). Los completa el operador interno en la bitácora.
+- **El envío se arma EXACTAMENTE con la forma del contrato** `{ origen, destinos:[{nombre, numero_envio?}], tipo_servicio?, fecha_hora_servicio? }`. `numero_envio` y los opcionales se omiten cuando están vacíos.
+- **El loader ya no tiene `errorComponent`**: como el único dato que carga es presentación no bloqueante, degradar a `[]` es coherente con no tirar la pantalla por un catálogo caído.
+
+**Cambios:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx`: estado de destinos 1..N, booleano "Agregar paradas" (agregar/quitar), botón de envío gobernado por origen + todos los destinos con texto, guarda anti-doble-clic (`if (pending) return`), y armado de la entrada del contrato con `numero_envio` opcional.
+- `src/routes/_private/viajes/new.tsx`: el loader de `tipos-servicio` degrada a `[]` ante fallo (catálogo no bloqueante); se retiró el `errorComponent`.
+- `src/lib/api/catalogos.ts`: `FamiliaCatalogo` se recorta a `'tipos-servicio'`; comentario de reconciliación y `TODO(contracts)` por la ausencia del endpoint en `bff.yaml`.
+- `tests/viajes/NuevaSolicitudForm.test.tsx` (nuevo): 7 pruebas del comportamiento de la HU (envío deshabilitado sin origen/destino, parada extra vacía bloquea, agregar/quitar paradas, desactivar paradas conserva el primer destino, armado de la forma de contrato con 1..N destinos, anti-doble-clic).
+- `e2e/solicitud.spec.ts`: pruebas e2e del envío deshabilitado, agregar/quitar paradas y el flujo completo hasta `Solicitado`.
+
+**Archivos modificados:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `src/routes/_private/viajes/new.tsx` · `src/lib/api/catalogos.ts` · `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se reconectó el asistente de 4 pasos (`src/_desconectado/solicitud/`); no se añadieron campos fuera de `CrearViajeEntrada` (operador, tracto, documentos); no se inventó un catálogo que el contrato `bff` no expone; el cliente/tenant no se captura (P9, P10: lo deriva el `bff` del token).
+
+## 2026:10:26 18:00
+
+**Resumen:** Se implementó E8-T6 en el Portal_Cliente: captura del `refresh_token` contractual, `refreshToken` solo en memoria, refresco reactivo coordinado ante `401`, corte idempotente, navegación al login con destino preservado y Mensaje_Sesion_Finalizada compuesto con `@ai27-tech/ui`.
+
+**Cambios:**
+
+- `src/lib/api/sesion.ts` y `tokenStore.ts`: `refresh_token` y `sesion_id` se conservan en memoria y el refresh envía `{ refresh_token }`.
+- `src/lib/api/client.ts`, `refreshCoordinator.ts` y `sessionCut.ts`: máquina de recuperabilidad del `401`, coalescencia del refresco y corte idempotente.
+- `src/context/SessionContext.tsx` y la ruta de login: navegación a `/login?motivo=sesion_finalizada` y aviso neutral.
+- Pruebas Vitest y `e2e/session-cut.spec.ts` para refresco exitoso, corte, degradación y evento observable.
+
+**Señalado fuera del alcance:** el contrato actual no distingue con un `codigo` entre token expirado y sesión revocada; el portal no inventa esa causa.
+
+Todos los cambios relevantes del proyecto se documentan en este archivo.
+Las entradas se escriben en español, con fecha en formato `yyyy:mm:dd` y hora en formato `hora:minuto`.
+Las entradas más recientes se colocan al inicio.
+
+## 2026:10:27 20:32
+
+**Resumen:** Se **cableó el filtro por estado del Historial de Viajes** (E9-T3, AI27-22), que pasa de ser **solo-frontend** a filtrar en el **servidor**. Antes la barra de filtros vivía en `useState` local y no filtraba nada, con un botón «Filtrar» deshabilitado. Ahora el select de **estado** navega con un **search param tipado** de la ruta; el `loader` lo lee con **`loaderDeps`** y llama `listViajes({ estado })`, que lo manda como query param `estado` al `GET /viajes`; el `bff` devuelve la página ya filtrada. El filtrado es del servidor: la lista completa no vive en el navegador. «En curso» (SOLICITADO/EN_TRANSITO) y «cerrado» (CERRADO) se distinguen porque producen llamadas y resultados distintos. `typecheck`, `lint` y `test` (24 archivos, 147 pruebas) en verde; el e2e del historial (7 activos) y el journey en verde.
+
+**Decisiones de patrón (y por qué):**
+
+- **El único filtro que el contrato soporta hoy es `estado`.** `listarViajes` (`bff.yaml`) acepta solo `estado` (string) y `cursor`: no hay búsqueda de texto, rango de fechas ni filtros ricos. Se cableó exactamente `estado` y nada más. No se inventaron filtros que el contrato no tiene.
+- **La URL es la fuente de verdad del filtro** (patrón de `login.tsx`). La ruta valida su search param con `esEstadoViaje` contra la unión cerrada `EstadoViaje` (ADR 19): un estado inventado se descarta como «sin filtro». El select toma su valor del search param, no de un `useState` local.
+- **Regla de seguridad (P9, P10).** `listViajes` nunca manda `tenantId` ni nada derivado del token: el alcance lo deriva `bff` del claim. Hay una prueba que lo afirma.
+- **Lo que el contrato no soporta queda deshabilitado y honesto.** El rango de fechas se deja visible pero inerte (todas sus opciones deshabilitadas); la búsqueda de texto no se renderiza (se omite `onSearchChange`, en vez de pintar un cuadro inerte); el «Exportar CSV» (fuera de alcance V1, DEC-023) sigue deshabilitado en el encabezado, sin duplicarse en la toolbar. Se retiró el botón «Filtrar»: el cambio de estado navega al instante, no hay nada que pulsar.
+- **La paginación no se forzó.** Sigue siendo estado de UI que recorta en cliente sobre la página que `bff` devolvió. El contrato expone `cursor`, pero moverla a search param + `cursor` es un paso aparte; aquí se priorizó cerrar el filtro por estado, con su `TODO(contracts)`.
+
+**Cambios:**
+
+- `src/lib/api/viajes.ts`: `listViajes` acepta un filtro opcional `{ estado? }` y, cuando viene, lo manda como query param `estado` a `GET /viajes` (el wrapper `api.get` ya soporta `query`). Sin filtro no manda el param: `bff` devuelve todo el alcance.
+- `src/lib/contracts/estados.ts` + `index.ts`: nueva guarda de tipo `esEstadoViaje` (valida un valor crudo contra la unión cerrada `EstadoViaje`), reexportada por el barrel.
+- `src/routes/_private/viajes/index.tsx`: search param tipado `estado?` con `validateSearch` (valida con `esEstadoViaje`), `loaderDeps` que entrega `estado` al `loader`, y `loader` que llama `listViajes({ estado })`. Pasa `estado` a la Section.
+- `src/features/viajes/historial/HistorialViajesSection.tsx`: propaga `estado` a la tabla.
+- `src/features/viajes/historial/HistorialViajesTable.tsx`: el select de estado navega con el nuevo search param (`''` = todos → limpia el param, vuelve a página 1); el valor del select viene del prop, no de `useState`. Rango de fechas con opciones deshabilitadas; sin cuadro de búsqueda; sin botón de acción en la toolbar. Un filtro sin coincidencias conserva la toolbar y muestra «Sin resultados» (vía `emptyState` de la tabla).
+- `src/mocks/handlers.ts`: el `GET /viajes` del mock honra `?estado=X` (filtra el dataset), para que dev y e2e reflejen el filtrado del servidor. No filtra por tenant (P9, P10).
+- `tests/viajes/listViajes.test.ts` (nuevo): 4 pruebas de que `listViajes` manda (o no) el query param `estado`, que «en curso» y «cerrado» difieren, y que nunca mete tenant en la query.
+- `tests/viajes/HistorialViajesTable.test.tsx`: se reemplazaron las pruebas de «solo frontend» por pruebas del cableado (elegir un estado navega con el search param; en curso vs cerrado; volver a «todos» limpia el param; refleja el estado activo; un filtro sin resultados conserva la toolbar) y de los controles sin contrato (rango inerte, sin searchbox, sin botón de acción).
+- `tests/viajes/HistorialViajesSection.test.tsx`: la prueba de orden de lectura usa el select de estado en vez del botón «Filtrar» retirado.
+- `e2e/historial.spec.ts`: se actualizaron los asertos (sin searchbox, sin «Filtrar») y se añadieron pruebas e2e del filtro por estado en el servidor (elegir «Cerrado» lleva `?estado=CERRADO` en la URL y la tabla trae solo cerrados; `?estado=EN_TRANSITO` no trae cerrados ni cancelados).
+
+**Archivos modificados:**
+
+- `src/lib/api/viajes.ts` · `src/lib/contracts/estados.ts` · `src/lib/contracts/index.ts` · `src/routes/_private/viajes/index.tsx` · `src/features/viajes/historial/HistorialViajesSection.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/mocks/handlers.ts` · `tests/viajes/listViajes.test.ts` · `tests/viajes/HistorialViajesTable.test.tsx` · `tests/viajes/HistorialViajesSection.test.tsx` · `e2e/historial.spec.ts` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se inventaron filtros fuera del contrato (sin búsqueda de texto ni rango de fechas); no se filtró en el cliente la lista completa; no se agregaron campos a `ViajeResumen`; no se cableó «Exportar CSV» (DEC-023); no se tocó `src/_desconectado/`; la paginación se dejó con su `TODO(contracts)`.
+
+## 2026:10:26 15:42
+
+**Resumen:** Se **agregó el polling HTTP del detalle/seguimiento del viaje** (E9-T5, AI27-24), que cumple ADR 27: el seguimiento V1 (hito + ETA estimado + incidencias curadas) se refresca por **pull inicial + polling periódico** mientras la vista está abierta, sin SSE. Antes el detalle se cargaba **una sola vez** en el `loader` de la ruta. Ahora el `loader` se conserva como **lectura inicial y puerta del primer fallo** (lo sigue cubriendo el `errorComponent` a pantalla completa), y el componente consume el detalle por **`useQuery`** con `refetchInterval`, sembrando su caché con el dato del `loader` (`initialData`). No se tocó la forma de `ViajeSeguimiento` ni el `bff`; `ViajeDetailSection` sigue siendo presentacional. `typecheck`, `lint` y `test` (22 archivos, 139 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (preexistentes).
+
+**Decisiones de patrón (y por qué):**
+
+- **`loader` + `useQuery` con `initialData`, no `ensureQueryData`.** El `router` no inyecta el `QueryClient` en su `context` (se crea dentro de `Providers`, uno por montaje), así que un `loader` no tiene acceso al `QueryClient` compartido para precargar la caché. El patrón coherente con el repo es: el `loader` hace la lectura inicial (gatea el primer render y su error), y `useQuery` toma ese resultado como `initialData` y a partir de ahí **posee** el polling. Así el primer fallo de carga sigue siendo del `errorComponent`, y los fallos posteriores del polling no.
+- **La cadencia es configuración, no contrato (ADR 27 §3).** Se añadió `VIAJE_POLLING_INTERVAL_MS` en `src/lib/constants.ts` con comentario explícito de que es **ajustable y no es criterio Pass/Fail**; los 5 s del scaffold V2 no se adoptaron.
+- **El polling corre solo mientras la ruta está montada** (comportamiento natural de `useQuery`: el intervalo se detiene al desmontar). `refetchIntervalInBackground` queda en su valor por defecto (`false`): si la pestaña no está visible, el poll de fondo se pausa y se reanuda al volver, sin gastar lecturas `bff → operacion`.
+- **Un refetch fallido no tira la pantalla.** TanStack Query conserva el último `data` bueno ante un refetch de fondo que falla y expone el fallo aparte (`isError`); el ETA ya trae su propia marca `obsoleto` en el contrato, así que no se forzó `Fresco<T>` donde el dato ya modela su frescura.
+
+**Cambios:**
+
+- `src/lib/constants.ts`: nueva constante `VIAJE_POLLING_INTERVAL_MS` (cadencia del polling de ADR 27) con nota de que es ajustable y no contrato.
+- `src/features/viajes/useViajeSeguimiento.ts` (nuevo): hook `useQuery` dueño del estado de servidor del detalle. Clave `['viaje', viajeId]` (helper `viajeQueryKey`), `queryFn = getViaje` con `AbortSignal`, `initialData` del `loader`, `refetchInterval = VIAJE_POLLING_INTERVAL_MS`.
+- `src/routes/_private/viajes/$viajeId/index.tsx`: el `loader` se mantiene (lectura inicial + `errorComponent` del primer fallo); el componente pasa a `useViajeSeguimiento(viajeId, Route.useLoaderData())`.
+- `tests/viajes/ViajeDetailSection.test.tsx`: +3 pruebas de **frescura del ETA** (presente al día; presente pero obsoleto → marca «(obsoleto)», no se oculta; ausente → «Sin ETA»).
+- `tests/viajes/useViajeSeguimiento.test.tsx` (nuevo): 3 pruebas de comportamiento del polling (no refetch al montar con `initialData` + `staleTime`; el polling corre y se repite cada intervalo con timers falsos; un refetch fallido conserva el último dato bueno y marca el fallo aparte, afirmado contra la caché del `QueryClient`).
+
+**Archivos modificados:**
+
+- `src/lib/constants.ts` · `src/features/viajes/useViajeSeguimiento.ts` · `src/routes/_private/viajes/$viajeId/index.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `tests/viajes/useViajeSeguimiento.test.tsx` · `CHANGELOG.md`
+
+**Lo que NO se tocó:** no se abrió SSE ni se tocó `prototipos-v2/seguimiento-vivo/` (seguimiento vivo es V2); no se inventó marcador de posición, señal ni ETA continua (DEC-001); no se cambió la forma de `ViajeSeguimiento` ni el `bff`; el `errorComponent` de la ruta sigue cubriendo el primer fallo de carga.
+
+## 2026:10:26 12:02
+
+**Resumen:** Se **cerró con pruebas la vista de incidencias curadas del viaje para el cliente** (E9-T6, AI27-93). La vista ya estaba implementada en `ViajeDetailSection.tsx` sobre `ViajeSeguimiento.incidencias` (contrato `bff`); este trabajo la verifica y la deja probada, sin reescribirla. Se confirmó que el portal solo consume los campos curados del contrato (`categoria`, `estado`, `marca_tiempo`) y que `estado` se traduce únicamente a «En atención»/«Resuelta». Se decidió **renderizar `impacto_eta`** (opcional y nullable en el contrato) de forma mínima: se muestra solo si el `bff` lo trae y se omite por completo cuando es `null` o ausente, sin texto de relleno. El mapeo tipo interno → categoría **sigue viviendo en el `bff`** (`internal/tracking/incidencias.go`), no se trajo al portal (DEC-006). `typecheck`, `lint` y `test` (21 archivos, 133 pruebas) en verde.
+
+**Estados cubiertos por las pruebas (`tests/viajes/ViajeDetailSection.test.tsx`, nuevo):**
+
+- Sin incidencias: estado vacío «Sin incidencias reportadas.» y ninguna lista.
+- Una incidencia en atención: categoría + «En atención» + fecha.
+- Una incidencia resuelta: estado traducido a «Resuelta».
+- Varias incidencias: una entrada por cada una, en orden.
+- Incidencia con impacto en el ETA: se muestra «Impacto en el ETA: …» cuando el contrato lo trae; se omite si es `null`/ausente.
+- **Invariante de seguridad (DEC-006):** dado un seguimiento con incidencias de las cinco categorías curadas, el DOM nunca contiene ningún nombre técnico interno del catálogo (p. ej. «Asalto o Robo», «Intercepción de custodia», «Sabotaje GPS»); solo aparecen las cinco categorías curadas. Fixtures con forma de contrato.
+
+**Cambios:**
+
+- `src/features/viajes/ViajeDetailSection.tsx`: render mínimo de `impacto_eta` por incidencia (se pinta solo si viene y no es `null`); comentario de por qué el `bff` hoy lo deja `nil`. Se actualizó el docblock de cabecera. No se tocó el consumo de campos ni los wrappers de `lib/api/`.
+- `tests/viajes/ViajeDetailSection.test.tsx` (nuevo): 7 pruebas unitarias (Vitest + Testing Library) con fixtures `ViajeSeguimiento`/`IncidenciaCurada` del barrel `@/lib/contracts`.
+
+**Archivos modificados:**
+
+- `src/features/viajes/ViajeDetailSection.tsx` · `tests/viajes/ViajeDetailSection.test.tsx` · `CHANGELOG.md`
+
+**Señalado (no se tocó):** el catálogo interno y su mapeo no se trajeron al portal (DEC-006); `src/_desconectado/` quedó intacto; el contrato y los wrappers de `lib/api/` no se modificaron. Mientras el `bff` deje `impacto_eta` en `nil`, la línea de impacto no se pinta en producción; la rama queda cubierta por prueba para cuando el contrato lo publique.
+
+## 2026:10:20 12:00
+
+**Resumen:** Se **reestructuró el portal cliente para apegarse al contrato `bff`** (`@ai27-tech/contracts`, `v0.1.0-tracer.11`), como ampliación de alcance de **E8-T3** ("el sistema crece conforme al contrato, no al revés"). La sesión y los roles pasan a los tipos generados; las pantallas de viaje se recortan a su versión mínima funcional según lo que el contrato define; y lo que el contrato aún no modela (bitácora, conversación, panel de control, asistente de solicitud completo) se **desconecta sin borrarse**, conservado en `src/_desconectado/` con tipos locales y pruebas, para reconectarlo cuando el contrato crezca. El barrel `lib/contracts/` queda solo con lo que el `bff` define más utilidades de UI. `typecheck`, `lint` y `test` (20 archivos, 126 pruebas) en verde; `test:e2e` con 14 activos en verde y 15 omitidos (conversación y panel desconectados, más tema oscuro preexistente); `build:mock` compila.
+
+**Cambios:**
+
+- `src/lib/contracts/`: `ViajeResumen` recortado a `{id, estado, origen}`; `ViajeDetalle` inventado → `ViajeSeguimiento` del contrato; `EstadoViaje` pasa al enum generado (cerrado, 13 valores, ADR 19); se agregan `HitoCliente`, `IncidenciaCurada`, `CrearViajeEntrada`. Salen del barrel los tipos de panel, bitácora, conversación y asistente. Se conservan `Fresco`, `Eta` y secuencias (utilidades de UI).
+- `src/lib/api/sesion.ts`, `src/context/SessionContext.tsx`, `src/features/sesion/LoginSection.tsx`: consumo del contrato de sesión (`{usuario, contrasena}`, `sesion_id` conservado).
+- Historial (`HistorialViajesTable.tsx`, `EstadoViajeChip.tsx`): tabla a 3 columnas; chip mapea los 13 estados. Se retiran `RutaCell`/`UnidadCell`/`ReporteSeguridadCell`.
+- Detalle (`ViajeDetailSection.tsx`): reconstruido sobre `ViajeSeguimiento` (hito, ETA con obsolescencia, incidencias curadas, DEC-006).
+- Solicitud: nuevo `NuevaSolicitudForm.tsx` (campos de `CrearViajeEntrada`, POST real a `/viajes`); asistente de 4 pasos desconectado a `src/_desconectado/solicitud/`.
+- Desconectados a `src/_desconectado/` (componentes, API, tipos locales y pruebas): `bitacora/`, `conversacion/`, `panel/`, `solicitud/`. Entrada «Mensajes» retirada del `AppShell`; rutas sin respaldo en el contrato retiradas del enrutado.
+- `src/mocks/`: handlers de `/panel`, `/conversaciones` y bitácora desconectados (datos conservados con nota); `POST /viajes` responde forma `ViajeResumen`.
+- `tests/contracts/sesion.test.ts` (nuevo): ata el mock de sesión al tipo del tracer. Pruebas de las pantallas desconectadas conservadas junto a su pieza.
+- `docs/decisiones/2026-recorte-al-contrato-bff.md` y `src/_desconectado/README.md` (nuevos): decisión, inventario y procedimiento de reconexión.
+
+**Archivos modificados (resumen):**
+
+- `src/lib/contracts/{index,dominio,estados}.ts` · `src/lib/api/{sesion,viajes}.ts`
+- `src/features/viajes/{EstadoViajeChip,ViajeDetailSection,NuevaSolicitudForm}.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/features/sesion/LoginSection.tsx`
+- `src/context/SessionContext.tsx` · `src/app/shell/AppShell.tsx`
+- `src/mocks/{data,handlers}.ts` · `src/routes/_private/viajes/new.tsx`
+- `src/_desconectado/**` (bitácora, conversación, panel, solicitud) · `docs/decisiones/2026-recorte-al-contrato-bff.md`
+- `tests/contracts/sesion.test.ts` · `tests/ui/EstadoViajeChip.test.tsx` · `tests/viajes/*`
+
+**Señalado (no se tocó):** el refresh del cliente no persiste `refresh_token` (el contrato lo exige en el cuerpo; queda `TODO(auth)` en `lib/api/sesion.ts`). Ampliar el contrato `bff` para las pantallas desconectadas es trabajo aparte en `pf-pkg-contracts`. No se corrió `pnpm format:check` ni la verificación manual en `dev:mock` en esta sesión. La ruta `/configuracion` (placeholder sin HU) no se tocó.
+
+## 2026:10:19 16:30
+
+**Resumen:** Se implementó **E8-T1** (CI y línea base de calidad) en el portal cliente: workflow de CI que corre lint, typecheck, pruebas unitarias y e2e en cada PR y en cada push a las tres ramas del flujo (`pf-wfc-m/d/q`), más los dos workflows de promoción `d → q` y `q → m` copiados del patrón de la plataforma (merge manual; sin auto-merge). Además se **arreglaron los 8 fallos deterministas de la suite e2e** que la entrada del 2026-10-08 dejó señalados: no eran flakiness, sino pruebas escritas contra una UI anterior. `lint`, `typecheck` y `test` (20 archivos, 131 pruebas) en verde; `test:e2e` con 17 activos en verde y 13 omitidos (11 del panel cerrado, 2 de tema oscuro). El CI genera `routeTree.gen.ts` con `vite build --mode mock` antes de typecheck/test, porque ese archivo está gitignorado y `tsc --build` no lo produce.
+
+**Cambios:**
+
+- `.github/workflows/ci.yml` (nuevo): disparo en `push` a `pf-wfc-m/d/q` y en `pull_request`. Job `calidad` (install → generar rutas → lint → typecheck → test) y job `e2e` (install → `playwright install --with-deps chromium` → `test:e2e`).
+- `.github/workflows/promotion-pr-dq.yml` y `.github/workflows/promotion-pr-qm.yml` (nuevos): mantienen al día un PR `*-d → *-q` y otro `*-q → *-m`; derivan la rama destino del sufijo; no fusionan.
+- `e2e/historial.spec.ts`: `getByLabel('Estado')` → `{ exact: true }`; paginación con aria-labels en inglés (`Next page`) y conteo `1–3 of 6` dentro del nav `Pagination`; prueba de tema oscuro a `test.skip` (V1 no tiene conmutador de tema).
+- `e2e/solicitud.spec.ts`: enlace del sidebar sin nav nombrado «Principal» → enlace directo; `Checkbox` del design system con `check({ force: true })` (el recuadro estilizado intercepta el clic); confirmación afirmada por contenido visible (el `Card` con aria-label no es landmark `region`); prueba de tema oscuro a `test.skip`.
+- `e2e/journey.spec.ts`: el detalle de un viaje con condición activa muestra la condición en lugar del estado (`EstadoViajeChip` lo reemplaza); la prueba dejó de exigir ver `EN_RUTA` y la condición a la vez.
+- `.kiro/specs/e8-t1-ci-calidad/*`: spec del repo con requisitos, diseño, tareas y hallazgos.
+
+**Archivos modificados:**
+
+- `.github/workflows/ci.yml` · `.github/workflows/promotion-pr-dq.yml` · `.github/workflows/promotion-pr-qm.yml`
+- `e2e/historial.spec.ts` · `e2e/journey.spec.ts` · `e2e/solicitud.spec.ts`
+- `.kiro/specs/e8-t1-ci-calidad/requirements.md` · `design.md` · `tasks.md`
+
+**Señalado (no se tocó):** `pnpm format:check` reporta 165 archivos con estilo pendiente, **preexistentes** a E8-T1 (tests del panel, tsconfig, etc.); no se reformatearon para no mezclar ruido ajeno en este cambio. Los archivos tocados aquí sí pasan Prettier. La activación de branch protection y del permiso de organización para que Actions cree PRs queda a cargo de quien tenga permisos de admin. El toggle de tema oscuro (2 pruebas omitidas) queda pendiente de confirmación con PO.
+
+## 2026:10:08 11:05
+
+**Resumen:** Se **cerró el acceso al Panel de Control** del portal, la pantalla que servía de home de la sesión autenticada. Su `loader` pegaba a `GET /api/v1/panel`, un endpoint que **no existe en el contrato** (`contracts/openapi/bff.yaml`: las únicas rutas del `bff` son `/api/v1/sesion`, `/api/v1/sesion/refresh`, `/api/v1/viajes` y `/api/v1/viajes/{id}`). La pantalla se construyó contra un mock más rico de lo que V1 sabe, así que contra el `bff` real la home se rompería al cargar. Mientras la decisión de fondo sigue diferida —congelar `/panel` como superficie de composición del `bff`, o recomponer el panel con las superficies que V1 sí tiene (`PLAN-EJECUCION-V1.md` §9; es el pendiente que la entrada del 2026-10-07 señaló como **E9-T11**)— se cierra el acceso para no dejar en producción una pantalla rota. **No se borró el panel:** su código (`features/panel/`, `lib/api/panel.ts`, `lib/panel/parsePanel.ts`, `lib/contracts/panel.ts`, el mock handler) queda congelado para cuando se tome esa decisión. `typecheck`, `lint` (0 warnings) y `test` (20 archivos, 131 pruebas) en verde. En e2e, el delta no introduce fallos nuevos: los 8 fallos actuales de la suite son preexistentes al commit `ccb00ec` (se verificó corriendo la suite sobre el árbol limpio).
+
+**Cambios:**
+
+- `src/routes/_private/index.tsx`: la home deja de montar el panel; el `loader` ahora hace `redirect({ to: '/viajes' })` (Historial de Viajes, ruta real del contrato). Comentario con la causa y el apunte a §9.
+- `src/app/shell/AppShell.tsx`: se retiró la entrada «Panel de Control» (`/`) del menú y el import huérfano `LayoutDashboard`. El comentario del `nav` registra el porqué.
+- `e2e/support/login.ts`: el helper de login espera el nuevo aterrizaje («Historial de Viajes», heading nivel 1) en vez de «Panel de Control».
+- `e2e/journey.spec.ts`: el test de sesión afirma el redirect a `/viajes`, no el panel en `/`.
+- `e2e/panel.spec.ts`: las cuatro suites del panel quedaron congeladas (`describe.skip`), con comentario que apunta a la decisión diferida de §9. Se reactivan cuando el panel vuelva.
+
+**Archivos modificados:**
+
+- `src/routes/_private/index.tsx`
+- `src/app/shell/AppShell.tsx`
+- `e2e/support/login.ts` · `e2e/journey.spec.ts` · `e2e/panel.spec.ts`
+
+**Señalado (no se tocó):** la suite e2e del repo tiene 8 fallos preexistentes en `ccb00ec` (historial, journey›viajes›detalle, solicitud), varios de «tema oscuro». Quedan para investigación aparte; son ajenos a este cambio.
+
+## 2026:10:07 13:22
+
+**Resumen:** Se implementó **E9-T1** (shell del portal y navegación) y se **completó E9-T10**, cerrando el hueco que la entrada anterior había dejado explícito. El corte del 2026-10-06 retiró el mapa de MapLibre y el stream SSE, pero dejó viva en el release path la pantalla `/seguimiento` («Seguimiento en Vivo»), que seguía renderizando **telemetría viva ficticia** (mapa, velocidad, temperatura, batería del GPS) alimentada por seis campos de telemetría en el contrato compartido `ViajeEnCurso`. Esa superficie —que `DEC-001` excluye de V1— se movió al prototipo y se depuró el contrato. `typecheck`, `lint`, `test` (20 archivos, 131 pruebas) y `build` en verde; el bundle de producción no contiene `maplibre-gl` ni la superficie de telemetría/stream.
+
+**Cambios (E9-T10, completar el aislamiento):**
+
+- **Movido al prototipo** `prototipos-v2/seguimiento-vivo/features/`: las siete piezas de `features/seguimiento/*` (`SeguimientoSection`, `ViajesActivosCard`, `ViajeActivoCard`, `TelemetriaExtraCard`, `EstadoSeguimientoBadge`, `DetalleViajePlaceholderCard`, `accentClass`) con un tipo local `viaje-activo.ts`, la ruta archivada `route-seguimiento-en-vivo.tsx`, y las pruebas (`tests/features/` + `tests/seguimiento.e2e.spec.ts`).
+- **Retirado del release path:** la ruta `/seguimiento` (`routes/_private/seguimiento/`) y su e2e `e2e/seguimiento.spec.ts`.
+- **Contrato depurado:** `ViajeEnCurso` (`lib/contracts/panel.ts`) quedó con solo `viajeId`, `folio`, `origen`, `destino`, `estado`, `condicionesActivas`, `eta`. Se eliminaron la interfaz `EstadoSeguimiento`, su export en `contracts/index.ts`, los seis campos de telemetría del tipo, del parser (`parsePanel.ts`), de los mocks (`mocks/data.ts`) y de las fixtures (`tests/fixtures/panelWire.ts`). Se ajustaron las pruebas del panel (`parsePanel.test.ts`, `PanelSection.test.tsx`, `ViajesEnCursoTable.test.tsx`).
+
+**Cambios (E9-T1, navegación):**
+
+- `app/shell/AppShell.tsx`: la navegación quedó en cuatro entradas V1 —Panel de Control, Historial de Viajes, Solicitar Servicio y **Mensajes** (`/conversaciones`, icono `MessageSquare`)—. Se retiraron «Seguimiento en Vivo» (vía E9-T10) y «Configuración» (placeholder sin HU; la ruta sigue existiendo pero fuera del menú). El botón «Nuevo viaje» del footer se dejó intacto.
+
+**Pendiente señalado (no se tocó):** el Panel de Control aún monta un `MapPlaceholderCard` («Vista de mapa»); su destino en V1 (sin mapa) es decisión de **E9-T11**.
+
+**Archivos modificados:**
+
+- `src/app/shell/AppShell.tsx`
+- `src/lib/contracts/panel.ts` · `src/lib/contracts/index.ts`
+- `src/lib/panel/parsePanel.ts`
+- `src/mocks/data.ts`
+- `tests/fixtures/panelWire.ts` · `tests/panel/parsePanel.test.ts` · `tests/panel/PanelSection.test.tsx` · `tests/panel/ViajesEnCursoTable.test.tsx`
+- `README.md`
+- (eliminados) `src/features/seguimiento/*` · `src/routes/_private/seguimiento/*` · `tests/seguimiento/*` · `e2e/seguimiento.spec.ts`
+- (nuevos) `prototipos-v2/seguimiento-vivo/features/*` · `prototipos-v2/seguimiento-vivo/tests/features/*` · `prototipos-v2/seguimiento-vivo/tests/seguimiento.e2e.spec.ts`
+
+## 2026:10:06 00:00
+
+**Resumen:** Se implementó **E9-T10** (cierra el hallazgo **F-06**) con la decisión **(a)**: se aisló la superficie de seguimiento en vivo V2 —posición, señal, geocercas y stream SSE— como **prototipo no productivo e inalcanzable**, fuera del release path de V1. El seguimiento vivo lo excluye `DEC-001`; `ADR 27` fija que los hitos y el ETA de V1 van por polling HTTP (no SSE), y `ADR 28` cerró el contrato V1 de `realtime` sin sobres de posición/tracking. Lo que V1 sí necesita —`Fresco<T>`, `FreshnessMark` y el ETA— se conservó intacto. `typecheck`, `test` (24 archivos, 167 pruebas), `lint` y `build` en verde; una búsqueda del bundle de producción no encuentra `maplibre-gl` ni la superficie de posición/stream.
+
+**Cambios:**
+
+- **Prototipo congelado:** se creó `prototipos-v2/seguimiento-vivo/` (fuera de `src/` y `tests/`, ignorado por ESLint y por `tsconfig.app.json`, no lo compila ni lo enruta nada) con el hook `useSeguimiento`, `SeguimientoDetalleSection`, `MapaSeguimiento`, el cliente SSE `streamClient`, el parser `parseSeguimientoPayload`, los contratos V2 (`seguimiento`, `canales`, `envelope`), la degradación (`mode`/`DegradationContext`/`DegradationBanner`), el `realtime` simulado (`mocks/stream` + fixtures), la ruta `/viajes/$viajeId/seguimiento` y sus pruebas. Lleva un `README.md` que explica por qué se aisló y qué aprendizaje preserva.
+- **Se retiró del release path de V1:** la ruta `/viajes/$viajeId/seguimiento`, su enlace de navegación en `ViajeDetailSection`, el endpoint pull `getSeguimiento` (`GET /viajes/{id}/tracking`), los handlers mock `GET /stream` y `GET /viajes/:id/tracking`, el dataset `seguimientoWire`, el `DegradationProvider` de `providers.tsx`, las constantes de stream de `constants.ts`, la env `VITE_STREAM_BASE_URL` (de `vite-env.d.ts`, `.env.mock`, `.env.example`) y la dependencia `maplibre-gl` de `package.json`. Se quitaron del e2e `journey.spec.ts` los recorridos de seguimiento vivo.
+- **Se conservó en V1:** `Fresco<T>` (`contracts/freshness.ts`) y `FreshnessMark`, el tipo `Eta` (movido a `contracts/eta.ts`), el formato `formatEta`, y los parsers puros `parseEtaWire`/`parseCondicionesWire` (movidos a `lib/seguimiento/parseEtaWire.ts`, que usa el panel). La invariante de las dos secuencias (`contracts/sequences.ts`) **se quedó en V1** porque la conversación de negocio ya la usa (`orderByDomainSequence`, `findDomainSequenceGaps`, `DomainSeq`).
+- **Fuera de alcance (deliberado):** el renombre de la entrada «Seguimiento en Vivo» y la reconciliación de la pantalla de lista `/seguimiento` son E9-T1/E9-T5; esta historia no los toca. La superficie que F-06 señala —`maplibre-gl` y el stream de posición— sí se retiró.
+
+**Archivos modificados:**
+
+- `package.json`
+- `eslint.config.js`
+- `src/app/providers.tsx`
+- `src/features/viajes/ViajeDetailSection.tsx`
+- `src/lib/api/viajes.ts`
+- `src/lib/constants.ts`
+- `src/vite-env.d.ts`
+- `src/lib/contracts/index.ts` · `src/lib/contracts/panel.ts` · `src/lib/contracts/eta.ts` (nuevo) · `src/lib/contracts/sequences.ts`
+- `src/lib/seguimiento/parseEtaWire.ts` (nuevo)
+- `src/lib/panel/parsePanel.ts`
+- `src/mocks/handlers.ts` · `src/mocks/data.ts`
+- `tests/contracts/sequences.test.ts`
+- `e2e/journey.spec.ts`
+- `.env.mock` · `.env.example`
+- `prototipos-v2/seguimiento-vivo/**` (nuevo)
+- `CHANGELOG.md`
+
+## 2026:09:15 13:40
+
+**Resumen:** Se migró el tema de Tailwind del portal de cliente para que derive de los design tokens de la librería compartida AI27-tech (`@ai27-tech/ui`), que pasa a ser la única fuente de verdad del color, los radios y la tipografía. Los roles Material 3 que usan los componentes ahora referencian los tokens `--ui-*` con `var()`, sin duplicar valores, espejando el patrón ya aplicado en el frontend interno. No se tocaron componentes ni JSX: los mismos nombres de clase (`bg-primary`, `text-on-surface`, `border-outline`, …) apuntan ahora a los valores de AI27-tech. Build y typecheck en verde.
+
+**Cambios:**
+
+- Se agregó `@ai27-tech/ui@0.2.0-beta.1` como dependencia del portal (misma versión que el frontend interno) y se registró en el lockfile.
+- Se importó `@ai27-tech/ui/styles.css` en `src/main.tsx`, antes de `globals.css`, para que las variables `--ui-*` existan cuando el tema las referencia.
+- Se fijó `data-theme="light"` en el `<html>` de `index.html`: el portal corre en claro por defecto (no hay toggle de tema todavía) y así la librería no sigue la preferencia del sistema operativo.
+- Se reescribió `src/styles/globals.css`: la sección `@theme` (valores oklch de los antiguos design systems "Logistics Core" / "AI27 Command Portal") se reemplazó por un `@theme inline` en el que cada rol referencia su token `var(--ui-*)`. Mapeo aplicado: `surface`/`surface-*`→`--ui-color-surface`/`-muted`/`-raised`/`-container-*`; `on-surface`/`-variant`→`--ui-color-text`/`-muted`; `outline`/`outline-variant`→`--ui-color-border-strong`/`--ui-color-border`; `primary`/`on-primary`→`--ui-color-primary`/`--ui-color-on-primary`; `primary-container`→`--ui-color-primary-hover`; `secondary`/`on-secondary`→`--ui-color-secondary`/`--ui-color-on-secondary`; `secondary-container`→`--ui-color-secondary-hover`; `error`/`on-error`→`--ui-color-danger`/`--ui-color-on-danger`; `error-container`→`--ui-color-danger-container`; `success`/`warning`/`info`→`--ui-color-success`/`-warning`/`-info` (+ `-container`); `background`/`on-background`→`--ui-color-surface-muted`/`--ui-color-text`; radios→`--ui-radius-*`.
+- Se retiraron del tema los roles sin equivalente en AI27-tech que NO se usaban en componentes: `tertiary`/`on-tertiary`/`tertiary-container`/`on-tertiary-container`, `inverse-surface`, `inverse-on-surface`, `inverse-primary` y `surface-tint`.
+- Se conservaron como roles propios del portal (sin equivalente en AI27-tech pero EN USO en componentes; retirarlos exigiría tocar JSX, fuera de alcance): `sidebar`/`on-sidebar` (Sidebar), `brand-*` (login, chips de conversación) y `degradado-*` (banner y avisos de servicio degradado). Quedan pendientes de decisión para una fase que sí toque componentes.
+
+**Nota / conflicto reportado:** los archivos `PALETA_COLORES_LIGHT_MODE.md` y `PALETA_COLORES_DARK_MODE.md` de la raíz del monorepo describen otro sistema (Material 3, primary `#003595`, fuentes Plus Jakarta Sans/Hanken Grotesk) que NO coincide con el `tokens.css` real publicado por la librería (sistema "Nocturne", primary periwinkle `#7c9df0`, fuente Inter). Por decisión explícita, la fuente de verdad es `tokens.css`. En consecuencia, la migración cambia intencionadamente el azul de marca del portal a periwinkle: es una regresión visual esperada, no un defecto.
+
+**Archivos modificados:**
+
+- `package.json`
+- `pnpm-lock.yaml`
+- `src/main.tsx`
+- `index.html`
+- `src/styles/globals.css`
+- `CHANGELOG.md`
+
+## 2026:09:15 12:05
+
+**Resumen:** Continuación y cierre del barrido de la convención de nombres, sobre las piezas de tablas/paginación, frescura, Seguimiento en Vivo, helpers de fecha/ETA y mocks. Junto con la entrada de las 11:57, completa el barrido total: los identificadores técnicos en español pasaron a inglés y los sustantivos de dominio y comandos ubicuos se conservaron en español. Verificado con typecheck, la suite completa (206 pruebas) y lint, todo en verde.
+
+**Cambios:**
+
+- **Tablas y paginación:** `Pagination` (`pagina→page`, `totalPaginas→totalPages`, `totalRegistros→totalRecords`, `desde→rangeStart`, `hasta→rangeEnd`, `onCambiarPagina→onPageChange`, `hayAnterior/haySiguiente→hasPrevious/hasNext`) y `Table` (`porPagina→pageSize`, `paginaActual→currentPage`, `conMarco→bordered`, `paginado→paginated`, `filasVisibles→visibleRows`, `toggleSeleccion→toggleSelection`, `seleccionada→selected`, `tono→tone`, `esError→isError`, `indice→index`, `theadClase→theadClass`). Consumidores: `HistorialViajesTable` (`POR_PAGINA→PAGE_SIZE`, `porPagina→pageSize`) y `ViajesEnCursoTable` (`etaMaxCaracteres→etaMaxChars`, `columnas→buildColumns`, `porPagina→pageSize`).
+- **Frescura:** `FreshnessMark` (`dato→data`, `render(valor)→render(value)`, `etiqueta→label`, `umbralAntiguedadSeg→staleThresholdSeconds`, `edad→ageSeconds`, `esVieja→isStale`).
+- **Helpers ETA/fecha:** `formatEtaTexto→formatEtaText` (renombre propagado a sus consumidores) con `daysBetween`/`target`/`reference`/`now`/`days`/`date`/`time`/`month`/`TIME_FORMAT`/`SHORT_MONTHS`; `EtaCell` (`maxCaracteres→maxChars`, `completo→full`, `visible→truncated`, `ultimo→lastKnown`); `PanelSection` (`conSigno→withSign`).
+- **Seguimiento en Vivo:** `rutaAccent.ts→accentClass.ts` (`accentoDeRuta→routeAccentClass`, `ROLES_DE_ACENTO→ACCENT_ROLES`, `RolDeAcento→AccentRole`, `BORDE_POR_ROL→BORDER_BY_ROLE`); `ViajeActivoCard` (`indice→index`, `seleccionada→selected`, `onSeleccionar→onSelect`, `progresoPctAcotado→clampProgressPct`, `EtaTexto→EtaText`); `ViajesActivosCard` (`viajeSeleccionadoId→selectedViajeId`, `onSeleccionar→onSelect`, `enRuta→enRutaCount`); `SeguimientoSection` (`viajeSeleccionadoId→selectedViajeId`, `mostrandoDetalle→showDetail`, `viajeSeleccionado→selectedViaje`); `TelemetriaExtraCard` (`InformationElement` con `icon`/`label`/`value`; `mostrandoDetalle→showDetail`, `onAlternarDetalle→onToggleDetail`); `EstadoSeguimientoBadge` (`Tono→Tone`, `tonoConocido→knownTone`, `iconoPorClave→iconByKey`, `textoClases→textClasses`, `Icono→Icon`).
+- **Wizard:** `SolicitarServicioWizard` (`indiceActual→currentIndex`, `siguiente→next`, `anterior→previous`, `enPasoAvanzado→isAdvancedStep`, `confirmacionSinId→isConfirmationWithoutId`, `flujoIniciado→flowStarted`); `StepperSolicitud` (`indiceActual→currentIndex`, `indice→index`, `completado→completed`, `activo→active`); `SolicitudEnviada` (`texto→orFallback`, `formatFecha→formatDate`, `SIN_DATO→NO_DATA`); parámetro `evento→event` en los handlers de `UbicacionFields`, `PasoServicioFecha`, `PasoDetalles`, `PasoRevisar`, `DocumentacionCard` e `HistorialFiltros` (se conservó el `evento` de geocerca, que es dominio).
+- **Filtros:** `HistorialFiltros` (`MOTIVO_SIN_FILTRO→NO_FILTER_REASON`, `claseControl→controlClass`, `rango→range`, `busqueda→search`; `estado` se conserva por ser dominio) y `CampoFiltro` (`icono→icon`).
+- **wire/mocks:** `wire/readers.ts` (parámetro `parseValor→parseValue` y variable local `valor→value`; la clave de contrato `raw['valor']` se conserva); `mocks/data.ts` (`ahora→now`, `haceMinutos→minutesAgo`, `hoyALas→todayAt`, `mananaALas→tomorrowAt`, `enDiasALas→inDaysAt`, y `fecha/hora/minuto/dias` a inglés).
+- **Conservado en español a propósito:** el reducer del borrador (`reducerBorrador`, `AccionBorrador`, `esBorradorVacio`, `generarIdSolicitud`, y las claves `tipo`/`campo`/`valor`/`codigo`/`activo` de la acción), los comandos del asistente (`continuar`, `regresar`, `enviar`, `onEditar`, `onRegresar`, `onEnviar`, `onVolverAlInicio`, `navegarAPaso`, `irAlPaso`) y de sesión, los campos del wire/contrato (`estado_seguimiento.tono/.icono/.etiqueta`, `Fresco.valor/.observadoEn`, `NotificacionPanel.titulo/.cuerpo`, `snake_case`), y todos los sustantivos de dominio. Las rutas HTTP, la URL del navegador `/viajes/$viajeId/tracking` y las clases Tailwind `tracking-wide` no se tocaron.
+- **Verificación:** `pnpm typecheck`, `pnpm test` (29 archivos, 206 pruebas) y `pnpm lint`, todo en verde.
+
+**Archivos modificados:**
+
+- `src/components/ui/Pagination.tsx`
+- `src/components/ui/Table.tsx`
+- `src/components/ui/FreshnessMark.tsx`
+- `src/lib/seguimiento/formatEta.ts`
+- `src/lib/wire/readers.ts`
+- `src/features/panel/EtaCell.tsx`
+- `src/features/panel/ViajesEnCursoTable.tsx`
+- `src/features/panel/PanelSection.tsx`
+- `src/features/seguimiento/accentClass.ts` (renombrado desde `rutaAccent.ts`)
+- `src/features/seguimiento/ViajeActivoCard.tsx`
+- `src/features/seguimiento/ViajesActivosCard.tsx`
+- `src/features/seguimiento/SeguimientoSection.tsx`
+- `src/features/seguimiento/TelemetriaExtraCard.tsx`
+- `src/features/seguimiento/EstadoSeguimientoBadge.tsx`
+- `src/features/viajes/solicitud/SolicitarServicioWizard.tsx`
+- `src/features/viajes/solicitud/StepperSolicitud.tsx`
+- `src/features/viajes/solicitud/SolicitudEnviada.tsx`
+- `src/features/viajes/historial/HistorialFiltros.tsx`
+- `src/features/viajes/historial/CampoFiltro.tsx`
+- `src/features/viajes/historial/HistorialViajesTable.tsx`
+- `src/mocks/data.ts`
+- `tests/ui/Pagination.test.tsx`
+- `tests/ui/Table.test.tsx`
+- `tests/ui/FreshnessMark.test.tsx`
+- `tests/panel/ViajesEnCursoTable.test.tsx`
+- `tests/seguimiento/ViajeActivoCard.test.tsx`
+- `tests/seguimiento/TelemetriaExtraCard.test.tsx`
+
+## 2026:09:15 11:57
+
+**Resumen:** Se aplicó la convención de nombres (`.kiro/steering/naming-conventions.md`) a un lote de componentes y helpers presentacionales: los identificadores técnicos genéricos que estaban en español se pasaron a inglés, conservando los sustantivos de dominio en español. No se tocaron textos visibles de UI (siguen en español), comentarios, rutas HTTP, claves `snake_case` del wire, valores string de dominio, ni el reducer del borrador (`AccionBorrador`, `reducerBorrador`, etc.). Cuando un identificador de dominio o de contrato quedaba enlazado (p. ej. `campo`/`valor` del reducer, `comentarios`, o `estadoSeguimiento {etiqueta,tono,icono}` del wire), se conservó y se mapeó desde parámetros en inglés.
+
+**Cambios:**
+
+- **UI compartida:** `RadioCard` (`titulo→title`, `descripcion→description`, `icono→icon`); `Select` (`OpcionSelect→SelectOption`, `opciones→options`, `opcion→option`); `FileDropzone` (`formatos→formats`). `Input`, `Textarea`, `Checkbox`, `Card`, `Modal`, `Button`, `Feedback` ya cumplían y no se tocaron.
+- **Wizard de solicitud:** `SeccionCard` (`titulo→title`, `icono→icon`); `PasoServicioFecha` (`PRESENTACION_TIPO→PRESENTATION_TYPE`, `PRESENTACION_NEUTRA→PRESENTATION_NEUTRAL`, `presentacion→presentation`, `descripcion→description`, `icono→icon` en el record, `setCampo→setField`, `campo→field`, `valor→value`); `PasoRuta` (`resumen→summary`, `ubicacion→location`); `UbicacionFields` (`onCampo→onField`, `ejemplos→examples`); `PasoDetalles` (params de `setCarga`: `campo→field`, `valor→value`; `opciones→options`); `DocumentacionCard` (`formatos→formats`, callback `valor→value`); `PasoRevisar` (`SIN_DATO→NO_DATA`, `etiqueta()→labelFor`, `formatFecha→formatDate`, `textoOSinDato→textOrNoData`, `confirmado→confirmed`, `esAltoValor→isHighValue`, `requisitosTexto→requisitosText`, props internas `titulo→title`/`icono→icon`/`etiqueta→label`/`alineado→aligned`, `esUrgente→isUrgent`, `clases→classes`). Se conservaron `carga`, `onEditar/onRegresar/onEnviar`, `comentarios`, `prioridad`, `catalogo`, `requisito` y demás dominio.
+- **Panel:** `KpiCard` (`etiqueta→label`, `valor→value`, `pie→footer`, `icono→icon`, `tono→tone`; `TonoKpi→KpiTone`, `valorTono→valueTone`, `pieTono→footerTone`, `iconoTono→iconTone`); `PanelSection` (consumidor, `etiquetaRiesgo→riesgoLabel`); `NotificacionesCard` (campos de `EstiloSeveridad`: `etiqueta→label`, `contenedor→container`, `borde→border`, `icono→icon`; local `Icono→Icon`).
+- **Viajes / Historial:** `EstadoViajeChip` (`Tono→Tone`, `tonoClases→toneClasses`, `puntoClases→dotClasses`, `etiquetaPorEstado→labelByEstado`, `tonoDeEstado→toneForEstado`, `tono→tone`, `texto→text`); `ReporteSeguridadCell` (`Presentacion→Presentation`, `icono→icon`, `texto→text`, `clase→className`, `presentacion()→presentation()`); `HistorialHeader` (`MOTIVO_SIN_EXPORTAR→EXPORT_DISABLED_REASON`).
+- **Sesión / Conversación / Mocks:** `LoginSection` (`mostrarPassword→showPassword`, `recordarme→rememberMe` y sus setters, callback `valor→value`); `ConversacionSection` (`huecos→gaps`); `mocks/handlers.ts` (`LATENCIA_MS→LATENCY_MS`, `existentes→existing`, `siguienteSeq→nextSeq`, `creado→created`).
+- **Pruebas (ajuste forzado por renombrado de props):** `tests/ui/primitivas.test.tsx` y `tests/panel/KpiCard.test.tsx` actualizadas a los nuevos nombres de props.
+- **Verificación:** `pnpm typecheck` en verde; suite afectada `pnpm vitest run` (6 archivos, 39 pruebas) en verde.
+
+**Archivos modificados:**
+
+- `src/components/ui/RadioCard.tsx`
+- `src/components/ui/Select.tsx`
+- `src/components/ui/FileDropzone.tsx`
+- `src/features/viajes/solicitud/SeccionCard.tsx`
+- `src/features/viajes/solicitud/PasoServicioFecha.tsx`
+- `src/features/viajes/solicitud/PasoRuta.tsx`
+- `src/features/viajes/solicitud/UbicacionFields.tsx`
+- `src/features/viajes/solicitud/PasoDetalles.tsx`
+- `src/features/viajes/solicitud/DocumentacionCard.tsx`
+- `src/features/viajes/solicitud/PasoRevisar.tsx`
+- `src/features/panel/KpiCard.tsx`
+- `src/features/panel/PanelSection.tsx`
+- `src/features/panel/NotificacionesCard.tsx`
+- `src/features/viajes/EstadoViajeChip.tsx`
+- `src/features/viajes/historial/ReporteSeguridadCell.tsx`
+- `src/features/viajes/historial/HistorialHeader.tsx`
+- `src/features/sesion/LoginSection.tsx`
+- `src/features/conversacion/ConversacionSection.tsx`
+- `src/mocks/handlers.ts`
+- `tests/ui/primitivas.test.tsx`
+- `tests/panel/KpiCard.test.tsx`
+
+## 2026:09:15 11:20
+
+**Resumen:** Se aplicó la convención de nombres (`.kiro/steering/naming-conventions.md`) al sustantivo de dominio `seguimiento`, que estaba en inglés como `tracking` en identificadores internos del frontend. Se renombraron carpetas, tipos, hooks, funciones y prosa a su forma canónica en español (Nivel A). No se tocó la frontera del contrato: la ruta HTTP `GET /api/v1/viajes/{id}/tracking`, la URL del navegador `/viajes/$viajeId/tracking` ni la biblioteca backend `packages/tracking-payload` se mantienen intactas hasta que el contrato las cambie. Las clases de Tailwind `tracking-wide` no son de dominio y se conservan.
+
+**Cambios:**
+
+- **Contrato interno (provisional):** `lib/contracts/tracking.ts` → `lib/contracts/seguimiento.ts`; el tipo `TrackingPayload` → `SeguimientoPayload` (actualizado el barrel `lib/contracts/index.ts` y el import de `Eta` en `lib/contracts/panel.ts`).
+- **Parser:** `lib/tracking/parseTrackingPayload.ts` → `lib/seguimiento/parseSeguimientoPayload.ts`; función `parseTrackingPayload` → `parseSeguimientoPayload` y error `TrackingPayloadError` → `SeguimientoPayloadError`. Se movió también `lib/tracking/formatEta.ts` → `lib/seguimiento/formatEta.ts` (dominio de seguimiento). Se actualizaron las referencias en `lib/wire/readers.ts` y `lib/panel/parsePanel.ts`.
+- **Feature:** los archivos de `features/tracking/` se fusionaron en `features/seguimiento/`: `TrackingSection.tsx` → `SeguimientoDetalleSection.tsx`, `TrackingMap.tsx` → `MapaSeguimiento.tsx`, `useTracking.ts` → `useSeguimiento.ts`. Símbolos renombrados: `useTracking` → `useSeguimiento`, `TrackingSection` → `SeguimientoDetalleSection`, `TrackingMap` → `MapaSeguimiento`, `TIPOS_DE_TRACKING` → `TIPOS_DE_SEGUIMIENTO`, `trackingQueryKey` → `seguimientoQueryKey` (clave de cache `['tracking']` → `['seguimiento']`).
+- **Disciplina de color:** al entrar en `features/seguimiento/`, los dos archivos movidos quedaron sujetos al barrido de color de esa carpeta. Se sustituyeron los colores crudos por roles semánticos: `bg-brand-50 text-brand-700` → `bg-primary-container text-on-primary-container` (badge de estado en `SeguimientoDetalleSection`) y `bg-slate-200 text-slate-600` → `bg-surface-container-high text-on-surface-variant` (placeholder de `MapaSeguimiento`).
+- **API:** en `lib/api/viajes.ts`, `getTracking` → `getSeguimiento` (la URL HTTP `/viajes/{id}/tracking` se conserva).
+- **Ruta:** `routes/_private/viajes/$viajeId/tracking.tsx` conserva su nombre y URL (Nivel B, no tocado); se actualizaron sus imports y el componente interno `TrackingPage` → `SeguimientoPage`.
+- **Mocks:** en `mocks/data.ts` la función `trackingWire` → `seguimientoWire`; actualizadas las referencias en `mocks/handlers.ts` y `mocks/stream.ts` (la URL del handler mock se conserva). Prosa de comentarios de "tracking" (dominio) → "seguimiento".
+- **Pruebas:** `tests/tracking/parseTrackingPayload.test.ts` → `tests/seguimiento/parseSeguimientoPayload.test.ts` y `tests/fixtures/trackingWire.ts` → `tests/fixtures/seguimientoWire.ts`, con símbolos y prosa actualizados; ajuste menor de prosa en `tests/fixtures/panelWire.ts`.
+- **Verificación:** `pnpm typecheck`, `pnpm test` (29 archivos, 206 pruebas en verde) y `pnpm lint` sin errores.
+
+**Archivos modificados:**
+
+- `src/lib/contracts/seguimiento.ts` (renombrado desde `tracking.ts`)
+- `src/lib/contracts/index.ts`
+- `src/lib/contracts/panel.ts`
+- `src/lib/seguimiento/parseSeguimientoPayload.ts` (renombrado desde `lib/tracking/parseTrackingPayload.ts`)
+- `src/lib/seguimiento/formatEta.ts` (movido desde `lib/tracking/formatEta.ts`)
+- `src/lib/wire/readers.ts`
+- `src/lib/panel/parsePanel.ts`
+- `src/lib/api/viajes.ts`
+- `src/features/seguimiento/SeguimientoDetalleSection.tsx` (renombrado desde `features/tracking/TrackingSection.tsx`)
+- `src/features/seguimiento/MapaSeguimiento.tsx` (renombrado desde `features/tracking/TrackingMap.tsx`)
+- `src/features/seguimiento/useSeguimiento.ts` (renombrado desde `features/tracking/useTracking.ts`)
+- `src/routes/_private/viajes/$viajeId/tracking.tsx`
+- `src/mocks/data.ts`
+- `src/mocks/handlers.ts`
+- `src/mocks/stream.ts`
+- `tests/seguimiento/parseSeguimientoPayload.test.ts` (renombrado desde `tests/tracking/parseTrackingPayload.test.ts`)
+- `tests/fixtures/seguimientoWire.ts` (renombrado desde `tests/fixtures/trackingWire.ts`)
+- `tests/fixtures/panelWire.ts`
+
+## 2026:09:11 16:10
+
+**Resumen:** Se rediseñó "Solicitar nuevo servicio" (`/viajes/new`) reemplazando el formulario único por un asistente de cuatro pasos (Servicio y Fecha → Ruta → Detalles → Revisar) más una pantalla de confirmación, siguiendo el diseño. Sin backend: el borrador se conserva en memoria entre pasos y "Enviar solicitud" NO crea ningún registro — solo genera un ID simulado y muestra el acuse.
+
+**Cambios:**
+
+- **Arquitectura (Opción A):** la ruta `/viajes/new` sigue siendo una hoja única. El paso actual vive en el search param `?paso=` (`servicio`/`ruta`/`detalles`/`revisar`/`enviada`), validado en `validateSearch`; el borrador vive en un `useReducer` dentro de `SolicitarServicioWizard`. No se añadió ningún contexto nuevo (se respeta "tres contextos y ni uno más"): el borrador es efímero al flujo. Continuar/Regresar/Editar son navegación real (`navigate({ search: { paso } })`), así que el botón atrás y los enlaces "Editar" funcionan y el paso es enlazable. Un `useEffect` guarda contra la entrada "en frío" (recarga o enlace directo a un paso avanzado con el borrador vacío): rebota al primer paso.
+- **Datos:** se modeló el formulario completo como `BorradorSolicitud` (con `DatosServicio`/`DatosUbicacion`/`DatosCarga`/`DatosDocumentacion`) en `lib/contracts/dominio.ts`, marcado PROVISIONAL y separado de `SolicitudViaje` (que es el body de `POST /viajes`, hoy sin usar). El `loader` de la ruta carga cinco catálogos en paralelo con `listCatalogo` y los pasa por props; cada paso es presentacional y no llama a la API.
+- **Catálogos mock:** se ampliaron `FamiliaCatalogo` y `catalogosWire` con `prioridades-servicio`, `categorias-carga`, `rangos-valor` y `requisitos-manejo`, y se actualizó `tipos-servicio` a los tres del diseño (`Monitoreo Activo`/`Custodia Armada`/`Localización GPS`). Los `id` son estables en inglés; las descripciones e iconos de las tarjetas de tipo de servicio son presentación y viven en la feature, no en el catálogo.
+- **Primitivas UI (M3):** se añadieron `Select`, `Textarea`, `Checkbox`, `RadioCard` y `FileDropzone` (esta última, placeholder inerte: no hay subida real todavía), todas con label asociado, foco visible y error por `aria-describedby`. Se migraron `Input` y `Feedback` de los colores legado (`slate-*`, `brand-*`, `red-*`) a los roles M3. El asistente completo consume solo roles: light/dark cambian de golpe con la clase `.dark`, sin tokens de color nuevos. Estos archivos de componentes son provisionales en lo que se valida e implementa la nueva librería.
+- **Pasos:** `PasoServicioFecha` (tarjetas de tipo de servicio, fecha/hora, prioridad y contactos), `PasoRuta` (Origen/Destino con el mismo formulario reutilizable y "Resumen de Ruta" sin cálculo, reutilizando `MapPlaceholderCard`), `PasoDetalles` (carga, unidad, "Documentación" con dropzone inerte y aviso de privacidad), `PasoRevisar` (resumen de solo lectura con "Editar" por sección, chips derivados de prioridad y "Alto Valor", y casilla de confirmación que habilita el envío) y `SolicitudEnviada` (acuse con ID `AI27-YYMMDD-NNN`, resumen de ruta/fecha/hora, "Ver solicitud" inerte y "Volver al inicio" que reinicia el borrador y vuelve al primer paso). Se eliminó "Guardar borrador" según lo acordado.
+- Se eliminó `features/viajes/ViajeRequestSection.tsx` (el formulario único) y se reescribió `routes/_private/viajes/new.tsx`. Los dos enlaces existentes a `/viajes/new` (panel y listado) pasaron el paso inicial como search param; `solicitarViaje` se conserva en `lib/api/viajes.ts` como superficie válida, hoy sin consumidor.
+- **Pruebas:** 40 nuevas pruebas unitarias en `tests/viajes/` y `tests/ui/primitivas.test.tsx` (reducer y `generarIdSolicitud`, las cinco primitivas nuevas, stepper y navegación del wizard, cada paso y la confirmación), más un barrido de disciplina de color sobre `features/viajes/solicitud/`. Se añadió `e2e/solicitud.spec.ts` (recorrido completo contra el mock, preservación de datos al ir y volver, "Editar" desde Revisar, envío con ID y "Volver al inicio", y tema oscuro). Se actualizaron `e2e/journey.spec.ts` (el alta ya no POSTea ni redirige: abre el asistente), `e2e/panel.spec.ts` y `tests/panel/KpiCard.test.tsx` (el enlace ahora lleva `?paso=servicio`).
+
+**Archivos modificados:**
+
+- `src/lib/contracts/dominio.ts`
+- `src/lib/contracts/index.ts`
+- `src/lib/api/catalogos.ts`
+- `src/mocks/data.ts`
+- `src/components/ui/Input.tsx`
+- `src/components/ui/Feedback.tsx`
+- `src/components/ui/Select.tsx`
+- `src/components/ui/Textarea.tsx`
+- `src/components/ui/Checkbox.tsx`
+- `src/components/ui/RadioCard.tsx`
+- `src/components/ui/FileDropzone.tsx`
+- `src/features/viajes/solicitud/borrador.ts`
+- `src/features/viajes/solicitud/pasos.ts`
+- `src/features/viajes/solicitud/StepperSolicitud.tsx`
+- `src/features/viajes/solicitud/WizardFooter.tsx`
+- `src/features/viajes/solicitud/SolicitarServicioWizard.tsx`
+- `src/features/viajes/solicitud/SeccionCard.tsx`
+- `src/features/viajes/solicitud/PasoServicioFecha.tsx`
+- `src/features/viajes/solicitud/UbicacionFields.tsx`
+- `src/features/viajes/solicitud/ResumenRutaCard.tsx`
+- `src/features/viajes/solicitud/PasoRuta.tsx`
+- `src/features/viajes/solicitud/PasoDetalles.tsx`
+- `src/features/viajes/solicitud/DocumentacionCard.tsx`
+- `src/features/viajes/solicitud/PrivacidadCard.tsx`
+- `src/features/viajes/solicitud/PasoRevisar.tsx`
+- `src/features/viajes/solicitud/SolicitudEnviada.tsx`
+- `src/features/viajes/ViajeRequestSection.tsx` (eliminado)
+- `src/routes/_private/viajes/new.tsx`
+- `src/routes/_private/viajes/index.tsx`
+- `src/features/panel/QuickActionsCard.tsx`
+- `tests/viajes/borrador.test.ts`
+- `tests/viajes/SolicitarServicioWizard.test.tsx`
+- `tests/viajes/PasoServicioFecha.test.tsx`
+- `tests/viajes/PasoRuta.test.tsx`
+- `tests/viajes/PasoDetalles.test.tsx`
+- `tests/viajes/PasoRevisar.test.tsx`
+- `tests/viajes/SolicitudEnviada.test.tsx`
+- `tests/ui/primitivas.test.tsx`
+- `tests/panel/KpiCard.test.tsx`
+- `e2e/solicitud.spec.ts`
+- `README.md`
+- `CHANGELOG.md`
+
+## 2026:09:11 12:10
+
+**Resumen:** Se rediseñó la pantalla `/viajes` como "Historial de Viajes" según el nuevo mockup: encabezado con descripción y "Exportar CSV", una barra de filtros propia (solo frontend), y una tabla enriquecida con celdas de dos líneas (ruta con sitio, vehículo/conductor), icono de reporte de seguridad, fila resaltada para viajes cancelados y pie de paginación. La tabla del Panel de Control se unificó con la misma primitiva, que ahora pagina.
+
+**Cambios:**
+
+- `lib/contracts/dominio.ts`: `ViajeResumen` sumó `origenSitio`, `destinoSitio`, `unidad` (`UnidadAsignada | null`) y `reporteSeguridad`. Se añadieron los tipos `UnidadAsignada` y `ReporteSeguridad` (unión abierta, como `EstadoViaje`), exportados desde el barrel `lib/contracts/index.ts`. Todos PROVISIONALES, con `TODO(contracts)`. `unidad: null` modela "sin asignar" (viaje recién `SOLICITADO`) en vez de fingir un vehículo.
+- `mocks/data.ts`: se extendieron las tres entradas de `viajesWire` con los campos nuevos y se añadieron `viaje-6` (COMPLETADO), `viaje-7` (CANCELADO) y `viaje-8` (COMPLETADO), exclusivos del listado, con sus entradas en `viajeDetalleWire` para que el folio enlazado no dé 404. No contradicen al panel, que solo mira viajes en curso; dan material para la fila cancelada, los chips nuevos y dos páginas a 3 por página. `GET /viajes` sigue devolviendo el array plano.
+- `components/ui/Table.tsx`: ganó capacidades genéricas — `rowTone` (resalta una fila en tono de error), `footer`, `headerTone='filled'` (banda de cabecera rellena en mayúsculas), `porPagina` (paginación como **estado de UI**: la tabla posee el número de página, recorta las filas y pinta `Pagination`) y `fill` (estira la tabla al alto de su contenedor: el área de filas crece y el pie de paginación queda anclado abajo, en vez de que la tabla mida solo su contenido). `TODO(contracts)`: cuando `bff` pagine, esto se mueve a un search param + `loaderDeps`.
+- La pantalla del Historial y la tabla del Panel usan `fill` para ocupar todo el alto disponible: la ruta `/viajes` y `HistorialViajesSection` propagan el alto con `flex min-h-0 flex-1 flex-col` (mismo patrón que el Panel de Control), y la `Card` de la tabla estira hasta el borde inferior del área de contenido.
+- `components/ui/Pagination.tsx` (nuevo): pie controlado con "Mostrando X–Y de Z registros", "Página N de M" y dos botones con `aria-label`, deshabilitados en los límites.
+- `features/viajes/EstadoViajeChip.tsx`: se añadió el tono `error` y las etiquetas `COMPLETADO` (info) y `CANCELADO` (error). Sigue en pie: una condición activa gana al estado, y un código sin mapear se pinta en neutro.
+- `features/viajes/historial/` (nuevo): `RutaCell`, `UnidadCell` (con "Sin asignar" cuando no hay unidad), `ReporteSeguridadCell` (icono + texto en `sr-only` y `title`, para que el color no sea el único portador de significado), `HistorialViajesTable`, `CampoFiltro`, `HistorialFiltros`, `HistorialHeader` y `HistorialViajesSection`.
+- Filtros y "Exportar CSV" son solo frontend: usables pero deshabilitados con su motivo en el `title`. El filtrado y la exportación son del servidor; se cablearán vía search params + `loaderDeps` cuando exista el contrato.
+- `routes/_private/viajes/index.tsx`: se quitó el enlace "Solicitar servicio" (sigue en el sidebar y en las acciones rápidas del panel) y se montó `HistorialViajesSection`. Se borró `features/viajes/ViajesListSection.tsx`, que quedó huérfano.
+- `features/panel/ViajesEnCursoTable.tsx`: se aplicó `porPagina={3}` para que la tabla del panel pagine sus cinco viajes en curso a dos páginas, con la misma primitiva.
+- Solo se usan roles de `globals.css`; ningún color nuevo. Se añadió `tests/viajes/disciplinaColor.test.tsx`, que barre por comodín `features/viajes/historial/*.tsx` más `Pagination.tsx` y `EstadoViajeChip.tsx` en busca de colores crudos, con el mismo criterio que la suite del panel.
+- Se actualizaron `e2e/panel.spec.ts` y `e2e/journey.spec.ts` (la tabla del panel ahora muestra 3 filas por página; `EN_ADUANA` cae en la segunda página). Se añadió `e2e/historial.spec.ts`.
+- Se corrieron `pnpm typecheck` y `pnpm lint` (en verde) y `pnpm test` (166/168; las dos fallas restantes —`tests/panel/formatEta.test.ts` y `tests/panel/NotificacionesCard.test.tsx`— se confirmaron preexistentes y ajenas reproduciéndolas con `git stash`). En e2e, 37/38 en verde; la única falla (`journey.spec.ts:120`, sobre el detalle de un viaje) se confirmó preexistente con `git stash` antes de estos cambios. Se eliminó `test-results/` generado por Playwright.
+
+**Archivos modificados:**
+
+- `src/mocks/data.ts`
+- `src/components/ui/Table.tsx`
+- `src/components/ui/Pagination.tsx`
+- `src/features/viajes/EstadoViajeChip.tsx`
+- `src/features/viajes/historial/RutaCell.tsx`
+- `src/features/viajes/historial/UnidadCell.tsx`
+- `src/features/viajes/historial/ReporteSeguridadCell.tsx`
+- `src/features/viajes/historial/HistorialViajesTable.tsx`
+- `src/features/viajes/historial/CampoFiltro.tsx`
+- `src/features/viajes/historial/HistorialFiltros.tsx`
+- `src/features/viajes/historial/HistorialHeader.tsx`
+- `src/features/viajes/historial/HistorialViajesSection.tsx`
+- `src/routes/_private/viajes/index.tsx`
+- `src/features/panel/ViajesEnCursoTable.tsx`
+- `src/features/viajes/ViajesListSection.tsx` (eliminado)
+- `tests/ui/Pagination.test.tsx`
+- `tests/ui/Table.test.tsx`
+- `tests/ui/EstadoViajeChip.test.tsx`
+- `tests/viajes/celdasHistorial.test.tsx`
+- `tests/viajes/HistorialViajesTable.test.tsx`
+- `tests/viajes/HistorialFiltros.test.tsx`
+- `tests/viajes/HistorialViajesSection.test.tsx`
+- `tests/viajes/disciplinaColor.test.tsx`
+- `e2e/historial.spec.ts`
+- `e2e/panel.spec.ts`
+- `e2e/journey.spec.ts`
+- `README.md`
+- `CHANGELOG.md`
+
+## 2026:09:10 17:50
+
+**Resumen:** En Seguimiento en Vivo, "Viajes Activos" (o el detalle) ahora estira hasta el borde inferior de la barra de telemetría en vez de quedarse mas corto que la columna del mapa.
+
+**Cambios:**
+
+- `SeguimientoSection`: la fila raíz pasó a `flex min-h-0 flex-1 ... xl:flex-row` para heredar la altura completa que le da `<main>` (ver entrada de las 13:20). La columna izquierda (`xl:w-1/3`) sumó `min-h-0 xl:h-full` para estirarse a esa altura en vez de medir solo su contenido; la columna derecha pasó a `flex min-h-0 flex-1`. El mapa sigue siendo el que absorbe el espacio sobrante (`flex-1` con `min-h-56` de piso), no la telemetría, para que la barra quede al fondo con su alto natural.
+- `ViajesActivosCard` y `DetalleViajePlaceholderCard` sumaron `w-full`: sin él, el contenedor flex-row de la izquierda (`items-stretch` solo afecta el eje transversal, no el ancho) dejaba que la tarjeta se achicara a su contenido en vez de llenar el tercio de columna reservado — el hueco que se veia antes de llegar al mapa.
+- `routes/_private/seguimiento/index.tsx`: el wrapper de la página pasó a `flex min-h-0 flex-1 flex-col`, el mismo patrón que Panel de Control, para propagar la altura completa desde `<main>` hasta `SeguimientoSection`.
+- Se corrieron `pnpm typecheck`, `pnpm lint`, la suite unitaria de `tests/seguimiento/` (33/33) y las suites e2e de `e2e/seguimiento.spec.ts` y `e2e/panel.spec.ts` (19/19 combinadas): todo en verde. Dos fallas preexistentes en `tests/panel/formatEta.test.ts` y `tests/panel/NotificacionesCard.test.tsx` se confirmaron ajenas a este cambio reproduciéndolas con `git stash` antes de aplicar los cambios. Se usaron pruebas Playwright temporales (creadas y eliminadas en la misma sesión, sin comitear) para medir en el navegador que la tarjeta izquierda llena su columna y que su borde inferior queda a menos de 10px del de la telemetría a 1440×900.
+
+**Archivos modificados:**
+
+- `src/features/seguimiento/SeguimientoSection.tsx`
+- `src/features/seguimiento/ViajesActivosCard.tsx`
+- `src/features/seguimiento/DetalleViajePlaceholderCard.tsx`
+- `src/routes/_private/seguimiento/index.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 17:22
+
+**Resumen:** El Panel de Control ahora ocupa todo el alto disponible de la pantalla: la tabla y la columna del mapa/notificaciones estiran para llegar al borde inferior del viewport en vez de dejar un hueco vacío debajo.
+
+**Cambios:**
+
+- `AppShell`: el `<main>` pasó de un contenedor simple a `flex w-full flex-1 flex-col`, para que crezca dentro del alto que ya reservaba el shell (`min-h-dvh`) en lugar de medir solo su contenido.
+- `routes/_private/index.tsx` y `PanelSection`: sus wrappers pasaron a `flex min-h-0 flex-1 flex-col`, propagando el estiramiento desde `<main>` hasta el grid de contenido.
+- Dentro de `PanelSection`, la fila inferior (tabla + columna derecha) pasó a `grid min-h-0 flex-1`; ambas columnas ganaron `h-full`. En la columna derecha, el mapa quedó envuelto en `flex-1` (con `min-h-56` como piso) para que sea el mapa —y no las notificaciones— quien absorba el espacio vertical sobrante, igual que ya hacía la barra de telemetría en Seguimiento en Vivo.
+- Cambio acotado a Panel de Control: Seguimiento en Vivo, Historial de Viajes, Solicitar Servicio y Configuración no se tocaron en esta entrada (ver la de las 13:40 para el ajuste de altura de Seguimiento en Vivo).
+- Se corrieron `pnpm typecheck`, `pnpm lint` y la suite e2e de `e2e/panel.spec.ts` (11/11): todo en verde. Se usó una prueba Playwright temporal (creada y eliminada en la misma sesión, sin comitear) para confirmar en el navegador que `#contenido` supera los 850px de alto y que el mapa crece más allá de su antiguo `min-h-56` fijo a 1440×900.
+
+**Archivos modificados:**
+
+- `src/app/shell/AppShell.tsx`
+- `src/routes/_private/index.tsx`
+- `src/features/panel/PanelSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 16:54
+
+**Resumen:** El área de contenido de toda la app autenticada (a la derecha del sidebar) dejó de estar limitada a `max-w-6xl` y centrada: ahora ocupa el 100% del ancho disponible en cualquier tamaño de pantalla.
+
+**Cambios:**
+
+- `AppShell`: se quitaron `mx-auto` y `max-w-6xl` del `<main>`, dejando `w-full px-4 py-6`. El cambio vive en el shell compartido, así que aplica por igual a Panel de Control, Seguimiento en Vivo, Historial de Viajes, Solicitar Servicio y Configuración, sin tocar cada ruta por separado.
+- Sin tope superior a propósito: en monitores anchos el contenido sigue llenando el espacio junto al sidebar en vez de centrarse con un margen fijo.
+- El padding horizontal (`px-4`) y vertical (`py-6`) se mantuvieron sin cambios.
+- Se corrieron `pnpm typecheck`, `pnpm lint` y la suite e2e de `e2e/panel.spec.ts` (11/11): todo en verde. Se usó una prueba Playwright temporal (creada y eliminada en la misma sesión, sin comitear) para confirmar en el navegador que `#contenido` mide el ancho completo disponible junto al sidebar a 1920px, superando los 1152px del antiguo `max-w-6xl`.
+
+**Archivos modificados:**
+
+- `src/app/shell/AppShell.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 12:00
+
+**Resumen:** Se quitó el `min-h-56` de `DetalleViajePlaceholderCard` y se igualó su padding al de `ViajesActivosCard`, para que el espacio de detalle mida exactamente lo mismo que "Viajes Activos" al alternar entre los dos.
+
+**Cambios:**
+
+- `DetalleViajePlaceholderCard` tenía `min-h-56` (heredado de `MapPlaceholderCard`, cuyo contexto es distinto) y `p-6`; `ViajesActivosCard` usa `p-4` sin altura mínima propia, porque su altura la fija el layout de `SeguimientoSection` (`items-stretch` en la fila `xl:flex-row`). Con la mínima puesta, el placeholder podía quedar más alto que la lista cuando esta tenía pocas tarjetas.
+- Se quitó `min-h-56` y se cambió `p-6` a `p-4` en `DetalleViajePlaceholderCard`, alineando el padding sin tocar `ViajesActivosCard`.
+- Se corrieron `pnpm typecheck`, `pnpm lint`, la suite unitaria de `tests/seguimiento/` (33/33) y la suite e2e de `e2e/seguimiento.spec.ts` (8/8): todo en verde. Se eliminó `test-results/` generado por la corrida de Playwright.
+
+**Archivos modificados:**
+
+- `src/features/seguimiento/DetalleViajePlaceholderCard.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 11:27
+
+**Resumen:** Se cambió el layout de Seguimiento en Vivo: "Viajes Activos" (o el detalle, cuando está abierto) ahora ocupa toda la altura de la pantalla, y la barra de telemetría se angostó al ancho de la columna del mapa en vez de ir a todo el ancho.
+
+**Cambios:**
+
+- Se cambió `SeguimientoSection` de un grid de dos filas (lista+mapa arriba, telemetría abajo a todo lo ancho) a un flex de dos columnas desde `xl`: la izquierda ("Viajes Activos" o `DetalleViajePlaceholderCard`) ocupa un tercio del ancho y toda la altura de la fila; la derecha apila el mapa y la telemetría, que ahora comparten ese mismo ancho. Por debajo de `xl` sigue apilando verticalmente, con la lista primero.
+- La igualdad de alturas sale de `items-stretch` (el valor por defecto de un contenedor flex): sin rejilla ni alturas fijas, la columna izquierda estira tanto como la derecha necesite.
+- Se actualizó `tests/seguimiento/SeguimientoSection.layout.test.tsx` para reflejar las clases nuevas (`flex-col`/`xl:flex-row`, `xl:w-1/3`) y para verificar que la telemetría queda debajo del mapa en la misma columna derecha, ya no como hermana de la lista.
+- Se corrieron `pnpm typecheck`, `pnpm lint`, la suite unitaria de `tests/seguimiento/` (33/33) y las suites e2e de `e2e/seguimiento.spec.ts` y `e2e/panel.spec.ts` (19/19 combinadas): todo en verde. Se eliminó `test-results/` generado por las corridas de Playwright.
+
+**Archivos modificados:**
+
+- `src/features/seguimiento/SeguimientoSection.tsx`
+- `tests/seguimiento/SeguimientoSection.layout.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 11:12
+
+**Resumen:** "Ver Detalles" en Seguimiento en Vivo dejó de navegar a `/viajes/$viajeId`: ahora alterna, dentro de la misma pantalla, entre "Viajes Activos" y un panel de detalle todavía sin implementar.
+
+**Cambios:**
+
+- Se creó `DetalleViajePlaceholderCard`, con el mismo criterio que `MapPlaceholderCard`: un hueco declarado, con icono decorativo (`aria-hidden`) y el texto "Más información" para que un lector de pantalla no se quede con un cuadro vacío.
+- Se cambió `TelemetriaExtraCard`: el `Link` a `/viajes/$viajeId` se reemplazó por un `button` que alterna `mostrandoDetalle` (props `mostrandoDetalle` y `onAlternarDetalle`, nuevas). La etiqueta cambia entre "Ver Detalles" y "Volver a Viajes Activos" según el estado, con `aria-pressed` reflejándolo.
+- `SeguimientoSection` pasó a poseer el estado `mostrandoDetalle` y a decidir qué se pinta en la columna angosta: `ViajesActivosCard` cuando está cerrado, `DetalleViajePlaceholderCard` cuando está abierto. Cambiar de viaje seleccionado no cierra el detalle: son dos decisiones independientes.
+- Se actualizaron las pruebas unitarias de `TelemetriaExtraCard` (botón en vez de enlace, las dos etiquetas, `aria-pressed`) y se agregaron dos casos a `SeguimientoSection.test.tsx` que verifican el intercambio de paneles y el regreso.
+- Se actualizó `e2e/seguimiento.spec.ts`: las pruebas que antes verificaban una navegación a `/viajes/viaje-1` ahora verifican que la URL sigue en `/seguimiento` y que el panel de la derecha cambia de "Viajes Activos" a "Detalle del viaje" y de vuelta.
+- Se corrieron `pnpm typecheck`, `pnpm lint`, la suite unitaria de `tests/seguimiento/` (33/33) y la suite e2e de `e2e/seguimiento.spec.ts` (8/8): todo en verde. Se eliminó `test-results/` generado por las corridas de Playwright.
+
+**Archivos modificados:**
+
+- `src/features/seguimiento/DetalleViajePlaceholderCard.tsx`
+- `src/features/seguimiento/TelemetriaExtraCard.tsx`
+- `src/features/seguimiento/SeguimientoSection.tsx`
+- `tests/seguimiento/TelemetriaExtraCard.test.tsx`
+- `tests/seguimiento/SeguimientoSection.test.tsx`
+- `e2e/seguimiento.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:09:10 10:36
+
+**Resumen:** Se quitó la barra de progreso visual de las tarjetas de "Viajes Activos" en Seguimiento en Vivo: "Progreso" ahora muestra únicamente el porcentaje como texto.
+
+**Cambios:**
+
+- Se eliminó `ProgresoBar.tsx`: ya no hay ninguna barra dibujada con `role="progressbar"`.
+- Se quitó su uso de `ViajeActivoCard`; la fila "Progreso" pasó de una barra con etiqueta debajo a una fila de texto "Progreso" / porcentaje, con el mismo acotado a 0–100 que traía la barra (ahora en `progresoPctAcotado`, local al componente).
+- Se quitaron las pruebas de `ProgresoBar` en `tests/seguimiento/ViajeActivoCard.test.tsx` y se agregaron en su lugar pruebas sobre `ViajeActivoCard`: que el porcentaje se muestra como texto, que no se dibuja ningún `role="progressbar"`, y que un valor fuera de rango se acota igual que antes.
+- Se corrieron `pnpm typecheck`, `pnpm lint`, la suite unitaria de `tests/seguimiento/` (29/29) y la suite e2e de `e2e/seguimiento.spec.ts` (8/8): todo en verde. Se eliminó `test-results/` generado por la corrida de Playwright.
+
+**Archivos modificados:**
+
+- `src/features/seguimiento/ProgresoBar.tsx` (eliminado)
+- `src/features/seguimiento/ViajeActivoCard.tsx`
+- `tests/seguimiento/ViajeActivoCard.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:10 10:21
+
+**Resumen:** Se quitó el enlace "Ver Detalles" de cada tarjeta de "Viajes Activos" en Seguimiento en Vivo: esa navegación queda unicamente en la barra de telemetría inferior, para el viaje seleccionado.
+
+**Cambios:**
+
+- Se eliminó el `Link` a `/viajes/$viajeId` y el bloque que lo contenía en `ViajeActivoCard`; la tarjeta ya no importa `@tanstack/react-router`.
+- Se actualizó el comentario de cabecera del componente para reflejar que "Ver Detalles" vive solo en `TelemetriaExtraCard`.
+- Se ajustaron las pruebas unitarias de `ViajeActivoCard`: se quitó la aserción del enlace y se agregó una prueba que confirma que no aparece. Al no quedar ningún `Link`, esas pruebas ya no necesitan `renderConRouter` y usan `render` directo.
+- Se actualizó `e2e/seguimiento.spec.ts`: la prueba de "Ver Detalles" por tarjeta se reemplazó por una que confirma que la lista de "Viajes Activos" no tiene ningún enlace de ese tipo, y se agregó una prueba de que seleccionar otro viaje cambia el destino del "Ver Detalles" de la barra de telemetría.
+- Se corrieron `pnpm typecheck`, `pnpm lint`, la suite unitaria de `tests/seguimiento/` (30/30) y la suite e2e de `e2e/seguimiento.spec.ts` (8/8): todo en verde. Se eliminó `test-results/` generado por la corrida de Playwright.
+
+**Archivos modificados:**
+
+- `src/features/seguimiento/ViajeActivoCard.tsx`
+- `tests/seguimiento/ViajeActivoCard.test.tsx`
+- `e2e/seguimiento.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:09:10 09:42
+
+**Resumen:** Se rediseñó "Seguimiento en Vivo" (`/seguimiento`) para reemplazar el placeholder de "en construcción" por la pantalla completa del diseño: tarjetas de "Viajes Activos" con estado y progreso, un mapa de posición (reutilizando el placeholder existente) y una barra de telemetría del viaje seleccionado.
+
+**Cambios:**
+
+- Se extendió `ViajeEnCurso` en `lib/contracts/panel.ts` con seis campos nuevos —`operadorNombre`, `progresoPct`, `estadoSeguimiento` (etiqueta, tono e icono autorados directo en el wire), `velocidadPromedioKmh`, `temperaturaCargaC` y `bateriaGpsPct`— porque el Panel de Control y Seguimiento en Vivo comparten el mismo viaje en curso y no necesitan contratos separados. Se documentó la decisión y el mapeo de campos en el README.
+- `estadoSeguimiento.tono` e `icono` son uniones abiertas, igual que el resto de catálogos del panel: un valor que la UI no reconoce se pinta en neutro en `EstadoSeguimientoBadge` en lugar de romper.
+- Se actualizó `lib/panel/parsePanel.ts` para exigir los seis campos nuevos (`operador_nombre`, `progreso_pct`, `estado_seguimiento`, etc.): si faltan, el parser levanta `PanelPayloadError` en lugar de inventar un cero o una etiqueta.
+- Se actualizó `panelWire()` en `mocks/data.ts` con datos realistas para los cinco viajes del panel, alineados con los números del diseño (velocidad, temperatura, batería, progreso y operador por viaje).
+- Se reescribió `routes/_private/seguimiento/index.tsx` con el mismo patrón que el Panel de Control: `loader` con `getPanel()`, `pendingComponent` y `errorComponent`.
+- Se creó `features/seguimiento/` con seis piezas nuevas: `EstadoSeguimientoBadge` (traduce tono/icono del wire a clases M3 y a un icono de `lucide-react`, con fallback neutro), `ProgresoBar` (`role="progressbar"` con los tres `aria-value*`, sin lo cual el progreso no se anuncia a un lector de pantalla), `rutaAccent.ts` (rota los roles M3 `primary`/`secondary`/`tertiary` por posición en la lista para el acento de color de cada tarjeta, decorativo y sin tokens nuevos), `ViajeActivoCard` (tarjeta seleccionable con folio, badge, ruta, operador, ETA en sus tres estados de `Fresco`, progreso y el enlace "Ver Detalles"), `ViajesActivosCard` (el contenedor con el contador "N En Ruta", calculado en el cliente a partir de `estado === 'EN_RUTA'`) y `TelemetriaExtraCard` (velocidad, temperatura y batería del viaje seleccionado, con su propio "Ver Detalles"; sin viaje seleccionado lo dice en vez de mostrar ceros).
+- `SeguimientoSection` compone el layout: la lista de tarjetas y el mapa van lado a lado en pantallas anchas (`xl:grid-cols-3`, la lista ocupa una columna y el mapa dos), se apilan por debajo de `xl` con la lista primero, y la barra de telemetría queda a todo el ancho debajo, más ancha que la lista — tal como pide el diseño. El mapa reutiliza `MapPlaceholderCard` sin ningún cambio.
+- La selección de tarjeta vive en `SeguimientoSection`: la primera va seleccionada por defecto y un click cambia cuál alimenta la barra de telemetría, sin persistencia más allá del estado del componente.
+- "Contactar Operador" no se construyó, según lo acordado. "Ver Detalles" navega a `/viajes/$viajeId`, igual que el folio de la tabla del panel.
+- Se agregaron 29 pruebas unitarias en `tests/seguimiento/` (badge, barra de progreso, acento de color, tarjeta con sus tres estados de ETA, selección, contador, estado vacío, composición de la sección, layout responsivo y el barrido de disciplina de color que falla si aparece un color crudo en `features/seguimiento/`).
+- Se agregaron 7 pruebas e2e en `e2e/seguimiento.spec.ts`: contenido de las tarjetas y la barra de telemetría con datos reales del mock, que seleccionar otra tarjeta cambia la telemetría, que los dos "Ver Detalles" navegan al viaje correcto, y que el tema oscuro cambia los colores sin tocar ningún componente — el mismo criterio que ya cubre `e2e/panel.spec.ts`.
+- Se corrieron `pnpm typecheck`, `pnpm lint` y la suite e2e nueva: todo en verde. `pnpm test` tiene dos fallos preexistentes sin relación con este trabajo (`tests/panel/formatEta.test.ts` y `tests/panel/NotificacionesCard.test.tsx`), verificados sin diferencias en esos archivos.
+- Limpieza: se eliminó `test-results/.last-run.json`, el único artefacto que generaron las corridas de Playwright de esta tarea. No se generaron capturas ni trazas porque ninguna prueba falló.
+- Los cambios quedan en el árbol de trabajo, sin commitear, a la espera de revisión.
+
+**Archivos modificados:**
+
+- `src/lib/contracts/panel.ts`
+- `src/lib/contracts/index.ts`
+- `src/lib/panel/parsePanel.ts`
+- `src/mocks/data.ts`
+- `src/routes/_private/seguimiento/index.tsx`
+- `src/features/seguimiento/SeguimientoSection.tsx`
+- `src/features/seguimiento/EstadoSeguimientoBadge.tsx`
+- `src/features/seguimiento/ProgresoBar.tsx`
+- `src/features/seguimiento/rutaAccent.ts`
+- `src/features/seguimiento/ViajeActivoCard.tsx`
+- `src/features/seguimiento/ViajesActivosCard.tsx`
+- `src/features/seguimiento/TelemetriaExtraCard.tsx`
+- `tests/fixtures/panelWire.ts`
+- `tests/panel/parsePanel.test.ts`
+- `tests/panel/ViajesEnCursoTable.test.tsx`
+- `tests/panel/PanelSection.test.tsx`
+- `tests/seguimiento/ViajeActivoCard.test.tsx`
+- `tests/seguimiento/SeguimientoSection.test.tsx`
+- `tests/seguimiento/SeguimientoSection.layout.test.tsx`
+- `tests/seguimiento/TelemetriaExtraCard.test.tsx`
+- `e2e/seguimiento.spec.ts`
+- `README.md`
+- `CHANGELOG.md`
+
+## 2026:09:09 13:32
+
+**Resumen:** Cierre del Panel de Control: verificación completa, corrección del barrido de colores para que compile con tipos estrictos y limpieza de artefactos.
+
+**Cambios:**
+
+- Se cambió la lectura de fuentes del barrido de colores de `node:fs` a `import.meta.glob` de Vite. `tests/` se compila con el proyecto de la aplicación, que no tiene tipos de Node, y añadirlos habría dejado entrar los globales de Node en el código de la app: peor remedio que enfermedad. El comodín del directorio se conserva, así que un componente nuevo del panel sigue entrando en el barrido sin tocar ninguna lista.
+- Se añadió una prueba de que el comodín resuelve al menos siete archivos. Sin ella, si el patrón dejara de encontrar nada el barrido pasaría en verde sin revisar absolutamente nada.
+- Verificación final: verificación de tipos sin errores, lint sin avisos, 12 archivos y 92 pruebas unitarias en verde, y la especificación del panel en Playwright con sus 10 casos en verde. No se ejecutó la suite e2e completa, según lo acordado.
+- Se formateó `CHANGELOG.md` con Prettier. El resto del repositorio se dejó sin reformatear: `pnpm format:check` falla en 96 archivos por una causa anterior a este trabajo, `core.autocrlf=true` deja CRLF en el árbol y Prettier espera LF.
+- Limpieza: se eliminó `test-results/`, que solo contenía el marcador `.last-run.json` de Playwright. No se generaron capturas, vídeos ni trazas, y no queda ningún `.png` nuevo fuera de `src/app/assets/`. El script temporal que se usó para medir contraste ya se había borrado en su propia tarea.
+- Los cambios quedan en el árbol de trabajo de la rama `feat/control-panel`, sin commitear, a la espera de revisión.
+
+**Archivos modificados:**
+
+- `tests/panel/PanelSection.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:09 13:24
+
+**Resumen:** Se verificó el panel en los tres tamaños y en tema oscuro con Playwright, se añadió la prueba unitaria de layout y disciplina de color, y se corrigió el ayudante de login de e2e que estaba roto.
+
+**Cambios:**
+
+- Se agregó `tests/panel/PanelSection.test.tsx` con 20 casos. Mira clases a propósito y el archivo explica por qué: jsdom no aplica media queries, así que la única forma de afirmar en una prueba unitaria que el grid cambia por breakpoint es comprobar que las clases están puestas.
+- El barrido de colores crudos recorre los doce archivos del panel más las primitivas migradas y falla si aparece una escala de Tailwind o un color literal. La lista de archivos del panel se construye leyendo el directorio, así que un componente nuevo entra en el barrido sin que nadie lo añada.
+- `degradado-*` queda fuera de la lista de prohibidos: es un rol propio del sistema con paridad claro/oscuro, igual que `sidebar`, y no una escala cruda.
+- Se agregó una prueba de que la tabla precede al mapa y a las notificaciones en el orden del DOM. Si alguien recolocara con `order-*`, lo que se ve y lo que se lee dejarían de coincidir y la comparación de posición lo detecta.
+- Se creó `e2e/panel.spec.ts` con 10 casos, todos en verde: contenido de los indicadores, las tres verdades del ETA, chips reflejando la condición activa, el máximo de 28 caracteres medido sobre la columna real, las dos acciones, el grid en 375 / 768 / 1440 leyendo `gridTemplateColumns` ya calculado por el navegador, el scroll horizontal de la tabla en móvil, el mapa debajo en móvil y al lado en escritorio, y el tema oscuro.
+- La prueba de tema oscuro añade la clase `dark` al `<html>` y comprueba que cambian el fondo del `body` y el del chip de estado. Es la verificación de que el panel consume roles: un chip escrito con un verde crudo no cambiaría.
+- Se corrigió `e2e/support/login.ts`, que estaba roto en esta rama desde antes de este trabajo. El rediseño del login añadió el botón "Mostrar contrasena", y `getByLabel` casa por subcadena, así que `getByLabel('Contrasena')` resolvía dos elementos y fallaba en modo estricto. Con `exact: true` resuelve solo el campo. Afectaba a todos los recorridos e2e, no solo a los nuevos.
+- Se aplicó la misma corrección en el caso de credenciales incorrectas de `e2e/journey.spec.ts`.
+- En la prueba de "Solicitar Servicio" el localizador se acotó a la tarjeta de acciones: la sidebar tiene su propio enlace con el mismo nombre. Que existan los dos es correcto —uno es navegación permanente y el otro la acción del panel—, así que lo que se corrigió fue la prueba.
+- Playwright no dejó capturas ni trazas: se verificó que `test-results` y `playwright-report` quedan vacíos.
+
+**Archivos modificados:**
+
+- `tests/panel/PanelSection.test.tsx`
+- `e2e/panel.spec.ts`
+- `e2e/support/login.ts`
+- `e2e/journey.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:09:09 13:15
+
+**Resumen:** Se compuso el Panel de Control completo y se cableó como home autenticada, sustituyendo la lista plana de viajes que había antes.
+
+**Cambios:**
+
+- Se creó `features/panel/PanelSection.tsx`, presentacional: recibe el panel por props y no llama a la API. Compone los tres indicadores, las acciones, la tabla, el mapa y las notificaciones.
+- Los indicadores van de 1 a 2 a 4 columnas. Cuatro tarjetas en fila necesitan unos 1200px para que el número grande no compita con la etiqueta; por debajo van de dos en dos y en móvil se apilan.
+- El cuerpo se apila por debajo de `xl` y pasa a 2/3 + 1/3 en `xl`. La tabla va primera en el DOM porque es el contenido principal, y ese orden es también el de lectura en móvil: no se reordena con `order-*`, que separa lo que se ve de lo que se lee.
+- El indicador de alertas cambia de tono según el dato: en rojo con "Requieren atención inmediata" cuando hay alguna, en neutro con "Sin alertas pendientes" cuando no. Un cero en rojo seguiría gritando sin motivo.
+- La variación de viajes activos se muestra con signo explícito ("+3 desde ayer"): sin él, el número se leería como un total en lugar de como una variación.
+- Un nivel de riesgo sin etiqueta conocida se muestra con su código crudo, igual que hace el chip de estado con los estados desconocidos.
+- Se reescribió `routes/_private/index.tsx`: `loader` con `getPanel()`, `pendingComponent` con el spinner y `errorComponent` con el estado de error, más el `h1` "Panel de Control". Sin cabecera compartida y sin tocar `AppShell`.
+- Se conserva el `h1` aunque el diseño no muestre título de página: sin él la jerarquía del documento empezaría en `h2`. Va visible, y confirma en el contenido lo que la sidebar marca como activo.
+- Se corrigió `e2e/support/login.ts`, que esperaba el encabezado "Tus viajes" de la home anterior. Sin este cambio todos los recorridos e2e se habrían quedado colgados en el login, no solo el de la home.
+- Se actualizó el aserto de `e2e/journey.spec.ts` para que compruebe el panel: además de las tres filas, que el bloque "Viajes en Curso" es visible.
+- `ViajesListSection` sigue en uso en `/viajes`: el panel muestra solo los viajes en curso, que es una vista distinta y no una versión recortada del listado.
+
+**Archivos modificados:**
+
+- `src/features/panel/PanelSection.tsx`
+- `src/routes/_private/index.tsx`
+- `e2e/support/login.ts`
+- `e2e/journey.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:09:09 13:10
+
+**Resumen:** Se agregaron la tarjeta de notificaciones recientes y el placeholder del mapa, con la severidad distinguible por algo más que el color.
+
+**Cambios:**
+
+- Se creó `features/panel/NotificacionesCard.tsx`. La severidad se comunica por tres vías a la vez: icono, texto oculto para lectores de pantalla ("Crítica:", "Informativa:") y color. El color solo no basta porque se pierde en escala de grises, en alto contraste y para una parte de la población.
+- La lista es una `<ul>` real, así que un lector de pantalla anuncia cuántos avisos hay antes de leerlos: convierte "hay avisos" en "hay dos avisos".
+- Una severidad desconocida se pinta en tono neutro y se anuncia como "Aviso", en lugar de caer en el estilo informativo. Disfrazarla de informativa sería decidir por el backend que algo no es grave.
+- El tiempo se muestra relativo ("hace 2 minutos") dentro de un `<time>` con `dateTime`, y la fecha legible completa queda en el `title`: lo útil de un vistazo sin perder el instante real.
+- Se creó `features/panel/MapPlaceholderCard.tsx` como hueco declarado y no como mapa a medio hacer. MapLibre sigue sin montar por la decisión abierta 9 del README: antes de dibujar hay que decidir cómo se pinta una posición vieja, qué se pinta cuando falta por degradación y si la traza es polilínea o puntos.
+- El placeholder lleva texto además del icono. Un icono solo sería un cuadro vacío para quien usa un lector de pantalla, así que el hueco se calla en lo visual pero lo dice con palabras.
+- Se agregaron 6 pruebas en `tests/panel/NotificacionesCard.test.tsx`, incluida la que falla si alguien sustituye el icono y el texto oculto por un simple cambio de fondo.
+
+**Archivos modificados:**
+
+- `src/features/panel/NotificacionesCard.tsx`
+- `src/features/panel/MapPlaceholderCard.tsx`
+- `tests/panel/NotificacionesCard.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:09 13:06
+
+**Resumen:** Se agregó la tabla "Viajes en Curso" con el chip de estado, la celda de ETA truncada y las utilidades de formato que necesitan.
+
+**Cambios:**
+
+- Se agregó `ETA_MAX_CHARS = 28` a `lib/constants.ts`. No es un número redondo: es la longitud exacta del peor caso del formato pedido, "24 de septiembre 2026, 12:00", con el nombre de mes más largo en español. Elegido así, el límite no corta nunca un ETA bien formado; solo recorta lo que se sale de la plantilla.
+- Se agregaron `truncate` y `formatRelativeTime` a `lib/utils.ts`. En `truncate` la elipsis cuenta dentro del límite, porque el límite describe el ancho que la celda puede mostrar, y se limpian los espacios finales para no producir "Hoy a las …".
+- Se creó `lib/tracking/formatEta.ts` con `formatEtaTexto`. Vive en el dominio de seguimiento y no en el panel porque la pantalla de tracking necesitará el mismo formato, y dos formatos para el mismo dato es como empiezan las pantallas que no se parecen entre sí.
+- "Hoy" y "Mañana" se deciden por día de calendario y no por diferencia de horas: un ETA a trece horas cae hoy o mañana según cuándo se mire, y decir "Hoy" porque faltan menos de veinticuatro horas sería afirmar algo falso sobre el día. `ahora` es un parámetro, así que la función es pura y las pruebas no dependen del día en que se ejecuten.
+- Se creó `features/viajes/EstadoViajeChip.tsx`, que no inventa estados. Deriva su apariencia de lo que existe: condición activa presente da tono de aviso y la etiqueta es la condición; `EN_RUTA` limpio da tono de éxito; `SOLICITADO`, informativo; cualquier otro código se pinta tal cual en gris. Los tres tonos del diseño salen sin declarar códigos que el contrato no tiene.
+- Que la condición gane al estado no es estético: una condición activa se superpone al estado de progreso, y en una fila de una línea la anomalía es lo que hay que ver antes.
+- Se creó `features/panel/EtaCell.tsx` con los tres estados de `Fresco`: hora formateada, "ETA no disponible" con `role="status"` y motivo en el `title`, o "Pendiente". No reutiliza `FreshnessMark` porque esa marca ocupa tres líneas y rompe el ritmo de la tabla, pero mantiene la distinción: "Pendiente" es un viaje sin ETA calculado y "ETA no disponible" es un ETA que existe y no podemos consultar.
+- Se creó `features/panel/ViajesEnCursoTable.tsx` con su tarjeta, el título y el enlace inerte "Ver todos". Origen y destino comparten columna porque son una sola unidad de información y separarlos ensancharía la tabla justo donde menos ancho hay.
+- Se ampliaron las props opcionales de `components/ui/Table.tsx`: `headerTone` para cabecera atenuada en tablas dentro de una tarjeta (evita dos marcos anidados), `rowAccent` para el indicador vertical de la fila destacada, y `minWidthClass` para que la tabla scrollee en lugar de comprimir columnas. El indicador va en la primera celda y no en el `<tr>` porque el borde en la fila no se pinta igual en todos los navegadores.
+- Se agregaron 23 pruebas nuevas en `tests/panel/formatEta.test.ts`, y `tests/panel/ViajesEnCursoTable.test.tsx`, incluidas las que fijan el peor caso del formato en el límite exacto y la que verifica que un estado desconocido se muestra sin disfrazarse.
+- Se amplió el helper `tests/support/router.tsx` con la ruta de detalle de viaje, que la tabla enlaza.
+
+**Archivos modificados:**
+
+- `src/lib/constants.ts`
+- `src/lib/utils.ts`
+- `src/lib/tracking/formatEta.ts`
+- `src/components/ui/Table.tsx`
+- `src/features/viajes/EstadoViajeChip.tsx`
+- `src/features/panel/EtaCell.tsx`
+- `src/features/panel/ViajesEnCursoTable.tsx`
+- `tests/panel/formatEta.test.ts`
+- `tests/panel/ViajesEnCursoTable.test.tsx`
+- `tests/support/router.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:09 13:00
+
+**Resumen:** Se agregaron las tarjetas de indicador del panel y el bloque de acciones, con "Solicitar Servicio" navegando a la página de solicitud.
+
+**Cambios:**
+
+- Se creó `features/panel/KpiCard.tsx`. El valor es un nodo y no un texto porque los tres indicadores del diseño no tienen la misma forma (un número, un texto en dos líneas, un contador), y forzarlos a un tipo común obligaría a la tarjeta a interpretar el dato. El tono cambia el color del valor, del pie y del icono, nunca el fondo: la jerarquía la da el dato.
+- La etiqueta del indicador va en su propio elemento de texto para que un lector de pantalla la lea separada del valor, y el icono se pasa siempre con `aria-hidden` porque la etiqueta ya nombra el indicador.
+- Se creó `features/panel/QuickActionsCard.tsx`. "Solicitar Servicio" es un `Link` a `/viajes/new` y no un botón con `onClick`: es una navegación, así que debe poder abrirse en otra pestaña y mostrar su destino.
+- "Descargar Reporte" queda visible y habilitado, sin handler y con un `TODO`. No se deshabilita porque un botón deshabilitado comunica "no puedes ahora" y lo cierto es "esto todavía no se ha construido".
+- Se agregó `tests/support/router.tsx`, que monta un router de memoria para poder probar componentes con `Link`. Es la alternativa honesta a simular el `Link`: comprueba que el destino resuelve a un `href` real en lugar de comprobar que le pasamos una prop.
+- Se agregó `tests/panel/KpiCard.test.tsx` con cinco casos: etiqueta, valor y pie legibles, icono no anunciado, valor de varias líneas, enlace de solicitud y botón de reporte operable.
+- Nota de entorno: `pnpm format:check` falla en todo el repositorio por una causa anterior a este trabajo (`core.autocrlf=true` deja CRLF en el árbol y Prettier espera LF). Los archivos de esta tarea se verificaron con Prettier ignorando el fin de línea, sin reformatear los 96 archivos ajenos.
+
+**Archivos modificados:**
+
+- `src/features/panel/KpiCard.tsx`
+- `src/features/panel/QuickActionsCard.tsx`
+- `tests/support/router.tsx`
+- `tests/panel/KpiCard.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:09 12:56
+
+**Resumen:** Se agregó la ruta de datos del Panel de Control: tipos de contrato, parser propio, wrapper de API y respuesta simulada, con los lectores de wire extraídos para no duplicar la lógica de frescura.
+
+**Cambios:**
+
+- Se creó `lib/wire/readers.ts` con los lectores estructurales del wire (`isRecord`, `requireString`, `requireNumber`, `requireRecord`, `optionalNumber`) y con `parseFrescoWire`, que es donde se cumple la regla "ausente por degradación no es ausente". Se extrajo en lugar de copiarse: si cada parser tuviera su propia versión, la regla se cumpliría dos veces y se rompería una.
+- Se refactorizó `lib/tracking/parseTrackingPayload.ts` para consumir esos lectores y se exportaron `parseEtaWire`, `parsePosicionWire` y `parseCondicionesWire` para que el panel reutilice las mismas formas. El parser traduce los fallos de `lib/wire/` a `TrackingPayloadError`, así que su error público no cambia y las pruebas de contrato existentes siguen valiendo.
+- Se creó `lib/contracts/panel.ts` con `PanelDeControl`, `ViajeEnCurso`, `NotificacionPanel` y los indicadores. El ETA de un viaje en curso es `Fresco<Eta>` y no `Eta | null`: "no lo sabemos ahora" y "no hay ETA" son casos distintos. `NivelRiesgo` y `SeveridadNotificacion` son uniones abiertas como `EstadoViaje`, porque el contrato de estados todavía no existe.
+- Se creó `lib/panel/parsePanel.ts`, que no rellena huecos: si falta un indicador levanta `PanelPayloadError` en lugar de asumir un cero, porque "no hay viajes activos" es una afirmación que el panel no puede hacer cuando el campo no llegó.
+- Se creó `lib/api/panel.ts` con `getPanel()`: un solo GET agregado a `/panel`, sin identificador de cliente en la petición, porque el alcance lo deriva el servidor del token.
+- Se agregó `panelWire()` a los mocks como función y no como constante, para que los tiempos relativos ("Hoy, 18:30", "hace 2 minutos") se calculen al servir y la pantalla no envejezca sola. Reutiliza los folios, orígenes y destinos de `viajesWire`.
+- El ETA de `viaje-2` llega marcado como ausente por degradación, coherente con su ruta de tracking: pintarle una hora concreta habría contradicho el propio dataset. `viaje-3` llega sin ETA. Los tres estados de `Fresco` quedan cubiertos.
+- Se agregó el handler `GET /api/v1/panel` y las pruebas `tests/panel/parsePanel.test.ts`, incluida una que hace pasar el dataset de los mocks por el parser real, de modo que un renombre de campo falle en la suite y no al abrir el navegador.
+
+**Archivos modificados:**
+
+- `src/lib/wire/readers.ts`
+- `src/lib/tracking/parseTrackingPayload.ts`
+- `src/lib/contracts/panel.ts`
+- `src/lib/contracts/index.ts`
+- `src/lib/panel/parsePanel.ts`
+- `src/lib/api/panel.ts`
+- `src/mocks/data.ts`
+- `src/mocks/handlers.ts`
+- `tests/fixtures/panelWire.ts`
+- `tests/panel/parsePanel.test.ts`
+- `CHANGELOG.md`
+
+## 2026:09:09 12:52
+
+**Resumen:** Se agregaron los roles de color de estado (`success`, `warning`, `info`) en ambos temas, se creó la primitiva `Card` y se migraron `Button` y `Table` a roles Material 3 para que respondan al tema oscuro.
+
+**Cambios:**
+
+- Se agregaron doce tokens de color en `@theme` y en `.dark`: par sólido (`success` + `on-success`) y par suave (`success-container` + `on-success-container`) para cada uno de los tres estados. El par sólido es para puntos, bordes e iconos; el suave, para el relleno de chips y avisos.
+- Se documentó el uso de los roles nuevos en la guía de la cabecera de `globals.css`, incluida la advertencia de que `warning` (aviso del dominio) no sustituye a `degradado` (el servicio no responde).
+- Se verificó el contraste de los dieciocho pares con un script temporal: todos los pares de texto quedan por encima de 4.5:1 y los puntos sólidos sobre relleno suave por encima de 3:1. `on-warning` en claro se oscureció de `L=0.24` a `L=0.22` porque el valor original se quedaba en 4.44:1, justo por debajo del mínimo AA.
+- Se creó `components/ui/Card.tsx`: superficie, borde y radio de una tarjeta definidos en un solo sitio, con borde en lugar de sombra según el sistema de diseño, y sin padding propio para que cada tarjeta decida su ritmo interno.
+- Se migraron `Button` y `Table` de colores crudos (`brand-*`, `slate-*`, `red-*`) a roles. El hover de las variantes sólidas usa opacidad del mismo rol y no un rol distinto: saltar a `primary-container` funciona en claro pero se rompe en oscuro, donde tanto el fondo como el texto quedarían oscuros.
+- Efecto colateral aceptado: el botón del login y el enlace de `/viajes` pasan del azul `brand-600` al azul `primary` del sistema de diseño.
+
+**Archivos modificados:**
+
+- `src/styles/globals.css`
+- `src/components/ui/Card.tsx`
+- `src/components/ui/Button.tsx`
+- `src/components/ui/Table.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 17:12
+
+**Resumen:** Se agregaron transiciones sutiles a la sidebar para mejorar la interacción, respetando la preferencia de movimiento reducido.
+
+**Cambios:**
+
+- Los enlaces de navegación ahora animan color, fondo y borde en hover/activo, con un ligero desplazamiento a la derecha en hover y un escalado del icono.
+- Se reservó el espacio del borde izquierdo (`border-l-4 border-transparent`) en los enlaces inactivos para evitar el salto de layout al activarse y suavizar la transición del borde.
+- El botón "Nuevo viaje" se eleva levemente en hover y su icono "plus" gira 90°.
+- Todas las animaciones se desactivan con `motion-reduce` para respetar `prefers-reduced-motion`.
+
+**Archivos modificados:**
+
+- `src/app/shell/Sidebar.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 16:39
+
+**Resumen:** Se agregó un icono "plus" al botón "Nuevo viaje" de la sidebar y se limpió código sin uso.
+
+**Cambios:**
+
+- Se creó el icono `PlusIcon` (signo más simple) en el archivo de iconos.
+- Se colocó el icono a la izquierda del texto en el botón "Nuevo viaje" de la sidebar.
+- Se eliminó el import y la variable `useSession`/`logout` que ya no se usaban en la sidebar (quedaban del botón "Salir" retirado), evitando un warning de lint.
+
+**Archivos modificados:**
+
+- `src/components/ui/icons.tsx`
+- `src/app/shell/Sidebar.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 15:59
+
+**Resumen:** Se corrigió el bug de la sidebar donde dos pestañas quedaban activas a la vez al navegar entre rutas con prefijo común.
+
+**Cambios:**
+
+- Se reemplazó el resaltado activo basado en `activeProps`/`activeOptions` por un cálculo propio del estado activo con `useRouterState`, que compara el pathname por segmentos.
+- Se añadió el campo `exact` por item de navegación: las rutas que son prefijo de otra (`/` y `/viajes`) se controlan explícitamente.
+- Se añadió la regla de que un item padre no-exact (ej. `/viajes`) no se activa cuando un item hijo exacto reclama la ruta (ej. `/viajes/new`), evitando el doble activo.
+- Como beneficio adicional, el detalle de un viaje (`/viajes/$viajeId`) ahora resalta correctamente "Historial de Viajes".
+
+**Archivos modificados:**
+
+- `src/app/shell/Sidebar.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 15:44
+
+**Resumen:** Se agregó un icono de escudo a la izquierda del título "AI27" en la sidebar.
+
+**Cambios:**
+
+- Se creó el icono `ShieldIcon` (escudo con marca de verificación) en el archivo de iconos.
+- Se colocó el escudo a la izquierda del bloque de marca "AI27 / Seguridad Logística" en la sidebar.
+
+**Archivos modificados:**
+
+- `src/components/ui/icons.tsx`
+- `src/app/shell/Sidebar.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 13:54
+
+**Resumen:** Se corrigió el color de la sidebar para que coincida con el diseño (navy) en ambos temas, creando un rol de color dedicado.
+
+**Cambios:**
+
+- Se añadió el rol semántico propio `sidebar` / `on-sidebar` en `globals.css`, porque ningún rol M3 se mantiene navy en claro y oscuro a la vez. Valores tomados de la paleta: claro `#002266`, oscuro `#101828`.
+- Se actualizó la sidebar para usar `bg-sidebar` / `text-on-sidebar`, reemplazando `primary-container` (que no daba el navy correcto en el tema claro).
+- El estado activo de cada pestaña usa `primary` / `on-primary` como resalte azul sobre el navy.
+
+**Archivos modificados:**
+
+- `src/styles/globals.css`
+- `src/app/shell/Sidebar.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 13:51
+
+**Resumen:** Se hizo consistente el color de la sidebar entre los temas claro y oscuro, corrigiendo roles de color incoherentes.
+
+**Cambios:**
+
+- Se cambió el fondo de la sidebar a `primary-container`, que se mantiene navy en claro y navy casi negro en oscuro (antes usaba `primary`, que se invertía a azul claro en el tema oscuro).
+- Se corrigió el logo "AI27", que usaba `text-primary` (azul sobre azul, casi invisible) por `on-primary-container`.
+- Se alineó todo el contenido de la sidebar (subtítulo, enlaces, hover, botón Salir, borde) al par `on-primary-container` para un contraste consistente sobre el fondo navy.
+- El estado activo de cada pestaña ahora usa el par `primary` / `on-primary` como resalte.
+
+**Archivos modificados:**
+
+- `src/app/shell/Sidebar.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 13:35
+
+**Resumen:** Se convirtió la barra de navegación superior en una sidebar lateral izquierda con las pestañas del portal, y se agregaron páginas temporales para las rutas que aún no existen.
+
+**Cambios:**
+
+- Se transformó `AppShell` de una barra superior a un layout de dos columnas con sidebar fija a la izquierda.
+- Se creó el componente `Sidebar` con las pestañas: Panel de Control, Seguimiento en Vivo, Historial de Viajes, Solicitar Servicio y Configuración, cada una con su icono.
+- Se creó el archivo de iconos SVG inline usados por la sidebar.
+- Se mapearon las pestañas a rutas existentes (`/`, `/viajes`, `/viajes/new`) y se crearon páginas temporales para las que faltaban (`/seguimiento`, `/configuracion`) que muestran solo un texto de "en construcción".
+- La sidebar y las páginas usan los roles de color Material 3, por lo que respetan los temas claro y oscuro.
+
+**Archivos modificados:**
+
+- `src/app/shell/AppShell.tsx`
+- `src/app/shell/Sidebar.tsx`
+- `src/components/ui/icons.tsx`
+- `src/routes/_private/seguimiento/index.tsx`
+- `src/routes/_private/configuracion/index.tsx`
+- `CHANGELOG.md`
+
+## 2026:09:08 00:05
+
+**Resumen:** Se amplió la regla de CHANGELOG para exigir un resumen y la lista de archivos modificados en cada entrada.
+
+**Cambios:**
+
+- Se agregaron las reglas 6 y 7 exigiendo un resumen de los cambios y la lista de archivos modificados.
+- Se actualizó el formato y el ejemplo de cada entrada.
+
+**Archivos modificados:**
+
+- `.kiro/steering/changelog.md`
+- `CHANGELOG.md`
+
+## 2026:09:08 00:00
+
+- Se creó el archivo CHANGELOG.md y la regla de steering que exige registrar cada cambio.
