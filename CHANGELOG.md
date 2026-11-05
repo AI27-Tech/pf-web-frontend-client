@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026:11:05 15:30
+
+**Resumen:** Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.28` a `0.1.0-tracer.37` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se regeneró `pnpm-lock.yaml`. Es el contrato que sirve el `bff` dentro de `pf-svc-core` `v0.1.4` para el demo (DEC-137). `lint`, `format:check`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
+
+**Qué cambió para el portal (verificado contra el `bff.yaml` de las dos olas):** se compararon las 15 operaciones que usa o puede usar el cliente (sesión, viajes, transiciones-cliente, emergencias, conversación, `listarTiposServicio`, `listarIncidencias`) y todos los esquemas que alcanzan. Rutas, métodos y códigos de respuesta son idénticos. El único cambio es que `ConversacionCliente` trae ahora **`ultima_secuencia` obligatorio** (cursor de dominio del bootstrap, ADR 28 §2; `0` sin mensajes). `tracer.30` y `tracer.31` no existen para TS (DEC-120).
+
+**Cambios:**
+
+- `package.json` + `pnpm-workspace.yaml` + `pnpm-lock.yaml`: pin a `0.1.0-tracer.37`.
+- `src/mocks/handlers.ts`: `GET /viajes/:id/conversacion` devuelve `ultima_secuencia` (secuencia mayor de los mensajes del viaje, `0` si no hay), como el contrato.
+- `tests/conversacion/conversacion.test.ts` + `tests/conversacion/ConversacionSection.test.tsx`: los fixtures `ConversacionCliente` llevan el campo nuevo obligatorio.
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-workspace.yaml` · `pnpm-lock.yaml` · `src/mocks/handlers.ts` · `tests/conversacion/conversacion.test.ts` · `tests/conversacion/ConversacionSection.test.tsx` · `CHANGELOG.md`
+
 ## 2026:10:30 15:56
 
 **Resumen:** Se **reconectó la conversación del viaje** en el portal del cliente (E9-T8 / E3-HU-014, AI27-27): el cliente lee los mensajes de su viaje y envía los suyos; las respuestas de AI27 aparecen con la etiqueta fija **"AI27 Operations"** (DEC-021 #4); la conversación muestra su indicador **atendida/resuelto** (DEC-014). El `bff` ya expone la superficie Cliente desde `tracer.26`, **anclada al viaje** (no a un `conversacion_id`). Se **subió el pin** `@ai27-tech/contracts` de `0.1.0-tracer.23` a `0.1.0-tracer.28` (en `package.json` y en `minimumReleaseAgeExclude` de `pnpm-workspace.yaml`) y se reinstaló. `lint`, `typecheck` y `test` (33 archivos, 220 pruebas) en verde; e2e en verde (26 activos, 13 `skip`: +2 de conversación, y se retiraron 2 pruebas `.skip` obsoletas de `/conversaciones`).

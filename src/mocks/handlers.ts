@@ -274,6 +274,8 @@ export const handlers = [
       viaje_id: conv.viaje_id,
       estado: conv.estado,
       atendida: conv.atendida,
+      // Cursor de dominio del bootstrap (tracer.37): secuencia del último mensaje, 0 si no hay.
+      ultima_secuencia: Math.max(0, ...(mensajesWire[conv.viaje_id] ?? []).map((m) => m.secuencia)),
     });
   }),
 
