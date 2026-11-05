@@ -56,7 +56,10 @@ export const handlers = [
        * esta", y devolver el codigo correcto es lo que permite comprobar que esa
        * distincion funciona.
        */
-      return HttpResponse.json({ error: 'credenciales invalidas' }, { status: 401 });
+      return HttpResponse.json(
+        { codigo: 'no_autorizado', mensaje: 'credenciales invalidas' },
+        { status: 401 },
+      );
     }
 
     return HttpResponse.json(sesionWire());
@@ -68,11 +71,17 @@ export const handlers = [
       request.headers.get('x-mock-session-cut') === '1' ||
       request.headers.get('cookie')?.includes('ai27-mock-session-cut=1')
     ) {
-      return HttpResponse.json({ detail: 'Sesión revocada' }, { status: 401 });
+      return HttpResponse.json(
+        { codigo: 'no_autorizado', mensaje: 'Sesión revocada' },
+        { status: 401 },
+      );
     }
     const body = (await request.json()) as { refresh_token?: string };
     if (body.refresh_token !== 'mock.refresh-1') {
-      return HttpResponse.json({ detail: 'refresh_token requerido' }, { status: 401 });
+      return HttpResponse.json(
+        { codigo: 'no_autorizado', mensaje: 'refresh_token requerido' },
+        { status: 401 },
+      );
     }
     return HttpResponse.json({ ...sesionWire(), access_token: 'mock.jwt.no-firmado.refrescado' });
   }),
@@ -101,11 +110,22 @@ export const handlers = [
       request.headers.get('x-mock-session-cut') === '1' ||
       request.headers.get('cookie')?.includes('ai27-mock-session-cut=1')
     ) {
-      return HttpResponse.json({ detail: 'Sesión finalizada' }, { status: 401 });
+      return HttpResponse.json(
+        { codigo: 'no_autorizado', mensaje: 'Sesión finalizada' },
+        { status: 401 },
+      );
     }
-    const estado = new URL(request.url).searchParams.get('estado');
-    const items = estado === null ? viajesWire : viajesWire.filter((v) => v.estado === estado);
-    return HttpResponse.json(items);
+    // Forma de contrato `PaginaViajesResumen`, de cuatro en cuatro para que el portal
+    // tenga que seguir `cursor_siguiente`. El cursor del mock es el desplazamiento.
+    const url = new URL(request.url);
+    const estado = url.searchParams.get('estado');
+    const todos = estado === null ? viajesWire : viajesWire.filter((v) => v.estado === estado);
+    const desde = Number(url.searchParams.get('cursor') ?? '0');
+    const hasta = desde + 4;
+    return HttpResponse.json({
+      items: todos.slice(desde, hasta),
+      cursor_siguiente: hasta < todos.length ? String(hasta) : null,
+    });
   }),
 
   http.post('*/api/v1/viajes', async ({ request }) => {
@@ -123,7 +143,10 @@ export const handlers = [
     await delay(LATENCY_MS);
     const detalle = viajeDetalleWire[String(params.viajeId)];
     if (detalle === undefined) {
-      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+      return HttpResponse.json(
+        { codigo: 'no_encontrado', mensaje: 'no encontrado' },
+        { status: 404 },
+      );
     }
     return HttpResponse.json(detalle);
   }),
@@ -144,7 +167,10 @@ export const handlers = [
       | undefined;
     // 404, no 403: no revela si el viaje existe cuando está fuera de alcance.
     if (detalle === undefined) {
-      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+      return HttpResponse.json(
+        { codigo: 'no_encontrado', mensaje: 'no encontrado' },
+        { status: 404 },
+      );
     }
 
     const body = (await request.json().catch(() => ({}))) as { a_estado?: string; causa?: string };
@@ -152,7 +178,7 @@ export const handlers = [
     // 400: el motivo es OBLIGATORIO en ambas acciones (DEC-111).
     if (causa === '') {
       return HttpResponse.json(
-        { codigo: 'causa_requerida', error: 'El motivo es obligatorio.' },
+        { codigo: 'causa_requerida', mensaje: 'El motivo es obligatorio.' },
         { status: 400 },
       );
     }
@@ -161,7 +187,7 @@ export const handlers = [
     if (aEstado !== 'CANCELADO' && aEstado !== 'RECHAZADO_POR_CLIENTE') {
       // Arista que no corresponde al cliente: fuera del carril normal (403 en contrato).
       return HttpResponse.json(
-        { codigo: 'arista_no_permitida', error: 'Transición no disponible para el cliente.' },
+        { codigo: 'arista_no_permitida', mensaje: 'Transición no disponible para el cliente.' },
         { status: 403 },
       );
     }
@@ -170,7 +196,10 @@ export const handlers = [
     // (p. ej. el viaje ya salió o ya es terminal).
     if (!puedeTransicionar(detalle.hito.estado as EstadoViaje, aEstado as EstadoViaje)) {
       return HttpResponse.json(
-        { codigo: 'transicion_no_permitida', error: 'El viaje ya no puede cambiar a ese estado.' },
+        {
+          codigo: 'transicion_no_permitida',
+          mensaje: 'El viaje ya no puede cambiar a ese estado.',
+        },
         { status: 409 },
       );
     }
@@ -241,7 +270,10 @@ export const handlers = [
     const casos = emergenciasWire[String(params.viajeId)] ?? [];
     const caso = casos.find((c) => c.id === String(params.eid));
     if (caso === undefined) {
-      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+      return HttpResponse.json(
+        { codigo: 'no_encontrado', mensaje: 'no encontrado' },
+        { status: 404 },
+      );
     }
     const body = (await request.json().catch(() => ({}))) as { cuerpo?: string };
     const cuerpo = (body.cuerpo ?? '').trim();
@@ -274,7 +306,10 @@ export const handlers = [
     await delay(LATENCY_MS);
     const conv = conversacionesWire[String(params.viajeId)];
     if (conv === undefined) {
-      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+      return HttpResponse.json(
+        { codigo: 'no_encontrado', mensaje: 'no encontrado' },
+        { status: 404 },
+      );
     }
     // Vista mínima del cliente: sin conversacion_id ni nada interno.
     return HttpResponse.json({
@@ -290,7 +325,10 @@ export const handlers = [
     await delay(LATENCY_MS);
     const viajeId = String(params.viajeId);
     if (conversacionesWire[viajeId] === undefined) {
-      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+      return HttpResponse.json(
+        { codigo: 'no_encontrado', mensaje: 'no encontrado' },
+        { status: 404 },
+      );
     }
     const url = new URL(request.url);
     const antesDe = url.searchParams.get('antes_de');
@@ -339,7 +377,10 @@ export const handlers = [
     const viajeId = String(params.viajeId);
     const conv = conversacionesWire[viajeId];
     if (conv === undefined) {
-      return HttpResponse.json({ error: 'no encontrado' }, { status: 404 });
+      return HttpResponse.json(
+        { codigo: 'no_encontrado', mensaje: 'no encontrado' },
+        { status: 404 },
+      );
     }
 
     const body = (await request.json().catch(() => ({}))) as {
@@ -352,7 +393,7 @@ export const handlers = [
     // 400: el cuerpo es obligatorio (minLength 1). El client_message_id también.
     if (cuerpo === '' || clientMessageId === '') {
       return HttpResponse.json(
-        { codigo: 'cuerpo_requerido', error: 'El mensaje no puede ir vacío.' },
+        { codigo: 'cuerpo_requerido', mensaje: 'El mensaje no puede ir vacío.' },
         { status: 400 },
       );
     }
@@ -363,7 +404,7 @@ export const handlers = [
       return HttpResponse.json(
         {
           codigo: 'conversacion_solo_lectura',
-          error: 'La conversación no admite nuevos mensajes.',
+          mensaje: 'La conversación no admite nuevos mensajes.',
         },
         { status: 409 },
       );

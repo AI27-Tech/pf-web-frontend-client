@@ -28,7 +28,7 @@ function opcionesDeLaLlamada() {
 describe('listViajes — filtro por estado (E9-T3)', () => {
   beforeEach(() => {
     getMock.mockReset();
-    getMock.mockResolvedValue([]);
+    getMock.mockResolvedValue({ items: [], cursor_siguiente: null });
   });
 
   it('sin filtro NO manda el query param `estado`: bff devuelve todo el alcance', async () => {
@@ -64,5 +64,31 @@ describe('listViajes — filtro por estado (E9-T3)', () => {
     expect(Object.keys(query)).toStrictEqual(['estado']);
     expect(query).not.toHaveProperty('tenantId');
     expect(query).not.toHaveProperty('tenant_id');
+  });
+});
+
+describe('listViajes — página del contrato (PaginaViajesResumen)', () => {
+  beforeEach(() => {
+    getMock.mockReset();
+  });
+
+  it('sigue `cursor_siguiente` hasta null, conserva el filtro y junta los viajes en orden', async () => {
+    getMock
+      .mockResolvedValueOnce({
+        items: [{ id: 'v1', estado: 'CERRADO', origen: 'A' }],
+        cursor_siguiente: 'c2',
+      })
+      .mockResolvedValueOnce({
+        items: [{ id: 'v2', estado: 'CERRADO', origen: 'B' }],
+        cursor_siguiente: null,
+      });
+
+    const viajes = await listViajes({ estado: EstadoViaje.Cerrado });
+
+    expect(viajes.map((v) => v.id)).toStrictEqual(['v1', 'v2']);
+    expect(getMock).toHaveBeenNthCalledWith(1, '/viajes', { query: { estado: 'CERRADO' } });
+    expect(getMock).toHaveBeenNthCalledWith(2, '/viajes', {
+      query: { estado: 'CERRADO', cursor: 'c2' },
+    });
   });
 });

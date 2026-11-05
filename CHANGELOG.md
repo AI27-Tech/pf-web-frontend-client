@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026:11:05 16:30
+
+**Resumen:** Se alineó `src/lib/api/` con el `bff.yaml` de `tracer.37`, operación por operación. El hallazgo que cambia algo para el usuario: **"Mis viajes" (`listarViajes`) responde una página `{ items, cursor_siguiente }`, no una lista**, y el portal la trataba como lista; contra el backend real el historial no habría pintado. Ahora se sigue el cursor y se junta el listado. Además, un **404** (viaje inexistente o de otra empresa, DEC-132) se presenta como "No encontramos lo que buscas" en lugar de "Algo se rompió". `lint`, `format:check`, `typecheck` y `test` (35 archivos, 225 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
+
+**Revisado contra el contrato y sin cambios (ya coincidía):** sesión (`iniciarSesion` con `segundo_factor`, `refrescarSesion`, `cerrarSesion`), `seguirViaje` (hito + ETA con `obsoleto`, sin mapa; DEC-001/DEC-025), `crearViaje`, `transicionarViajeCliente`, las tres operaciones de emergencia (la UI pinta todos los `casos` que manda el servidor, sin filtrar por quién activó; DEC-133) y las tres de conversación (por viaje, DEC-124; compositor deshabilitado en `solo_lectura`/`cerrada` y `409 conversacion_solo_lectura`, DEC-041).
+
+**Decisiones de patrón (y por qué):**
+
+- **`listViajes` junta todas las páginas.** El historial pagina en pantalla, no contra el servidor. Es un atajo marcado en el código: cuando el volumen por empresa lo pida, el cursor pasa a la UI.
+- **El 404 no es un fallo.** Para el cliente, "no existe" y "es de otra empresa" son el mismo 404 a propósito (DEC-132); el mensaje no revela cuál de los dos es.
+- **Los errores del mock tienen la forma `Error` del contrato** (`{ codigo, mensaje }`), en lugar de `{ error }` o `{ detail }`. El mock de `/viajes` pagina de cuatro en cuatro; con el bucle del cursor roto fallan dos e2e de historial y la prueba unitaria (comprobado).
+
+**Cambios:**
+
+- `src/lib/api/viajes.ts`: `listViajes` lee `PaginaViajesResumen` y sigue `cursor_siguiente`, conservando el filtro `estado`.
+- `src/components/ui/Feedback.tsx`: `ErrorState` distingue `noEncontrado`.
+- `src/mocks/handlers.ts`: `/viajes` paginado; cuerpos de error `{ codigo, mensaje }`.
+- `tests/viajes/listViajes.test.ts`: el doble devuelve la página; prueba nueva de seguimiento del cursor.
+- `tests/ui/ErrorState.test.tsx` (nuevo).
+
+**Archivos modificados:**
+
+- `src/lib/api/viajes.ts` · `src/components/ui/Feedback.tsx` · `src/mocks/handlers.ts` · `tests/viajes/listViajes.test.ts` · `tests/ui/ErrorState.test.tsx` · `CHANGELOG.md`
+
 ## 2026:11:05 15:55
 
 **Resumen:** El select **Tipo de servicio** del alta (E9-T4 / E1-HU-001) lee ahora el catálogo real del `bff`: operación `listarTiposServicio` (`GET /api/v1/catalogos/tipos-servicio`), que devuelve una **página** `{ items: [{ codigo, etiqueta }], cursor_siguiente }`. Antes el portal esperaba una lista simple `[{ id, nombre }]` de un `/catalogos/{familia}` genérico que el `bff` no expone, así que contra el backend real el select habría quedado vacío. `lint`, `format:check`, `typecheck` y `test` (34 archivos, 222 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).
