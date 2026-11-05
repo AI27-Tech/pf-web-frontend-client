@@ -129,30 +129,26 @@ test.describe('historial · controles sin funcionalidad', () => {
 });
 
 test.describe('historial · tema oscuro', () => {
-  // V1 no tiene conmutador de tema: el portal carga un unico set de tokens y ya es
-  // oscuro. Agregar `.dark` al <html> no cambia el fondo del body porque nada en la
-  // app reacciona a esa clase (verificado contra el bundle mock). La prueba asume una
-  // funcionalidad de theming que no existe en V1; se omite hasta que exista el toggle.
-  test.skip('el tema oscuro cambia los colores sin tocar ningun componente', async ({ page }) => {
+  // El tema lo conmuta la libreria @ai27-tech/ui por el atributo `data-theme` en <html>
+  // (index.html lo fija en "dark"; no hay toggle en V1). La clase `.dark` no cambia
+  // colores: solo `color-scheme`. Por eso la prueba alterna `data-theme`.
+  test('el tema oscuro cambia los colores sin tocar ningun componente', async ({ page }) => {
     await login(page);
     await page.goto('/viajes');
     await expect(page.getByRole('table')).toBeVisible();
 
-    const fondoDe = (selector: string) =>
-      page
-        .locator(selector)
-        .first()
-        .evaluate((nodo) => globalThis.getComputedStyle(nodo).backgroundColor);
+    const fondoDelBody = () =>
+      page.locator('body').evaluate((nodo) => globalThis.getComputedStyle(nodo).backgroundColor);
+    const ponerTema = (tema: 'light' | 'dark') =>
+      page.evaluate((valor) => {
+        globalThis.document.documentElement.dataset['theme'] = valor;
+      }, tema);
 
-    const cuerpoClaro = await fondoDe('body');
+    await ponerTema('light');
+    const cuerpoClaro = await fondoDelBody();
 
-    await page.evaluate(() => {
-      globalThis.document.documentElement.classList.add('dark');
-    });
-
-    await expect
-      .poll(async () => fondoDe('body').then((valor) => valor !== cuerpoClaro))
-      .toBe(true);
+    await ponerTema('dark');
+    await expect.poll(fondoDelBody).not.toBe(cuerpoClaro);
 
     // El contenido sigue ahi: cambia el color, no la informacion.
     await expect(page.getByRole('heading', { name: 'Historial de Viajes' })).toBeVisible();
