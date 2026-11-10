@@ -11,8 +11,8 @@ import { login } from './support/login';
  * un botón que abre una lista, sin `<label for>`, así que se localiza por su etiqueta
  * visible y no por `getByLabel`.
  */
-function filtro(page: Page, etiqueta: string): Locator {
-  return page.locator('label', { hasText: etiqueta }).locator('..');
+function filtro(page: Page, nombre: string): Locator {
+  return page.getByRole('group', { name: nombre });
 }
 
 test.describe('historial · contenido', () => {
@@ -52,10 +52,6 @@ test.describe('historial · contenido', () => {
     await page.goto('/viajes');
     await expect(page.getByRole('table')).toBeVisible();
 
-    // viaje-6/8 son CERRADO y viaje-7 CANCELADO; a 3 por pagina caen en la 2a.
-    // La `Pagination` del design system usa controles con aria-label en ingles.
-    await page.getByRole('button', { name: 'Next page' }).click();
-
     // Se acota a la tabla: "Cerrado"/"Cancelado" tambien son opciones del filtro.
     const tabla = page.getByRole('table');
     await expect(tabla.getByText('Cerrado').first()).toBeVisible();
@@ -63,25 +59,37 @@ test.describe('historial · contenido', () => {
   });
 });
 
-test.describe('historial · paginacion', () => {
-  test('parte los seis registros en dos paginas y navega', async ({ page }) => {
+test.describe('historial · crece hasta 10 y despues pagina', () => {
+  test('con los 15 viajes del mock muestra 10 y pasa a una segunda pagina con 5', async ({
+    page,
+  }) => {
     await login(page);
     await page.goto('/viajes');
-
     const tabla = page.getByRole('table');
-    await expect(tabla).toBeVisible();
-
-    // Pagina 1: tres filas y el conteo del pie.
-    // La `Pagination` del design system muestra "1–3 of 6" (en ingles) dentro del
-    // nav "Pagination"; se acota a ese nav para no chocar con otros numeros.
     const paginacion = page.getByRole('navigation', { name: 'Pagination' });
-    await expect(tabla.locator('tbody tr')).toHaveCount(3);
-    await expect(paginacion).toContainText('1–3 of 6');
+    await expect(tabla.locator('tbody tr')).toHaveCount(10);
 
+    // Conteo y paginas siempre visibles; hay una segunda pagina.
+    await expect(paginacion).toContainText('1–10 of 15');
+    await expect(paginacion.getByRole('button', { name: 'Page 1' })).toBeVisible();
+    await expect(paginacion.getByRole('button', { name: 'Page 2' })).toBeVisible();
+
+    // La tabla crece con sus filas y la paginacion queda justo debajo: no se estira al
+    // alto de la pantalla dejando un hueco entre ambas.
+    const cajaTabla = await tabla.boundingBox();
+    const cajaPaginacion = await paginacion.boundingBox();
+    expect(cajaTabla).not.toBeNull();
+    expect(cajaPaginacion).not.toBeNull();
+    const huecoPx = cajaPaginacion!.y - (cajaTabla!.y + cajaTabla!.height);
+    expect(huecoPx).toBeGreaterThanOrEqual(0);
+    expect(huecoPx).toBeLessThan(48);
+
+    // La segunda pagina trae los 5 restantes (viaje-11 a viaje-15).
     await page.getByRole('button', { name: 'Next page' }).click();
-
-    await expect(tabla.locator('tbody tr')).toHaveCount(3);
-    await expect(paginacion).toContainText('4–6 of 6');
+    await expect(paginacion).toContainText('11–15 of 15');
+    await expect(tabla.locator('tbody tr')).toHaveCount(5);
+    await expect(page.getByRole('link', { name: 'viaje-15' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'viaje-1', exact: true })).toHaveCount(0);
   });
 });
 
@@ -105,6 +113,7 @@ test.describe('historial · filtro por estado (servidor)', () => {
     await expect(tabla.locator('tbody tr')).toHaveCount(2);
     await expect(tabla.getByText('En tránsito')).toHaveCount(0);
     await expect(tabla.getByText('Cerrado').first()).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Pagination' })).toContainText('1–2 of 2');
   });
 
   test('"en curso" y "cerrado" se distinguen: EN_TRANSITO no trae los cerrados', async ({

@@ -55,14 +55,26 @@ export type Json = string | number | boolean | null | Json[] | { readonly [key: 
  * Los estados son los del enum del contrato (ADR 19). Los campos que el portal
  * mostraba antes (folio, destino, unidad, reporteSeguridad, fecha) se retiraron: el
  * contrato no los define. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ *
+ * 15 viajes. Cubren 12 de los 13 estados del ciclo de vida, para ver cada chip y cada combinación de
+ * acciones del cliente.
  */
 export const viajesWire = [
   { id: 'viaje-1', estado: 'EN_TRANSITO', origen: 'CDMX · Vallejo' },
   { id: 'viaje-2', estado: 'EN_TRANSITO', origen: 'Guadalajara · El Salto' },
   { id: 'viaje-3', estado: 'SOLICITADO', origen: 'Monterrey · Apodaca' },
+  { id: 'viaje-4', estado: 'APROBADO', origen: 'Querétaro · Parque Industrial Benito Juárez' },
+  { id: 'viaje-5', estado: 'ASIGNADO', origen: 'Veracruz · Puerto de Veracruz' },
   { id: 'viaje-6', estado: 'CERRADO', origen: 'Puebla · Parque Vw' },
   { id: 'viaje-7', estado: 'CANCELADO', origen: 'Tijuana · Otay' },
   { id: 'viaje-8', estado: 'CERRADO', origen: 'CDMX · Iztapalapa' },
+  { id: 'viaje-9', estado: 'EN_TRANSITO', origen: 'Saltillo · Ramos Arizpe' },
+  { id: 'viaje-10', estado: 'EN_DESTINO', origen: 'Mérida · Umán' },
+  { id: 'viaje-11', estado: 'APTO_PARA_SALIDA', origen: 'Toluca · Lerma' },
+  { id: 'viaje-12', estado: 'EN_EMBARQUE', origen: 'León · Silao' },
+  { id: 'viaje-13', estado: 'PATRULLA_EN_CAMINO', origen: 'Hermosillo · Planta Ford' },
+  { id: 'viaje-14', estado: 'EN_DESCARGA', origen: 'Tampico · Altamira' },
+  { id: 'viaje-15', estado: 'RECHAZADO_POR_CLIENTE', origen: 'Cancún · Zona Hotelera' },
 ] as const;
 
 export const viajeDetalleWire: Record<string, Json> = {
@@ -92,9 +104,8 @@ export const viajeDetalleWire: Record<string, Json> = {
     eta: null,
     incidencias: [],
   },
-  // viaje-9 y viaje-10 son SOLO de detalle (no están en `viajesWire`, así que no
-  // aparecen en el historial ni alteran su paginación): se alcanzan por URL directa
-  // (/viajes/viaje-9, /viajes/viaje-10) para la prueba manual de E9-T6.
+  // viaje-9 y viaje-10 tienen detalles con incidencias variadas (E9-T6) y ahora también
+  // aparecen en el historial.
   //
   // viaje-9: VARIAS incidencias, incluyendo una RESUELTA y una con IMPACTO EN EL ETA.
   // Cubre de un tiro tres de los cinco estados del ticket E9-T6. Las categorías son
@@ -136,6 +147,106 @@ export const viajeDetalleWire: Record<string, Json> = {
         marca_tiempo: '2026-10-23T09:15:00Z',
       },
     ],
+  },
+
+  // --- Una situación por estado del ciclo de vida -------------------------------------
+  // Las categorías de incidencia son las cinco CURADAS (DEC-006); nunca el tipo interno.
+
+  // viaje-4: APROBADO. Aún sin ETA. El cliente puede CANCELAR pero no rechazar.
+  'viaje-4': {
+    id: 'viaje-4',
+    hito: { estado: 'APROBADO', etiqueta: 'Servicio aprobado' },
+    eta: null,
+    incidencias: [],
+  },
+  // viaje-5: ASIGNADO, con ETA vigente. El cliente puede CANCELAR y RECHAZAR.
+  'viaje-5': {
+    id: 'viaje-5',
+    hito: { estado: 'ASIGNADO', etiqueta: 'Unidad asignada' },
+    eta: { valor: '2026-11-12T16:00:00Z', obsoleto: false },
+    incidencias: [],
+  },
+  // viaje-6: CERRADO, con una incidencia ya RESUELTA en su historia y su impacto en el ETA.
+  'viaje-6': {
+    id: 'viaje-6',
+    hito: { estado: 'CERRADO', etiqueta: 'Servicio concluido' },
+    eta: null,
+    incidencias: [
+      {
+        categoria: 'Retraso/desvío en ruta',
+        estado: 'resuelta',
+        marca_tiempo: '2026-09-05T11:30:00Z',
+        impacto_eta: '+20 min',
+      },
+    ],
+  },
+  // viaje-7: CANCELADO (terminal), sin ETA ni incidencias.
+  'viaje-7': {
+    id: 'viaje-7',
+    hito: { estado: 'CANCELADO', etiqueta: 'Cancelado' },
+    eta: null,
+    incidencias: [],
+  },
+  // viaje-8: CERRADO con DOS incidencias resueltas.
+  'viaje-8': {
+    id: 'viaje-8',
+    hito: { estado: 'CERRADO', etiqueta: 'Servicio concluido' },
+    eta: null,
+    incidencias: [
+      {
+        categoria: 'Pérdida de contacto',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-02T08:40:00Z',
+      },
+      {
+        categoria: 'Falla mecánica/de equipo',
+        estado: 'resuelta',
+        marca_tiempo: '2026-10-02T10:05:00Z',
+        impacto_eta: '+1 h',
+      },
+    ],
+  },
+  // viaje-11: APTO_PARA_SALIDA. El cliente puede CANCELAR y RECHAZAR.
+  'viaje-11': {
+    id: 'viaje-11',
+    hito: { estado: 'APTO_PARA_SALIDA', etiqueta: 'Apto para salida' },
+    eta: { valor: '2026-11-11T14:00:00Z', obsoleto: false },
+    incidencias: [],
+  },
+  // viaje-12: EN_EMBARQUE. Ya no se puede cancelar: el viaje está en marcha.
+  'viaje-12': {
+    id: 'viaje-12',
+    hito: { estado: 'EN_EMBARQUE', etiqueta: 'Cargando en origen' },
+    eta: { valor: '2026-11-11T22:30:00Z', obsoleto: false },
+    incidencias: [],
+  },
+  // viaje-13: PATRULLA_EN_CAMINO, todavía sin ETA calculado.
+  'viaje-13': {
+    id: 'viaje-13',
+    hito: { estado: 'PATRULLA_EN_CAMINO', etiqueta: 'Patrulla en camino al punto de encuentro' },
+    eta: null,
+    incidencias: [],
+  },
+  // viaje-14: EN_DESCARGA con una incidencia EN ATENCIÓN que movió el ETA (ya obsoleto).
+  'viaje-14': {
+    id: 'viaje-14',
+    hito: { estado: 'EN_DESCARGA', etiqueta: 'Descargando en destino' },
+    eta: { valor: '2026-11-09T21:00:00Z', obsoleto: true },
+    incidencias: [
+      {
+        categoria: 'Falla mecánica/de equipo',
+        estado: 'en_atencion',
+        marca_tiempo: '2026-11-09T20:10:00Z',
+        impacto_eta: '+1 h',
+      },
+    ],
+  },
+  // viaje-15: RECHAZADO_POR_CLIENTE (terminal).
+  'viaje-15': {
+    id: 'viaje-15',
+    hito: { estado: 'RECHAZADO_POR_CLIENTE', etiqueta: 'Rechazado' },
+    eta: null,
+    incidencias: [],
   },
 };
 
@@ -194,7 +305,43 @@ export const conversacionesWire: Record<string, ConversacionWireMock> = {
   'viaje-2': { viaje_id: 'viaje-2', estado: 'abierta', atendida: false },
   // viaje-6: cerrada (viaje terminal) → solo lectura: el envío responde 409.
   'viaje-6': { viaje_id: 'viaje-6', estado: 'solo_lectura', atendida: true },
+  // viaje-4: abierta, aún sin mensajes ("Sin mensajes todavía") y sin atender.
+  'viaje-4': { viaje_id: 'viaje-4', estado: 'abierta', atendida: false },
+  // viaje-5: abierta; el cliente escribió y nadie ha respondido todavía.
+  'viaje-5': { viaje_id: 'viaje-5', estado: 'abierta', atendida: false },
+  // viaje-7: estado `cerrada` (no `solo_lectura`): la razón del compositor es otra.
+  'viaje-7': { viaje_id: 'viaje-7', estado: 'cerrada', atendida: true },
+  // viaje-9: abierta, sin atender, con mensajes muy largos (desborde y saltos de línea).
+  'viaje-9': { viaje_id: 'viaje-9', estado: 'abierta', atendida: false },
+  // viaje-10: abierta y atendida, con historial corto.
+  'viaje-10': { viaje_id: 'viaje-10', estado: 'abierta', atendida: true },
+  // viaje-14: abierta con 60 mensajes: pasa del límite de 50 y ofrece "Cargar anteriores".
+  'viaje-14': { viaje_id: 'viaje-14', estado: 'abierta', atendida: true },
+  // viaje-15: solo lectura (viaje terminal).
+  'viaje-15': { viaje_id: 'viaje-15', estado: 'solo_lectura', atendida: true },
+  // viaje-3, 8, 11, 12 y 13 NO tienen conversación: el bff responde 404.
 };
+
+/**
+ * `total` mensajes alternados cliente / AI27, uno cada 5 minutos, con secuencia de dominio
+ * 1..N. Sirve para probar la historia paginada hacia atrás (más de 50 mensajes).
+ */
+function mensajesAlternados(prefijo: string, total: number): MensajeClienteWireMock[] {
+  const inicio = Date.UTC(2026, 10, 9, 8, 0, 0);
+  return Array.from({ length: total }, (_, i) => {
+    const deCliente = i % 2 === 0;
+    const turno = Math.floor(i / 2) + 1;
+    return {
+      id: `${prefijo}-${i + 1}`,
+      secuencia: i + 1,
+      cuerpo: deCliente
+        ? `Consulta ${turno}: ¿cómo va la descarga de la unidad?`
+        : `Respuesta ${turno}: la descarga sigue en curso, te avisamos al terminar.`,
+      enviado_en: new Date(inicio + i * 5 * 60_000).toISOString(),
+      de_cliente: deCliente,
+    };
+  });
+}
 
 export const mensajesWire: Record<string, MensajeClienteWireMock[]> = {
   'viaje-1': [
@@ -236,6 +383,84 @@ export const mensajesWire: Record<string, MensajeClienteWireMock[]> = {
       cuerpo: 'El viaje se cerró con éxito. Gracias.',
       enviado_en: '2026-09-05T18:00:00Z',
       de_cliente: false,
+    },
+  ],
+  // viaje-4: sin mensajes (la clave existe para dejar claro que la lista está vacía).
+  'viaje-4': [],
+  // viaje-5: un mensaje del cliente sin respuesta.
+  'viaje-5': [
+    {
+      id: 'm-6',
+      secuencia: 1,
+      cuerpo: 'Quedo atento a la confirmación de la unidad y del operador.',
+      enviado_en: '2026-11-09T17:20:00Z',
+      de_cliente: true,
+    },
+  ],
+  // viaje-7: conversación `cerrada` tras la cancelación.
+  'viaje-7': [
+    {
+      id: 'm-7',
+      secuencia: 1,
+      cuerpo: 'Cancelamos el servicio por cambio en la fecha de embarque.',
+      enviado_en: '2026-10-28T10:00:00Z',
+      de_cliente: true,
+    },
+    {
+      id: 'm-8',
+      secuencia: 2,
+      cuerpo: 'Recibido, el servicio quedó cancelado.',
+      enviado_en: '2026-10-28T10:12:00Z',
+      de_cliente: false,
+    },
+  ],
+  // viaje-9: mensajes largos. El primero es un párrafo con saltos de línea; el segundo trae
+  // una URL larguísima SIN espacios, que es lo que más fácil desborda una burbuja.
+  'viaje-9': [
+    {
+      id: 'm-9',
+      secuencia: 1,
+      cuerpo:
+        'Buenas tardes. Les escribo para informar que el operador reportó una demora en la caseta de peaje y que el cliente final pidió adelantar la ventana de entrega.\n\nPor favor confirmen si la patrulla puede acompañar a la unidad hasta el almacén de destino y si hace falta algún trámite adicional en la aduana interior antes de las 18:00 horas de hoy.',
+      enviado_en: '2026-11-09T14:05:00Z',
+      de_cliente: true,
+    },
+    {
+      id: 'm-10',
+      secuencia: 2,
+      cuerpo:
+        'Recibido. Aquí está el comprobante: https://ejemplo.ai27.test/comprobantes/2026/11/09/viaje-9/verificacion-de-ruta-y-ventana-de-entrega-0123456789abcdefghijklmnopqrstuvwxyz',
+      enviado_en: '2026-11-09T14:20:00Z',
+      de_cliente: false,
+    },
+  ],
+  // viaje-10: historial corto, atendido.
+  'viaje-10': [
+    {
+      id: 'm-11',
+      secuencia: 1,
+      cuerpo: '¿A qué hora llega la unidad al almacén?',
+      enviado_en: '2026-10-23T10:00:00Z',
+      de_cliente: true,
+    },
+    {
+      id: 'm-12',
+      secuencia: 2,
+      cuerpo: 'Estimamos las 12:00, con el retraso ya contemplado.',
+      enviado_en: '2026-10-23T10:08:00Z',
+      de_cliente: false,
+    },
+  ],
+  // viaje-14: 60 mensajes (más del límite de 50 de una página).
+  'viaje-14': mensajesAlternados('m14', 60),
+  // viaje-15: conversación de un viaje rechazado, en solo lectura.
+  'viaje-15': [
+    {
+      id: 'm-13',
+      secuencia: 1,
+      cuerpo: 'No aceptamos la unidad asignada; solicitamos otra.',
+      enviado_en: '2026-11-02T09:30:00Z',
+      de_cliente: true,
     },
   ],
 };
@@ -399,7 +624,11 @@ export function panelWire(): Json {
  * Emergencias del cliente, en FORMA DE CONTRATO (E9-T9, ADR 21 §6).
  *
  * viaje-2 arranca con un caso `en_atencion` para cubrir "emergencia activa" y "un solo
- * caso" por URL directa; el resto de viajes arranca sin emergencias.
+ * caso" por URL directa. Otros tres cubren más situaciones:
+ *   viaje-9   dos casos (uno resuelto y otro en atención): aparece el selector de caso
+ *   viaje-10  un caso ya resuelto: hay historia pero NO hay emergencia activa
+ *   viaje-13  un caso recién `abierta`, todavía sin atender
+ * El resto de viajes arranca sin emergencias.
  */
 export interface CasoEmergenciaWireMock {
   readonly id: string;
@@ -419,6 +648,40 @@ export const emergenciasWire: Record<string, CasoEmergenciaWireMock[]> = {
       activada_en: '2026-10-23T14:05:00Z',
       notas: [],
       activacion_id: 'seed-activacion-1',
+    },
+  ],
+  'viaje-9': [
+    {
+      id: 'emg-seed-9a',
+      estado: 'resuelta',
+      activada_en: '2026-11-09T12:40:00Z',
+      notas: [],
+      activacion_id: 'seed-activacion-9a',
+    },
+    {
+      id: 'emg-seed-9b',
+      estado: 'en_atencion',
+      activada_en: '2026-11-09T15:10:00Z',
+      notas: [],
+      activacion_id: 'seed-activacion-9b',
+    },
+  ],
+  'viaje-10': [
+    {
+      id: 'emg-seed-10',
+      estado: 'resuelta',
+      activada_en: '2026-10-23T08:50:00Z',
+      notas: [],
+      activacion_id: 'seed-activacion-10',
+    },
+  ],
+  'viaje-13': [
+    {
+      id: 'emg-seed-13',
+      estado: 'abierta',
+      activada_en: '2026-11-10T13:25:00Z',
+      notas: [],
+      activacion_id: 'seed-activacion-13',
     },
   ],
 };
