@@ -1,6 +1,9 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
-import { Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
+import { useState } from 'react';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { LogOut, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
+import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
+import { useSession } from '@/context/SessionContext';
 
 type NavItem = {
   readonly to: string;
@@ -59,6 +62,25 @@ function isItemActive(pathname: string, to: string, exact: boolean): boolean {
 
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { logout } = useSession();
+  const [cerrandoSesion, setCerrandoSesion] = useState(false);
+
+  async function cerrarSesion(): Promise<void> {
+    if (cerrandoSesion) return;
+    setCerrandoSesion(true);
+    try {
+      await queryClient.cancelQueries();
+      await logout();
+    } catch {
+      // Sin acción: el token local ya se limpió y el destino es el mismo.
+    } finally {
+      await navigate({ to: '/login' });
+      queryClient.clear();
+      setCerrandoSesion(false);
+    }
+  }
 
   /*
    * Un item con `to` exacto que coincide con el pathname "reclama" esa ruta: en ese
@@ -94,6 +116,17 @@ export function AppShell() {
                 <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
               </div>
             </div>
+          }
+          footer={
+            <Button
+              variant="secondary"
+              fullWidth
+              startIcon={<LogOut aria-hidden="true" />}
+              loading={cerrandoSesion}
+              onClick={() => void cerrarSesion()}
+            >
+              Cerrar sesión
+            </Button>
           }
         >
           <SidebarGroup>
