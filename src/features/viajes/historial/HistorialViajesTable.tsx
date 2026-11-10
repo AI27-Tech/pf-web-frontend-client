@@ -58,9 +58,9 @@ const OPCIONES_ESTADO: SelectOption[] = [
 ];
 
 const OPCIONES_RANGO: SelectOption[] = [
-  { value: '7d', label: 'Ultimos 7 dias', disabled: true },
-  { value: '30d', label: 'Ultimos 30 dias', disabled: true },
-  { value: '90d', label: 'Ultimos 90 dias', disabled: true },
+  { value: '7d', label: 'Últimos 7 días', disabled: true },
+  { value: '30d', label: 'Últimos 30 días', disabled: true },
+  { value: '90d', label: 'Últimos 90 días', disabled: true },
 ];
 
 /*
@@ -132,7 +132,7 @@ export function HistorialViajesTable({
   if (viajes.length === 0 && estado === undefined) {
     return (
       <EmptyState title="No hay viajes en el historial">
-        Cuando se registren viajes apareceran aqui.
+        Cuando se registren viajes aparecerán aquí.
       </EmptyState>
     );
   }
@@ -165,7 +165,7 @@ export function HistorialViajesTable({
           // explica, sin un segundo bloque de vacio y sin perder la barra de filtros.
           emptyState={
             <EmptyState title="Sin resultados">
-              Ningun viaje coincide con el estado seleccionado.
+              Ningún viaje coincide con el estado seleccionado.
             </EmptyState>
           }
           className="min-w-[32rem]"

@@ -1,5 +1,25 @@
 # CHANGELOG
 
+## 2026:11:10 17:25
+
+**Resumen:** Se corrigieron los acentos de los textos visibles fuera del login: mensajes de error, página "no existe", encabezado y filtros del historial y estados vacíos. Solo cambia texto que ve el usuario; no se tocó ningún identificador, ruta ni campo del contrato.
+
+**Cambios:**
+
+- `src/components/ui/Feedback.tsx` (mensajes de error de todas las pantallas): "Tu sesión no permite ver esto", "Algo se rompió", "…no está respondiendo…", "Vuelve a iniciar sesión…" y "Se registró el fallo. Puedes reintentar."
+- `src/routes/__root.tsx`: "Esta página no existe".
+- `src/features/viajes/historial/HistorialHeader.tsx`: "operaciones logísticas".
+- `src/features/viajes/historial/HistorialViajesTable.tsx`: "Últimos 7 / 30 / 90 días" (opciones del rango de fechas, aún inerte), "Cuando se registren viajes aparecerán aquí." y "Ningún viaje coincide con el estado seleccionado."
+- `src/routes/_private/configuracion/index.tsx`: "Esta sección está en construcción." (ruta que ya no está en el menú).
+- Pruebas: `tests/ui/ErrorState.test.tsx` y `tests/viajes/HistorialViajesTable.test.tsx` leen los textos nuevos.
+
+**Archivos modificados:**
+
+- `src/components/ui/Feedback.tsx` · `src/routes/__root.tsx` · `src/routes/_private/configuracion/index.tsx`
+- `src/features/viajes/historial/HistorialHeader.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx`
+- `tests/ui/ErrorState.test.tsx` · `tests/viajes/HistorialViajesTable.test.tsx`
+- `CHANGELOG.md`
+
 ## 2026:11:10 17:19
 
 **Resumen:** Se corrigió el contraste del texto del login. En el tema oscuro (el que usa la app) el título "Iniciar sesión" se leía casi invisible (1.06:1), el subtítulo apenas (2.49:1) y el enlace "¿Olvidaste tu contraseña?" mal (2.1:1), porque usaban colores fijos pensados para fondo claro (`text-slate-900`, `text-slate-600`, `text-brand-700`). Ahora usan roles del tema que cambian con él, sin colores nuevos ni cambios en `globals.css` ni en la librería.

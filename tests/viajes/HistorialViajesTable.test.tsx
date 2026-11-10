@@ -261,7 +261,7 @@ describe('HistorialViajesTable · controles sin contrato (deshabilitados y hones
 
     const rango = grupoDeFiltro('Rango de fechas');
     await userEvent.click(within(rango).getByRole('button'));
-    for (const nombre of ['Ultimos 7 dias', 'Ultimos 30 dias', 'Ultimos 90 dias']) {
+    for (const nombre of ['Últimos 7 días', 'Últimos 30 días', 'Últimos 90 días']) {
       expect(within(rango).getByRole('button', { name: nombre })).toBeDisabled();
     }
   });
