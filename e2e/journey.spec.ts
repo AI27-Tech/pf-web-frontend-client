@@ -26,10 +26,10 @@ test.describe('sesion', () => {
     page,
   }) => {
     await page.goto('/login');
-    await page.getByLabel('Correo electronico empresarial').fill('nadie@demo.ai27');
-    await page.getByLabel('Contrasena', { exact: true }).fill('incorrecta');
-    await page.getByLabel('Codigo de verificacion').fill('000000');
-    await page.getByRole('button', { name: 'Iniciar sesion' }).click();
+    await page.getByLabel('Correo electrónico empresarial').fill('nadie@demo.ai27');
+    await page.getByLabel('Contraseña', { exact: true }).fill('incorrecta');
+    await page.getByLabel('Código de verificación').fill('000000');
+    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
 
     // El mock devuelve 401, y la app lo traduce a fallo de credenciales.
     await expect(page.getByRole('alert').first()).toContainText(/incorrectos/i);
@@ -44,10 +44,10 @@ test.describe('sesion', () => {
     // mismo 401 uniforme (DEC-094). La UI no debe decir "el código es incorrecto" de
     // forma distinta a "la contraseña es incorrecta": eso filtraría que la cuenta
     // existe y que solo falló el factor.
-    await page.getByLabel('Correo electronico empresarial').fill(DEV_USER.usuario);
-    await page.getByLabel('Contrasena', { exact: true }).fill(DEV_USER.password);
-    await page.getByLabel('Codigo de verificacion').fill('999999');
-    await page.getByRole('button', { name: 'Iniciar sesion' }).click();
+    await page.getByLabel('Correo electrónico empresarial').fill(DEV_USER.usuario);
+    await page.getByLabel('Contraseña', { exact: true }).fill(DEV_USER.password);
+    await page.getByLabel('Código de verificación').fill('999999');
+    await page.getByRole('button', { name: 'Iniciar sesión' }).click();
 
     await expect(page.getByRole('alert').first()).toContainText(/incorrectos/i);
     await expect(page).toHaveURL(/\/login/);

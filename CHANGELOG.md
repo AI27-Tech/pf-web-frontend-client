@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 2026:11:10 17:19
+
+**Resumen:** Se corrigió el contraste del texto del login. En el tema oscuro (el que usa la app) el título "Iniciar sesión" se leía casi invisible (1.06:1), el subtítulo apenas (2.49:1) y el enlace "¿Olvidaste tu contraseña?" mal (2.1:1), porque usaban colores fijos pensados para fondo claro (`text-slate-900`, `text-slate-600`, `text-brand-700`). Ahora usan roles del tema que cambian con él, sin colores nuevos ni cambios en `globals.css` ni en la librería.
+
+**Cambios:**
+
+- `src/routes/(auth)/login.tsx`: el título usa `text-on-surface` y el subtítulo `text-on-surface-variant`, en lugar de `text-slate-900` y `text-slate-600`.
+- `src/features/sesion/LoginSection.tsx`: el enlace usa `text-primary-container` en lugar de `text-brand-700`. Se descartó `text-primary` porque en el tema claro quedaba en 4.22:1.
+- El panel izquierdo (texto blanco sobre la imagen) ya cumplía y no se tocó.
+
+**Pendiente, de la librería `@ai27-tech/ui` (no se parcha aquí):** el color del placeholder de los campos ("nombre@empresa.com", "123456") queda en 3.35:1 en el tema oscuro y 3.08:1 en el claro. Lo define `::placeholder { color: var(--ui-color-text-placeholder) }`.
+
+**Archivos modificados:**
+
+- `src/routes/(auth)/login.tsx` · `src/features/sesion/LoginSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:35
+
+**Resumen:** Se corrigió la ortografía de los textos visibles del login: faltaban acentos, la `ñ` y el signo de apertura `¿`. Solo cambia texto que ve el usuario; no se tocó ningún identificador ni campo del contrato (`contrasena` en `CredencialesEntrada`, `sesion_finalizada`). Las pruebas que buscan por texto se actualizaron.
+
+**Cambios:**
+
+- Etiquetas y botones: "Correo electrónico empresarial", "Contraseña", "Código de verificación", "Iniciar sesión" (botón y título de la página), y los nombres accesibles "Mostrar contraseña" / "Ocultar contraseña".
+- Enlace: "¿Olvidaste tu contraseña?" (además faltaba el `¿`).
+- Nota de seguridad: "Tu conexión es segura y está protegida por los protocolos de seguridad de AI27."
+- Mensajes de error: "Usuario, contraseña o código de verificación incorrectos.", "El servicio de identidad no está disponible…", "No encontramos el servicio de sesión. Revisa la configuración del entorno." y "No pudimos completar el acceso. Inténtalo de nuevo."
+- Pruebas actualizadas a los textos nuevos: `tests/sesion/LoginSection.test.tsx`, `e2e/login.spec.ts`, `e2e/journey.spec.ts`, `e2e/support/login.ts` y `e2e/session-cut.spec.ts`. Quien tenga selectores con los textos antiguos (`.scratch/pruebas-portal-cliente/` los cita) debe actualizarlos.
+
+**Archivos modificados:**
+
+- `src/features/sesion/LoginSection.tsx` · `src/routes/(auth)/login.tsx`
+- `tests/sesion/LoginSection.test.tsx`
+- `e2e/login.spec.ts` · `e2e/journey.spec.ts` · `e2e/support/login.ts` · `e2e/session-cut.spec.ts`
+- `CHANGELOG.md`
+
 ## 2026:11:10 16:16
 
 **Resumen:** Se quitó del mock la variante con 32 viajes (`viajesMuchosWire`): el mock queda solo con los 15 viajes normales, que con páginas de 10 ya muestran la paginación (10 y 5). La variante solo se podía activar desde Playwright con un header (el navegador no puede enviarlo en `pnpm dev:mock`) y la alternativa por cookie no funcionó al probarla.
