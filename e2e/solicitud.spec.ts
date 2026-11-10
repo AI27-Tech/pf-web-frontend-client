@@ -83,7 +83,9 @@ test.describe('solicitud · formulario mínimo', () => {
     await page.getByRole('button', { name: 'Agregar otra parada' }).click();
     await page.getByRole('textbox', { name: 'Destino 2', exact: true }).fill('Nuevo Laredo');
     // 'Localización GPS' viene en la SEGUNDA página del catálogo: prueba que se sigue el cursor.
-    await page.getByLabel('Tipo de servicio').selectOption({ label: 'Localización GPS' });
+    const tipoServicio = page.getByRole('group', { name: 'Tipo de servicio' });
+    await tipoServicio.getByRole('button').click();
+    await tipoServicio.getByRole('button', { name: 'Localización GPS' }).click();
 
     await page.getByRole('button', { name: /Solicitar servicio/ }).click();
 

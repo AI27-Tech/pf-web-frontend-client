@@ -31,7 +31,7 @@ describe('HistorialViajesSection', () => {
     renderConRouter(<HistorialViajesSection viajes={viajes} />);
 
     const titulo = await screen.findByRole('heading', { level: 1 });
-    const filtroEstado = screen.getByLabelText('Estado');
+    const filtroEstado = screen.getByText('Estado', { selector: 'label span' });
     const tabla = screen.getByRole('table');
 
     expect(titulo.compareDocumentPosition(filtroEstado)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);

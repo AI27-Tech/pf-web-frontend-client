@@ -139,17 +139,16 @@ export function EmergenciaPanel({ viajeId }: { readonly viajeId: string }) {
               {/* Selector SOLO cuando coexisten varios casos. Identifica por fecha/hora. */}
               {casos.length > 1 && (
                 <FormField label="Caso">
-                  <Select
-                    value={casoDestino?.id ?? ''}
-                    onChange={(event) => setCasoSeleccionado(event.target.value)}
-                    aria-label="Caso de emergencia"
-                  >
-                    {casos.map((caso) => (
-                      <option key={caso.id} value={caso.id}>
-                        {formatDateTime(caso.activada_en)}
-                      </option>
-                    ))}
-                  </Select>
+                  <div role="group" aria-label="Caso de emergencia">
+                    <Select
+                      value={casoDestino?.id ?? ''}
+                      onChange={(valor) => setCasoSeleccionado(String(valor))}
+                      options={casos.map((caso) => ({
+                        value: caso.id,
+                        label: formatDateTime(caso.activada_en),
+                      }))}
+                    />
+                  </div>
                 </FormField>
               )}
 

@@ -66,6 +66,7 @@ export function AppShell() {
   const queryClient = useQueryClient();
   const { logout } = useSession();
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
+  const [colapsado, setColapsado] = useState(false);
 
   async function cerrarSesion(): Promise<void> {
     if (cerrandoSesion) return;
@@ -108,13 +109,17 @@ export function AppShell() {
       <div className="sticky top-0 h-dvh shrink-0 self-start">
         <Sidebar
           className="h-full"
+          collapsed={colapsado}
+          onToggleCollapse={() => setColapsado((actual) => !actual)}
           header={
             <div className="flex items-center gap-3">
               <ShieldHalf className="size-6 shrink-0" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-base font-bold">AI27</span>
-                <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
-              </div>
+              {!colapsado && (
+                <div className="flex flex-col leading-tight">
+                  <span className="text-base font-bold">AI27</span>
+                  <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
+                </div>
+              )}
             </div>
           }
           footer={
@@ -124,8 +129,10 @@ export function AppShell() {
               startIcon={<LogOut aria-hidden="true" />}
               loading={cerrandoSesion}
               onClick={() => void cerrarSesion()}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
             >
-              Cerrar sesión
+              {!colapsado && 'Cerrar sesión'}
             </Button>
           }
         >

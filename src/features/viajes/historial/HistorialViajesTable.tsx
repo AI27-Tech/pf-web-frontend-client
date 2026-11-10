@@ -21,7 +21,14 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Card, CardBody, FilterTable, Pagination, type Column } from '@ai27-tech/ui';
+import {
+  Card,
+  CardBody,
+  FilterTable,
+  Pagination,
+  type Column,
+  type FilterDefinition,
+} from '@ai27-tech/ui';
 import {
   EstadoViaje,
   type EstadoViaje as EstadoViajeTipo,
@@ -55,9 +62,10 @@ const cellPadding = {
  */
 const FILTRO_ESTADO_KEY = 'estado';
 
-const filtros = [
+const filtros: FilterDefinition[] = [
   {
     key: 'range',
+    label: 'Rango de fechas',
     placeholder: 'Rango de fechas (no disponible)',
     options: [
       { value: '7d', label: 'Ultimos 7 dias', disabled: true },
@@ -67,6 +75,7 @@ const filtros = [
   },
   {
     key: FILTRO_ESTADO_KEY,
+    label: 'Estado',
     placeholder: 'Estado',
     options: [
       { value: '', label: 'Todos los estados' },
