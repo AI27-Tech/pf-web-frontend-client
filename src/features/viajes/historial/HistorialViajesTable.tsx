@@ -36,6 +36,7 @@ import {
 } from '@/lib/contracts';
 import { EmptyState } from '@/components/ui/Feedback';
 import { EstadoViajeChip } from '@/features/viajes/EstadoViajeChip';
+import { conservarFiltro } from '@/features/viajes/filtroEstado';
 
 /** Registros por pagina del historial. */
 const PAGE_SIZE = 3;
@@ -92,32 +93,38 @@ const filtros: FilterDefinition[] = [
  * columnas Folio/Fecha, Ruta (destino/sitios), Vehículo/Conductor y Reporte de
  * Seguridad se retiraron: el contrato no las define. Volverán cuando el contrato las
  * publique. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ *
+ * Es función del filtro activo: el enlace al detalle lleva el `estado` del historial para
+ * que "Volver al historial" regrese al mismo listado filtrado.
  */
-const columns: readonly Column<ViajeResumen>[] = [
-  {
-    key: 'id',
-    header: 'ID',
-    cell: (viaje) => (
-      <Link
-        to="/viajes/$viajeId"
-        params={{ viajeId: viaje.id }}
-        className="text-primary font-semibold hover:underline"
-      >
-        {viaje.id}
-      </Link>
-    ),
-  },
-  {
-    key: 'origen',
-    header: 'Origen',
-    cell: (viaje) => <span className="text-on-surface">{viaje.origen}</span>,
-  },
-  {
-    key: 'estado',
-    header: 'Estado',
-    cell: (viaje) => <EstadoViajeChip estado={viaje.estado} />,
-  },
-];
+function crearColumnas(estado: EstadoViajeTipo | undefined): readonly Column<ViajeResumen>[] {
+  return [
+    {
+      key: 'id',
+      header: 'ID',
+      cell: (viaje) => (
+        <Link
+          to="/viajes/$viajeId"
+          params={{ viajeId: viaje.id }}
+          search={conservarFiltro(estado)}
+          className="text-primary font-semibold hover:underline"
+        >
+          {viaje.id}
+        </Link>
+      ),
+    },
+    {
+      key: 'origen',
+      header: 'Origen',
+      cell: (viaje) => <span className="text-on-surface">{viaje.origen}</span>,
+    },
+    {
+      key: 'estado',
+      header: 'Estado',
+      cell: (viaje) => <EstadoViajeChip estado={viaje.estado} />,
+    },
+  ];
+}
 
 export function HistorialViajesTable({
   viajes,
@@ -194,7 +201,7 @@ export function HistorialViajesTable({
             // El conteo lo muestra la `Pagination` de abajo ("X–Y of Z"); evitar duplicarlo.
             hideCount
             aria-label="Historial de viajes de tu cuenta, con su origen y estado"
-            columns={[...columns]}
+            columns={[...crearColumnas(estado)]}
             data={[...visibleRows]}
             rowKey={(viaje) => viaje.id}
             // Filtro activo sin coincidencias: el `emptyState` de la propia tabla lo

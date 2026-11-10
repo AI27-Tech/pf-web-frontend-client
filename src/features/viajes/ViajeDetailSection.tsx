@@ -13,18 +13,35 @@
  */
 
 import { Link } from '@tanstack/react-router';
-import { MessageSquare } from 'lucide-react';
+import { ArrowLeft, MessageSquare } from 'lucide-react';
 import type { EstadoViaje, ViajeSeguimiento } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
+import { conservarFiltro } from './filtroEstado';
 import { CancelarRechazarPanel } from './CancelarRechazarPanel';
 import { EmergenciaPanel } from './EmergenciaPanel';
 import { EstadoViajeChip } from './EstadoViajeChip';
 
-export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento }) {
+export function ViajeDetailSection({
+  viaje,
+  estadoHistorial,
+}: {
+  readonly viaje: ViajeSeguimiento;
+  readonly estadoHistorial?: EstadoViaje | undefined;
+}) {
   const { hito, eta, incidencias } = viaje;
+  const filtro = conservarFiltro(estadoHistorial);
 
   return (
     <div className="flex flex-col gap-6">
+      <Link
+        to="/viajes"
+        search={filtro}
+        className="border-outline-variant text-on-surface hover:bg-surface-container inline-flex items-center gap-2 self-start rounded-md border px-3 py-2 text-sm font-medium"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Volver al historial
+      </Link>
+
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-baseline gap-3">
           <h1 className="text-on-surface text-xl font-semibold">Viaje {viaje.id}</h1>
@@ -34,6 +51,7 @@ export function ViajeDetailSection({ viaje }: { readonly viaje: ViajeSeguimiento
         <Link
           to="/viajes/$viajeId/conversacion"
           params={{ viajeId: viaje.id }}
+          search={filtro}
           className="border-outline-variant text-on-surface hover:bg-surface-container inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium"
         >
           <MessageSquare className="size-4" />
