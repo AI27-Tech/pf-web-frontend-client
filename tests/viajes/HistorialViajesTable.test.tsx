@@ -6,7 +6,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EstadoViaje, type ViajeResumen } from '@/lib/contracts';
 import { HistorialViajesTable } from '@/features/viajes/historial/HistorialViajesTable';
@@ -23,6 +23,19 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@tanstack/react-router')>();
   return { ...actual, useNavigate: () => navigateMock };
 });
+
+function columnaDeFiltro(etiqueta: string | RegExp): HTMLElement {
+  const columna = screen.getByText(etiqueta, { selector: 'label span' }).closest('div');
+  if (columna === null) throw new Error(`No se encontró la columna del filtro ${String(etiqueta)}`);
+  return columna;
+}
+
+/** Abre el filtro y pulsa la opción con ese nombre. */
+async function elegirEnFiltro(etiqueta: string, opcion: string): Promise<void> {
+  const columna = columnaDeFiltro(etiqueta);
+  await userEvent.click(within(columna).getByRole('button'));
+  await userEvent.click(within(columna).getByRole('button', { name: opcion }));
+}
 
 function viaje(indice: number, estado: EstadoViaje): ViajeResumen {
   return {
@@ -94,8 +107,7 @@ describe('HistorialViajesTable', () => {
 /*
  * Barra de filtros. El filtro por estado esta CABLEADO: al elegir un estado se navega
  * con el search param, para que el loader pida a bff la pagina ya filtrada. Lo que el
- * contrato no soporta (rango de fechas, busqueda de texto, exportar CSV) sigue
- * deshabilitado y honesto, y no se cablea.
+ * contrato no soporta (rango de fechas, busqueda de texto) sigue deshabilitado.
  */
 describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () => {
   beforeEach(() => {
@@ -106,7 +118,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'CERRADO');
+    await elegirEnFiltro('Estado', 'Cerrado');
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/viajes', search: { estado: 'CERRADO' } });
   });
@@ -116,7 +128,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     const { unmount } = renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'EN_TRANSITO');
+    await elegirEnFiltro('Estado', 'En tránsito');
     expect(navigateMock).toHaveBeenLastCalledWith({
       to: '/viajes',
       search: { estado: 'EN_TRANSITO' },
@@ -127,7 +139,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.EnTransito} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'CERRADO');
+    await elegirEnFiltro('Estado', 'Cerrado');
     expect(navigateMock).toHaveBeenLastCalledWith({ to: '/viajes', search: { estado: 'CERRADO' } });
   });
 
@@ -135,7 +147,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.Cerrado} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'Todos los estados');
+    await elegirEnFiltro('Estado', 'Todos los estados');
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/viajes', search: {} });
   });
@@ -144,7 +156,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.Cerrado} />);
     await screen.findByRole('table');
 
-    expect(screen.getByLabelText('Estado')).toHaveValue('CERRADO');
+    expect(within(columnaDeFiltro('Estado')).getByRole('button')).toHaveTextContent('Cerrado');
   });
 
   it('un filtro sin coincidencias conserva la toolbar para poder volver a "todos"', async () => {
@@ -153,7 +165,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
 
     expect(await screen.findByText('Sin resultados')).toBeInTheDocument();
     // La toolbar sigue ahi: el usuario puede cambiar el filtro.
-    expect(screen.getByLabelText('Estado')).toBeInTheDocument();
+    expect(columnaDeFiltro('Estado')).toBeInTheDocument();
   });
 });
 
@@ -165,10 +177,11 @@ describe('HistorialViajesTable · controles sin contrato (deshabilitados y hones
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    const rango = screen.getByLabelText(/Rango de fechas/);
-    const opciones = Array.from(rango.querySelectorAll('option')).filter((o) => o.value !== '');
-    expect(opciones.length).toBeGreaterThan(0);
-    expect(opciones.every((o) => o.disabled)).toBe(true);
+    const rango = columnaDeFiltro('Rango de fechas');
+    await userEvent.click(within(rango).getByRole('button'));
+    for (const nombre of ['Ultimos 7 dias', 'Ultimos 30 dias', 'Ultimos 90 dias']) {
+      expect(within(rango).getByRole('button', { name: nombre })).toBeDisabled();
+    }
   });
 
   it('no renderiza un cuadro de busqueda: el contrato no soporta busqueda de texto', async () => {
@@ -182,8 +195,6 @@ describe('HistorialViajesTable · controles sin contrato (deshabilitados y hones
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    // Ni "Filtrar" ni un segundo "Exportar CSV" (ese vive en el encabezado): no hay
-    // boton de accion en la toolbar de la tabla.
     expect(screen.queryByRole('button', { name: 'Filtrar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Exportar CSV' })).not.toBeInTheDocument();
   });

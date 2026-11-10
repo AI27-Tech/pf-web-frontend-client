@@ -3,8 +3,17 @@
  *
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { login } from './support/login';
+
+/**
+ * Columna de un filtro de la barra (etiqueta + selector). El `Select` de la librería es
+ * un botón que abre una lista, sin `<label for>`, así que se localiza por su etiqueta
+ * visible y no por `getByLabel`.
+ */
+function filtro(page: Page, etiqueta: string): Locator {
+  return page.locator('label', { hasText: etiqueta }).locator('..');
+}
 
 test.describe('historial · contenido', () => {
   test('muestra el encabezado, los filtros y la tabla', async ({ page }) => {
@@ -19,10 +28,8 @@ test.describe('historial · contenido', () => {
     // La barra de filtros. El filtro por estado esta cableado; el rango de fechas
     // sigue presente pero inerte (su etiqueta lo dice). La busqueda de texto NO se
     // renderiza: el contrato no la soporta.
-    // `Estado` va con exact: el aria-label de la tabla termina en "...y estado" y
-    // getByLabel hace match por substring; sin exact resolveria dos elementos.
-    await expect(page.getByLabel(/Rango de fechas/)).toBeVisible();
-    await expect(page.getByLabel('Estado', { exact: true })).toBeVisible();
+    await expect(filtro(page, 'Rango de fechas')).toBeVisible();
+    await expect(filtro(page, 'Estado')).toBeVisible();
     await expect(page.getByPlaceholder(/Buscar por ID/i)).toHaveCount(0);
 
     await expect(page.getByRole('table')).toBeVisible();
@@ -89,7 +96,8 @@ test.describe('historial · filtro por estado (servidor)', () => {
     await expect(tabla.getByText('En tránsito').first()).toBeVisible();
 
     // Elegir "Cerrado" navega con el search param: el filtrado es del servidor.
-    await page.getByLabel('Estado', { exact: true }).selectOption('CERRADO');
+    await filtro(page, 'Estado').getByRole('button').click();
+    await filtro(page, 'Estado').getByRole('button', { name: 'Cerrado', exact: true }).click();
 
     await expect(page).toHaveURL(/[?&]estado=CERRADO/);
     // El mock de bff devuelve solo los CERRADO (viaje-6, viaje-8): dos filas, todas
@@ -111,20 +119,6 @@ test.describe('historial · filtro por estado (servidor)', () => {
     await expect(tabla.getByText('Cerrado')).toHaveCount(0);
     await expect(tabla.getByText('Cancelado')).toHaveCount(0);
     await expect(tabla.getByText('En tránsito').first()).toBeVisible();
-  });
-});
-
-test.describe('historial · controles sin funcionalidad', () => {
-  test('"Exportar CSV" (en el encabezado) esta deshabilitado (fuera de alcance V1)', async ({
-    page,
-  }) => {
-    await login(page);
-    await page.goto('/viajes');
-    await expect(page.getByRole('table')).toBeVisible();
-
-    // El unico "Exportar CSV" vive en el encabezado; la toolbar de la tabla ya no lo
-    // duplica. Sigue deshabilitado: exportar el listado esta fuera de V1 (DEC-023).
-    await expect(page.getByRole('button', { name: /Exportar CSV/ })).toBeDisabled();
   });
 });
 

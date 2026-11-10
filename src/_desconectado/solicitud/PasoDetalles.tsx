@@ -54,7 +54,7 @@ export function PasoDetalles({
                   }))}
                   placeholder="Seleccione una categoría"
                   value={carga.categoria}
-                  onChange={(event) => setCarga('categoria', event.target.value)}
+                  onChange={(valor) => setCarga('categoria', String(valor))}
                 />
               </FormField>
               <FormField label="Valor estimado (MXN)">
@@ -65,7 +65,7 @@ export function PasoDetalles({
                   }))}
                   placeholder="Seleccione un rango"
                   value={carga.valorEstimado}
-                  onChange={(event) => setCarga('valorEstimado', event.target.value)}
+                  onChange={(valor) => setCarga('valorEstimado', String(valor))}
                 />
               </FormField>
             </div>

@@ -12,10 +12,6 @@
  * pagina ya filtrada. El filtrado es del SERVIDOR: la lista completa no vive en el
  * navegador. `estado` es el UNICO filtro que el contrato `listarViajes` soporta hoy.
  *
- * Lo que el contrato NO soporta se queda deshabilitado y honesto: el rango de fechas
- * (opciones deshabilitadas) y la busqueda de texto (no se renderiza). No se cablean.
- * El "Exportar CSV" (fuera de alcance V1, DEC-023) vive deshabilitado en el
- * encabezado (HistorialHeader), no en esta toolbar.
  *
  * TODO(contracts): la PAGINACION sigue siendo estado de UI que recorta en cliente
  * sobre la pagina que bff devolvio. El contrato expone `cursor`, pero mover la
@@ -25,7 +21,14 @@
 
 import { useState, type CSSProperties } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Card, CardBody, FilterTable, Pagination, type Column } from '@ai27-tech/ui';
+import {
+  Card,
+  CardBody,
+  FilterTable,
+  Pagination,
+  type Column,
+  type FilterDefinition,
+} from '@ai27-tech/ui';
 import {
   EstadoViaje,
   type EstadoViaje as EstadoViajeTipo,
@@ -33,6 +36,7 @@ import {
 } from '@/lib/contracts';
 import { EmptyState } from '@/components/ui/Feedback';
 import { EstadoViajeChip } from '@/features/viajes/EstadoViajeChip';
+import { conservarFiltro } from '@/features/viajes/filtroEstado';
 
 /** Registros por pagina del historial. */
 const PAGE_SIZE = 3;
@@ -59,9 +63,10 @@ const cellPadding = {
  */
 const FILTRO_ESTADO_KEY = 'estado';
 
-const filtros = [
+const filtros: FilterDefinition[] = [
   {
     key: 'range',
+    label: 'Rango de fechas',
     placeholder: 'Rango de fechas (no disponible)',
     options: [
       { value: '7d', label: 'Ultimos 7 dias', disabled: true },
@@ -71,6 +76,7 @@ const filtros = [
   },
   {
     key: FILTRO_ESTADO_KEY,
+    label: 'Estado',
     placeholder: 'Estado',
     options: [
       { value: '', label: 'Todos los estados' },
@@ -87,32 +93,38 @@ const filtros = [
  * columnas Folio/Fecha, Ruta (destino/sitios), Vehículo/Conductor y Reporte de
  * Seguridad se retiraron: el contrato no las define. Volverán cuando el contrato las
  * publique. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ *
+ * Es función del filtro activo: el enlace al detalle lleva el `estado` del historial para
+ * que "Volver al historial" regrese al mismo listado filtrado.
  */
-const columns: readonly Column<ViajeResumen>[] = [
-  {
-    key: 'id',
-    header: 'ID',
-    cell: (viaje) => (
-      <Link
-        to="/viajes/$viajeId"
-        params={{ viajeId: viaje.id }}
-        className="text-primary font-semibold hover:underline"
-      >
-        {viaje.id}
-      </Link>
-    ),
-  },
-  {
-    key: 'origen',
-    header: 'Origen',
-    cell: (viaje) => <span className="text-on-surface">{viaje.origen}</span>,
-  },
-  {
-    key: 'estado',
-    header: 'Estado',
-    cell: (viaje) => <EstadoViajeChip estado={viaje.estado} />,
-  },
-];
+function crearColumnas(estado: EstadoViajeTipo | undefined): readonly Column<ViajeResumen>[] {
+  return [
+    {
+      key: 'id',
+      header: 'ID',
+      cell: (viaje) => (
+        <Link
+          to="/viajes/$viajeId"
+          params={{ viajeId: viaje.id }}
+          search={conservarFiltro(estado)}
+          className="text-primary font-semibold hover:underline"
+        >
+          {viaje.id}
+        </Link>
+      ),
+    },
+    {
+      key: 'origen',
+      header: 'Origen',
+      cell: (viaje) => <span className="text-on-surface">{viaje.origen}</span>,
+    },
+    {
+      key: 'estado',
+      header: 'Estado',
+      cell: (viaje) => <EstadoViajeChip estado={viaje.estado} />,
+    },
+  ];
+}
 
 export function HistorialViajesTable({
   viajes,
@@ -180,8 +192,7 @@ export function HistorialViajesTable({
           <FilterTable
             // Toolbar del design system: solo el filtro por estado. No hay boton de
             // accion: el cambio de estado navega al instante (no hay un "Filtrar" que
-            // pulsar). "Exportar CSV" ya vive, deshabilitado, en el encabezado
-            // (HistorialHeader): no se duplica aqui. La busqueda de texto NO se cablea
+            // pulsar). La busqueda de texto NO se cablea
             // —`listarViajes` no la soporta—, asi que se omite `onSearchChange` y el
             // `FilterTable` no pinta un cuadro de busqueda inerte.
             filters={filtros}
@@ -190,7 +201,7 @@ export function HistorialViajesTable({
             // El conteo lo muestra la `Pagination` de abajo ("X–Y of Z"); evitar duplicarlo.
             hideCount
             aria-label="Historial de viajes de tu cuenta, con su origen y estado"
-            columns={[...columns]}
+            columns={[...crearColumnas(estado)]}
             data={[...visibleRows]}
             rowKey={(viaje) => viaje.id}
             // Filtro activo sin coincidencias: el `emptyState` de la propia tabla lo

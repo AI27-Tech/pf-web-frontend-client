@@ -113,7 +113,7 @@ export function PasoServicioFecha({
               options={prioridades.map((option) => ({ value: option.id, label: option.nombre }))}
               placeholder="Seleccione una prioridad"
               value={datos.prioridad}
-              onChange={(event) => setField('prioridad', event.target.value)}
+              onChange={(valor) => setField('prioridad', String(valor))}
             />
           </FormField>
           <FormField label="Referencia / No. Orden de Compra (Opcional)">

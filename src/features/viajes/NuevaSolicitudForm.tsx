@@ -266,18 +266,16 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
           )}
 
           <FormField label="Tipo de servicio">
-            <Select
-              value={tipoServicio}
-              onChange={(event) => setTipoServicio(event.target.value)}
-              aria-label="Tipo de servicio"
-            >
-              <option value="">Selecciona un tipo</option>
-              {tiposServicio.map((tipo) => (
-                <option key={tipo.codigo} value={tipo.codigo}>
-                  {tipo.etiqueta}
-                </option>
-              ))}
-            </Select>
+            <div role="group" aria-label="Tipo de servicio">
+              <Select
+                value={tipoServicio}
+                onChange={(valor) => setTipoServicio(String(valor))}
+                options={[
+                  { value: '', label: 'Selecciona un tipo' },
+                  ...tiposServicio.map((tipo) => ({ value: tipo.codigo, label: tipo.etiqueta })),
+                ]}
+              />
+            </div>
           </FormField>
 
           <FormField label="Fecha y hora del servicio">

@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## 2026:11:10 11:10
+
+**Resumen:** Revisión general de botones del portal. Se quitan dos botones que no hacían nada ("Nuevo viaje" y "Exportar CSV"), se agregan "Cerrar sesión", el botón para plegar el sidebar y los botones de regreso del detalle y la conversación, y el filtro de estado del historial se conserva al moverse entre esas pantallas. Para que el botón del sidebar salga en español se subió `@ai27-tech/ui` de `0.2.0-beta.1` a `0.2.0-beta.6` (la versión de los otros dos portales), lo que obligó a migrar `Select` y `FilterTable`.
+
+**Cambios:**
+
+- Se quitó "Nuevo viaje" del pie del sidebar: solo hacía `console.log` y duplicaba "Solicitar Servicio".
+- Se quitó "Exportar CSV" del encabezado del historial: estaba deshabilitado y la exportación es V2 (DEC-023). Se eliminó la prueba e2e que lo exigía deshabilitado.
+- "Cerrar sesión" en el pie del sidebar: revoca la sesión (`DELETE /sesion`), limpia los tokens aunque el servidor falle y lleva a `/login` sin el aviso de "sesión finalizada". Cancela las lecturas en vuelo antes de salir y vacía la caché de consultas después de navegar. El `loading` evita enviar la petición dos veces con doble clic.
+- Sidebar plegable con `collapsed` y `onToggleCollapse` de la librería. Plegado, el encabezado muestra solo el escudo y "Cerrar sesión" solo el ícono (con `aria-label` y `title`). El estado vive en memoria.
+- `@ai27-tech/ui` `0.2.0-beta.1` → `0.2.0-beta.6`: desde `beta.2` el botón de plegar dice "Contraer" y "Expandir barra lateral". Migración por cambios de la librería: `Select` ahora es un botón con lista (`options` y `onChange(valor)`), sin hijos `<option>` ni `aria-label`, así que los dos de la app van en un `role="group"` con su nombre ("Tipo de servicio", "Caso de emergencia"); `FilterTable` exige `label` en cada filtro. En `src/_desconectado/solicitud` solo se cambió el `onChange` de tres `Select`, porque ese código entra al typecheck.
+- "Volver al historial" en el detalle del viaje y "Volver al viaje" en la conversación, como `Link` (no `history.back()`) para que funcionen con enlaces directos.
+- El filtro de estado del historial viaja en la URL historial → detalle → conversación y de regreso (por ejemplo `/viajes/viaje-1?estado=EN_TRANSITO`). `filtroEstado.ts` comparte el `validateSearch` de las tres rutas y `conservarFiltro`, que revalida el valor porque `Route.useSearch()` mezcla la search del padre sin validar y un `?estado=BASURA` escrito a mano llegaba a los enlaces. Las columnas de la tabla pasan de constante a función del filtro activo.
+- Pruebas actualizadas a los selects nuevos (se abre el botón y se pulsa la opción) y al filtro sin "Exportar CSV".
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-lock.yaml` · `CHANGELOG.md`
+- `src/app/shell/AppShell.tsx` · `src/features/viajes/historial/HistorialHeader.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/features/viajes/NuevaSolicitudForm.tsx` · `src/features/viajes/EmergenciaPanel.tsx`
+- `src/routes/_private/viajes/index.tsx` · `src/routes/_private/viajes/$viajeId/index.tsx` · `src/routes/_private/viajes/$viajeId/conversacion/index.tsx`
+- `src/_desconectado/solicitud/PasoDetalles.tsx` · `src/_desconectado/solicitud/PasoServicioFecha.tsx` · `src/_desconectado/solicitud/__tests__/PasoDetalles.test.tsx` · `src/_desconectado/solicitud/__tests__/PasoServicioFecha.test.tsx`
+- `tests/viajes/HistorialViajesTable.test.tsx` · `tests/viajes/HistorialViajesSection.test.tsx` · `tests/viajes/EmergenciaPanel.test.tsx` · `e2e/historial.spec.ts` · `e2e/solicitud.spec.ts`
+- (nuevo) `src/features/viajes/filtroEstado.ts`
+
 ## 2026:11:05 16:45
 
 **Resumen:** Se reactivó la prueba e2e **"historial · tema oscuro"** (`e2e/historial.spec.ts`), que estaba en `skip`. Agregaba la clase `.dark` al `<html>`, pero el tema de los tokens lo conmuta `@ai27-tech/ui` por el atributo **`data-theme`** (index.html lo fija en `"dark"`); la clase solo ajusta `color-scheme`. Ahora la prueba alterna `data-theme` entre `light` y `dark` y comprueba que cambia el fondo y que el contenido sigue visible. No cambia nada para el usuario del portal. e2e en verde (27 activos, 12 `skip`; antes 26/13). Con la clase `.dark` en lugar de `data-theme`, la prueba falla (comprobado).
@@ -7,6 +31,7 @@
 **Archivos modificados:**
 
 - `e2e/historial.spec.ts` · `CHANGELOG.md`
+
 ## 2026:11:05 16:30
 
 **Resumen:** Se alineó `src/lib/api/` con el `bff.yaml` de `tracer.37`, operación por operación. El hallazgo que cambia algo para el usuario: **"Mis viajes" (`listarViajes`) responde una página `{ items, cursor_siguiente }`, no una lista**, y el portal la trataba como lista; contra el backend real el historial no habría pintado. Ahora se sigue el cursor y se junta el listado. Además, un **404** (viaje inexistente o de otra empresa, DEC-132) se presenta como "No encontramos lo que buscas" en lugar de "Algo se rompió". `lint`, `format:check`, `typecheck` y `test` (35 archivos, 225 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).

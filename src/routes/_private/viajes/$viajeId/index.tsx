@@ -3,6 +3,7 @@ import { getViaje } from '@/lib/api/viajes';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
 import { useViajeSeguimiento } from '@/features/viajes/useViajeSeguimiento';
 import { ErrorState, Spinner } from '@/components/ui/Feedback';
+import { validarFiltroEstado } from '@/features/viajes/filtroEstado';
 
 /*
  * Detalle/seguimiento del viaje (E9-T5 / AI27-24, ADR 27).
@@ -12,6 +13,7 @@ import { ErrorState, Spinner } from '@/components/ui/Feedback';
  * `errorComponent` (pantalla completa, como corresponde a "nunca llego el dato").
  */
 export const Route = createFileRoute('/_private/viajes/$viajeId/')({
+  validateSearch: validarFiltroEstado,
   loader: ({ params }) => getViaje(params.viajeId),
   component: ViajeDetailPage,
   pendingComponent: () => <Spinner label="Cargando viaje" />,
@@ -20,7 +22,8 @@ export const Route = createFileRoute('/_private/viajes/$viajeId/')({
 
 function ViajeDetailPage() {
   const { viajeId } = Route.useParams();
+  const { estado } = Route.useSearch();
   const { data: viaje } = useViajeSeguimiento(viajeId, Route.useLoaderData());
 
-  return <ViajeDetailSection viaje={viaje} />;
+  return <ViajeDetailSection viaje={viaje} estadoHistorial={estado} />;
 }
