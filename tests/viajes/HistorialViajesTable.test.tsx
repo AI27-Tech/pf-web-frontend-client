@@ -94,8 +94,7 @@ describe('HistorialViajesTable', () => {
 /*
  * Barra de filtros. El filtro por estado esta CABLEADO: al elegir un estado se navega
  * con el search param, para que el loader pida a bff la pagina ya filtrada. Lo que el
- * contrato no soporta (rango de fechas, busqueda de texto, exportar CSV) sigue
- * deshabilitado y honesto, y no se cablea.
+ * contrato no soporta (rango de fechas, busqueda de texto) sigue deshabilitado.
  */
 describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () => {
   beforeEach(() => {
@@ -182,8 +181,6 @@ describe('HistorialViajesTable · controles sin contrato (deshabilitados y hones
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    // Ni "Filtrar" ni un segundo "Exportar CSV" (ese vive en el encabezado): no hay
-    // boton de accion en la toolbar de la tabla.
     expect(screen.queryByRole('button', { name: 'Filtrar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Exportar CSV' })).not.toBeInTheDocument();
   });

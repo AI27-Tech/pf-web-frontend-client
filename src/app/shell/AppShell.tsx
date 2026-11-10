@@ -1,6 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Plus, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
-import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
+import { RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
+import { Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
 
 type NavItem = {
   readonly to: string;
@@ -94,16 +94,6 @@ export function AppShell() {
                 <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
               </div>
             </div>
-          }
-          footer={
-            <Button
-              variant="primary"
-              fullWidth
-              startIcon={<Plus />}
-              onClick={() => console.log('Redirect to new travel...')}
-            >
-              Nuevo viaje
-            </Button>
           }
         >
           <SidebarGroup>

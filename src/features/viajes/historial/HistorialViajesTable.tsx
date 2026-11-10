@@ -12,10 +12,6 @@
  * pagina ya filtrada. El filtrado es del SERVIDOR: la lista completa no vive en el
  * navegador. `estado` es el UNICO filtro que el contrato `listarViajes` soporta hoy.
  *
- * Lo que el contrato NO soporta se queda deshabilitado y honesto: el rango de fechas
- * (opciones deshabilitadas) y la busqueda de texto (no se renderiza). No se cablean.
- * El "Exportar CSV" (fuera de alcance V1, DEC-023) vive deshabilitado en el
- * encabezado (HistorialHeader), no en esta toolbar.
  *
  * TODO(contracts): la PAGINACION sigue siendo estado de UI que recorta en cliente
  * sobre la pagina que bff devolvio. El contrato expone `cursor`, pero mover la
@@ -180,8 +176,7 @@ export function HistorialViajesTable({
           <FilterTable
             // Toolbar del design system: solo el filtro por estado. No hay boton de
             // accion: el cambio de estado navega al instante (no hay un "Filtrar" que
-            // pulsar). "Exportar CSV" ya vive, deshabilitado, en el encabezado
-            // (HistorialHeader): no se duplica aqui. La busqueda de texto NO se cablea
+            // pulsar). La busqueda de texto NO se cablea
             // —`listarViajes` no la soporta—, asi que se omite `onSearchChange` y el
             // `FilterTable` no pinta un cuadro de busqueda inerte.
             filters={filtros}

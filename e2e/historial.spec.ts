@@ -114,20 +114,6 @@ test.describe('historial · filtro por estado (servidor)', () => {
   });
 });
 
-test.describe('historial · controles sin funcionalidad', () => {
-  test('"Exportar CSV" (en el encabezado) esta deshabilitado (fuera de alcance V1)', async ({
-    page,
-  }) => {
-    await login(page);
-    await page.goto('/viajes');
-    await expect(page.getByRole('table')).toBeVisible();
-
-    // El unico "Exportar CSV" vive en el encabezado; la toolbar de la tabla ya no lo
-    // duplica. Sigue deshabilitado: exportar el listado esta fuera de V1 (DEC-023).
-    await expect(page.getByRole('button', { name: /Exportar CSV/ })).toBeDisabled();
-  });
-});
-
 test.describe('historial · tema oscuro', () => {
   // El tema lo conmuta la libreria @ai27-tech/ui por el atributo `data-theme` en <html>
   // (index.html lo fija en "dark"; no hay toggle en V1). La clase `.dark` no cambia
