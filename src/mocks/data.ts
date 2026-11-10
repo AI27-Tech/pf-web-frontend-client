@@ -433,6 +433,16 @@ export const mensajesWire: Record<string, MensajeClienteWireMock[]> = {
       enviado_en: '2026-11-09T14:20:00Z',
       de_cliente: false,
     },
+    // Una sola "palabra" de 150 caracteres, sin espacios ni guiones (alguien aporreando el
+    // teclado): es lo que antes se salía de la burbuja. Debe partirse dentro de ella.
+    {
+      id: 'm-9c',
+      secuencia: 3,
+      cuerpo:
+        'asodhaskdgaskldhaksdhiasdhdsohfufbwebociwebcosdbJSBCJKASBDJASDBASJKDKASDadlanlkKNKASNDKASNDKASDNAJKSDNKJASNDKJASNDKJASNDKJASNDJKASNDJKASNDKJASND',
+      enviado_en: '2026-11-09T14:31:00Z',
+      de_cliente: true,
+    },
   ],
   // viaje-10: historial corto, atendido.
   'viaje-10': [

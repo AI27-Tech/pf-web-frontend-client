@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 2026:11:10 17:41
+
+**Resumen:** En la conversación se corrigió el contraste de la burbuja del cliente y se evitó que una palabra larguísima sin espacios se salga de su burbuja. En el tema oscuro (el que usa la app) el texto del cliente se leía casi invisible: usaba `bg-brand-50`, un celeste fijo muy claro, con `text-on-surface`, casi blanco en ese tema. Ahora usa los roles `primary` / `on-primary`, que cambian con el tema, sin colores nuevos ni cambios en `globals.css` ni en la librería.
+
+**Palabra larga:**
+
+- `ConversacionSection.tsx`: las burbujas llevan `wrap-anywhere` (`overflow-wrap: anywhere`). A diferencia de `break-words`, también reduce el ancho mínimo del contenido, que es lo que impide que la burbuja se ensanche. Corrige tanto una palabra de 150 o 300 caracteres como una URL sin guiones.
+- Mock: `viaje-9` trae ahora un mensaje del cliente con una "palabra" de 150 caracteres para verlo en `pnpm dev:mock`.
+- `e2e/conversacion.spec.ts` (3 pruebas nuevas): la palabra larga del mock, una palabra de 300 caracteres escrita y enviada desde el campo, y la misma a 375px. Miden el layout real (ninguna burbuja es más ancha que su contenido ni sale del cuadro de la conversación). Se comprobó que fallan sin `wrap-anywhere` y pasan con él.
+
+**Archivos modificados:**
+
+- `src/features/conversacion/ConversacionSection.tsx` · `src/mocks/data.ts`
+- `e2e/conversacion.spec.ts`
+- `CHANGELOG.md`
+
 ## 2026:11:10 17:25
 
 **Resumen:** Se corrigieron los acentos de los textos visibles fuera del login: mensajes de error, página "no existe", encabezado y filtros del historial y estados vacíos. Solo cambia texto que ve el usuario; no se tocó ningún identificador, ruta ni campo del contrato.
