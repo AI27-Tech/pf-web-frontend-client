@@ -54,18 +54,18 @@ export function ErrorState({
   const title = degradado
     ? 'No podemos mostrar esto ahora mismo'
     : noAutorizado
-      ? 'Tu sesion no permite ver esto'
+      ? 'Tu sesión no permite ver esto'
       : noEncontrado
         ? 'No encontramos lo que buscas'
-        : 'Algo se rompio';
+        : 'Algo se rompió';
 
   const detail = degradado
-    ? 'Un servicio del que dependemos no esta respondiendo. No es que el dato no exista: es que no lo tenemos en este momento.'
+    ? 'Un servicio del que dependemos no está respondiendo. No es que el dato no exista: es que no lo tenemos en este momento.'
     : noAutorizado
-      ? 'Vuelve a iniciar sesion. Si el problema sigue, tu acceso pudo haber cambiado.'
+      ? 'Vuelve a iniciar sesión. Si el problema sigue, tu acceso pudo haber cambiado.'
       : noEncontrado
         ? 'Revisa el enlace o vuelve a tu lista de viajes.'
-        : 'Se registro el fallo. Puedes reintentar.';
+        : 'Se registró el fallo. Puedes reintentar.';
 
   return (
     <div

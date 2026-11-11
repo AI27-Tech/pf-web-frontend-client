@@ -15,12 +15,12 @@ import { expect, test } from '@playwright/test';
 test('la pagina de login renderiza, con el campo de segundo factor', async ({ page }) => {
   await page.goto('/login');
 
-  await expect(page.getByRole('heading', { name: 'Iniciar sesion' })).toBeVisible();
-  await expect(page.getByLabel('Correo electronico empresarial')).toBeVisible();
-  await expect(page.getByLabel('Contrasena', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+  await expect(page.getByLabel('Correo electrónico empresarial')).toBeVisible();
+  await expect(page.getByLabel('Contraseña', { exact: true })).toBeVisible();
   // El segundo factor es un paso único dentro del login, no una ruta aparte.
-  await expect(page.getByLabel('Codigo de verificacion')).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Iniciar sesion' })).toBeVisible();
+  await expect(page.getByLabel('Código de verificación')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
 });
 
 test('una ruta privada redirige a login sin sesion', async ({ page }) => {
@@ -28,7 +28,7 @@ test('una ruta privada redirige a login sin sesion', async ({ page }) => {
 
   // La guarda corre en beforeLoad, antes de que el loader dispare su peticion.
   await expect(page).toHaveURL(/\/login/);
-  await expect(page.getByRole('button', { name: 'Iniciar sesion' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
 });
 
 test('la raiz redirige a login sin sesion', async ({ page }) => {

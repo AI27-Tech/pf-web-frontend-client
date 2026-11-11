@@ -142,8 +142,8 @@ function HistorialMensajes({
             key={mensaje.id}
             className={
               mensaje.deCliente
-                ? 'bg-brand-50 text-on-surface ml-auto max-w-[80%] rounded-lg px-3 py-2'
-                : 'bg-surface-container-lowest border-outline-variant text-on-surface max-w-[80%] rounded-lg border px-3 py-2'
+                ? 'bg-primary text-on-primary ml-auto max-w-[80%] rounded-lg px-3 py-2 wrap-anywhere'
+                : 'bg-surface-container-lowest border-outline-variant text-on-surface max-w-[80%] rounded-lg border px-3 py-2 wrap-anywhere'
             }
           >
             {/* AI27 se presenta SIEMPRE con la etiqueta constante; nunca el actor real. */}
@@ -151,7 +151,13 @@ function HistorialMensajes({
               <p className="text-on-surface-variant mb-1 text-xs font-semibold">{ETIQUETA_AI27}</p>
             )}
             <p className="text-sm">{mensaje.cuerpo}</p>
-            <p className="text-on-surface-variant mt-1 text-xs">
+            <p
+              className={
+                mensaje.deCliente
+                  ? 'text-on-primary mt-1 text-xs'
+                  : 'text-on-surface-variant mt-1 text-xs'
+              }
+            >
               {formatDateTime(mensaje.enviadoEn)}
             </p>
           </li>

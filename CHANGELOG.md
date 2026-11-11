@@ -1,5 +1,128 @@
 # CHANGELOG
 
+## 2026:11:10 17:41
+
+**Resumen:** En la conversación se corrigió el contraste de la burbuja del cliente y se evitó que una palabra larguísima sin espacios se salga de su burbuja. En el tema oscuro (el que usa la app) el texto del cliente se leía casi invisible: usaba `bg-brand-50`, un celeste fijo muy claro, con `text-on-surface`, casi blanco en ese tema. Ahora usa los roles `primary` / `on-primary`, que cambian con el tema, sin colores nuevos ni cambios en `globals.css` ni en la librería.
+
+**Palabra larga:**
+
+- `ConversacionSection.tsx`: las burbujas llevan `wrap-anywhere` (`overflow-wrap: anywhere`). A diferencia de `break-words`, también reduce el ancho mínimo del contenido, que es lo que impide que la burbuja se ensanche. Corrige tanto una palabra de 150 o 300 caracteres como una URL sin guiones.
+- Mock: `viaje-9` trae ahora un mensaje del cliente con una "palabra" de 150 caracteres para verlo en `pnpm dev:mock`.
+- `e2e/conversacion.spec.ts` (3 pruebas nuevas): la palabra larga del mock, una palabra de 300 caracteres escrita y enviada desde el campo, y la misma a 375px. Miden el layout real (ninguna burbuja es más ancha que su contenido ni sale del cuadro de la conversación). Se comprobó que fallan sin `wrap-anywhere` y pasan con él.
+
+**Archivos modificados:**
+
+- `src/features/conversacion/ConversacionSection.tsx` · `src/mocks/data.ts`
+- `e2e/conversacion.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 17:25
+
+**Resumen:** Se corrigieron los acentos de los textos visibles fuera del login: mensajes de error, página "no existe", encabezado y filtros del historial y estados vacíos. Solo cambia texto que ve el usuario; no se tocó ningún identificador, ruta ni campo del contrato.
+
+**Cambios:**
+
+- `src/components/ui/Feedback.tsx` (mensajes de error de todas las pantallas): "Tu sesión no permite ver esto", "Algo se rompió", "…no está respondiendo…", "Vuelve a iniciar sesión…" y "Se registró el fallo. Puedes reintentar."
+- `src/routes/__root.tsx`: "Esta página no existe".
+- `src/features/viajes/historial/HistorialHeader.tsx`: "operaciones logísticas".
+- `src/features/viajes/historial/HistorialViajesTable.tsx`: "Últimos 7 / 30 / 90 días" (opciones del rango de fechas, aún inerte), "Cuando se registren viajes aparecerán aquí." y "Ningún viaje coincide con el estado seleccionado."
+- `src/routes/_private/configuracion/index.tsx`: "Esta sección está en construcción." (ruta que ya no está en el menú).
+- Pruebas: `tests/ui/ErrorState.test.tsx` y `tests/viajes/HistorialViajesTable.test.tsx` leen los textos nuevos.
+
+**Archivos modificados:**
+
+- `src/components/ui/Feedback.tsx` · `src/routes/__root.tsx` · `src/routes/_private/configuracion/index.tsx`
+- `src/features/viajes/historial/HistorialHeader.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx`
+- `tests/ui/ErrorState.test.tsx` · `tests/viajes/HistorialViajesTable.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:10 17:19
+
+**Resumen:** Se corrigió el contraste del texto del login. En el tema oscuro (el que usa la app) el título "Iniciar sesión" se leía casi invisible (1.06:1), el subtítulo apenas (2.49:1) y el enlace "¿Olvidaste tu contraseña?" mal (2.1:1), porque usaban colores fijos pensados para fondo claro (`text-slate-900`, `text-slate-600`, `text-brand-700`). Ahora usan roles del tema que cambian con él, sin colores nuevos ni cambios en `globals.css` ni en la librería.
+
+**Cambios:**
+
+- `src/routes/(auth)/login.tsx`: el título usa `text-on-surface` y el subtítulo `text-on-surface-variant`, en lugar de `text-slate-900` y `text-slate-600`.
+- `src/features/sesion/LoginSection.tsx`: el enlace usa `text-primary-container` en lugar de `text-brand-700`. Se descartó `text-primary` porque en el tema claro quedaba en 4.22:1.
+- El panel izquierdo (texto blanco sobre la imagen) ya cumplía y no se tocó.
+
+**Pendiente, de la librería `@ai27-tech/ui` (no se parcha aquí):** el color del placeholder de los campos ("nombre@empresa.com", "123456") queda en 3.35:1 en el tema oscuro y 3.08:1 en el claro. Lo define `::placeholder { color: var(--ui-color-text-placeholder) }`.
+
+**Archivos modificados:**
+
+- `src/routes/(auth)/login.tsx` · `src/features/sesion/LoginSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:35
+
+**Resumen:** Se corrigió la ortografía de los textos visibles del login: faltaban acentos, la `ñ` y el signo de apertura `¿`. Solo cambia texto que ve el usuario; no se tocó ningún identificador ni campo del contrato (`contrasena` en `CredencialesEntrada`, `sesion_finalizada`). Las pruebas que buscan por texto se actualizaron.
+
+**Cambios:**
+
+- Etiquetas y botones: "Correo electrónico empresarial", "Contraseña", "Código de verificación", "Iniciar sesión" (botón y título de la página), y los nombres accesibles "Mostrar contraseña" / "Ocultar contraseña".
+- Enlace: "¿Olvidaste tu contraseña?" (además faltaba el `¿`).
+- Nota de seguridad: "Tu conexión es segura y está protegida por los protocolos de seguridad de AI27."
+- Mensajes de error: "Usuario, contraseña o código de verificación incorrectos.", "El servicio de identidad no está disponible…", "No encontramos el servicio de sesión. Revisa la configuración del entorno." y "No pudimos completar el acceso. Inténtalo de nuevo."
+- Pruebas actualizadas a los textos nuevos: `tests/sesion/LoginSection.test.tsx`, `e2e/login.spec.ts`, `e2e/journey.spec.ts`, `e2e/support/login.ts` y `e2e/session-cut.spec.ts`. Quien tenga selectores con los textos antiguos (`.scratch/pruebas-portal-cliente/` los cita) debe actualizarlos.
+
+**Archivos modificados:**
+
+- `src/features/sesion/LoginSection.tsx` · `src/routes/(auth)/login.tsx`
+- `tests/sesion/LoginSection.test.tsx`
+- `e2e/login.spec.ts` · `e2e/journey.spec.ts` · `e2e/support/login.ts` · `e2e/session-cut.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:16
+
+**Resumen:** Se quitó del mock la variante con 32 viajes (`viajesMuchosWire`): el mock queda solo con los 15 viajes normales, que con páginas de 10 ya muestran la paginación (10 y 5). La variante solo se podía activar desde Playwright con un header (el navegador no puede enviarlo en `pnpm dev:mock`) y la alternativa por cookie no funcionó al probarla.
+
+**Cambios:**
+
+- `src/mocks/data.ts`: se eliminan `viajesMuchosWire`, la lista de orígenes de la variante, la interfaz `ViajeResumenWire` (solo la usaba la variante) y el import de `ESTADOS_VIAJE`. El comentario de `viajesWire` ya no menciona la variante. `RECHAZADO_POR_AI27` queda sin cubrir en el mock (era el único estado que solo salía en la variante).
+- `src/mocks/handlers.ts`: `GET /viajes` vuelve a filtrar `viajesWire` directamente; ya no lee el header `x-mock-viajes-muchos` ni la cookie.
+- `e2e/historial.spec.ts`: se elimina el helper `conMuchosViajes` y el test de 32 viajes (cuatro páginas: 10, 10, 10 y 2). Sigue el test de los 15 viajes del mock (10 + 5). Las pruebas unitarias conservan su cobertura de varias páginas (10, 11 y 21 viajes) con datos propios.
+
+**Archivos modificados:**
+
+- `src/mocks/data.ts` · `src/mocks/handlers.ts`
+- `e2e/historial.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:09
+
+**Resumen:** El Historial de Viajes muestra como máximo **10** viajes por página. La tabla crece con los viajes hasta 10 y, a partir del 11, se parte en páginas de 10; la paginación (conteo y páginas) sigue siempre visible debajo de la tabla. Con los 15 viajes del mock, el historial queda en dos páginas (10 y 5).
+
+**Cambios:**
+
+- `HISTORIAL_PAGE_SIZE` a 10. Es la única fuente del tamaño: la partición de filas y la `Pagination` la leen de ahí.
+- Mock: comentarios de `data.ts` y `handlers.ts` al día. Los 15 viajes del mock (`viaje-1` a `viaje-15`) ya no caben en una página: la primera muestra `viaje-1` a `viaje-10` y la segunda `viaje-11` a `viaje-15`, así que la paginación se ve con los datos normales. Ojo: `viaje-11` a `viaje-15` (entre ellos `viaje-14`, con 60 mensajes, y `viaje-15`) quedan en la segunda página.
+- Pruebas unitarias: los límites pasan a 10, 11 y 21 viajes (una página llena, 10 + 1, y 10 + 10 + 1), con el cambio de filtro que vuelve a la página 1.
+- e2e `historial.spec.ts`: los 15 viajes del mock se ven como 10 + 5 (`1–10 of 15` y `11–15 of 15`) con la paginación justo debajo de la tabla. El filtro "Cerrado" sigue cubriendo la lista corta (`1–2 of 2`).
+
+**Archivos modificados:**
+
+- `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/features/viajes/historial/HistorialViajesSection.tsx`
+- `src/mocks/data.ts` · `src/mocks/handlers.ts`
+- `tests/viajes/HistorialViajesTable.test.tsx` · `e2e/historial.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:05
+
+**Resumen:** Se amplió el mock con situaciones distintas para probar el portal sin backend. El historial pasa de 6 a 15 viajes (justo una página) que cubren 12 de los 13 estados del ciclo de vida, y cada viaje del listado ya tiene detalle: antes `viaje-6`, `viaje-7` y `viaje-8` llevaban a "No encontramos lo que buscas". Solo cambian datos del mock y un e2e; no cambia código de la app.
+
+**Cambios:**
+
+- Listado (`viajesWire`): 15 viajes, de `viaje-1` a `viaje-15`. Los 6 originales conservan su id, estado y origen, así que las pruebas que dependen de ellos no cambian. Los nuevos agregan APROBADO, ASIGNADO, EN_TRANSITO, EN_DESTINO, APTO_PARA_SALIDA, EN_EMBARQUE, PATRULLA_EN_CAMINO, EN_DESCARGA y RECHAZADO_POR_CLIENTE. Solo falta RECHAZADO_POR_AI27. Los filtros "Cerrado" (2 filas) y "Cancelado" (1) quedan igual.
+- Detalle (`viajeDetalleWire`): detalle para `viaje-4`, `5`, `6`, `7`, `8`, `11`, `12`, `13`, `14` y `15`. Cubre ETA ausente, vigente y obsoleto, incidencias resueltas y en atención, incidencias con impacto en el ETA y las combinaciones de acciones del cliente: solo cancelar (SOLICITADO, APROBADO), cancelar y rechazar (ASIGNADO, APTO_PARA_SALIDA) y ninguna (EN_EMBARQUE, EN_DESCARGA, terminales). La descripción de cada situación está en el comentario de `viajesWire`.
+- Conversaciones: `viaje-4` abierta y vacía; `viaje-5` con un mensaje sin respuesta; `viaje-7` en estado `cerrada` (hasta ahora solo había `solo_lectura`); `viaje-9` con un párrafo largo con saltos de línea y una URL larguísima sin espacios; `viaje-10` atendida; `viaje-14` con 60 mensajes (pasa del límite de 50 y ofrece "Cargar mensajes anteriores"); `viaje-15` en solo lectura. `viaje-3`, `8`, `11`, `12` y `13` siguen sin conversación (404) a propósito.
+- Emergencias: `viaje-9` con dos casos (uno resuelto y otro en atención, para ver el selector de caso), `viaje-10` con un caso ya resuelto (hay historia pero no emergencia activa) y `viaje-13` con un caso recién abierto.
+
+**Archivos modificados:**
+
+- `src/mocks/data.ts`
+- `e2e/historial.spec.ts`
+- `CHANGELOG.md`
+
 ## 2026:11:10 11:10
 
 **Resumen:** Revisión general de botones del portal. Se quitan dos botones que no hacían nada ("Nuevo viaje" y "Exportar CSV"), se agregan "Cerrar sesión", el botón para plegar el sidebar y los botones de regreso del detalle y la conversación, y el filtro de estado del historial se conserva al moverse entre esas pantallas. Para que el botón del sidebar salga en español se subió `@ai27-tech/ui` de `0.2.0-beta.1` a `0.2.0-beta.6` (la versión de los otros dos portales), lo que obligó a migrar `Select` y `FilterTable`.

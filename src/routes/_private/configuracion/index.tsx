@@ -12,7 +12,7 @@ function ConfiguracionPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-xl font-semibold">Configuración</h1>
-      <p className="text-on-surface-variant text-sm">Esta seccion esta en construccion.</p>
+      <p className="text-on-surface-variant text-sm">Esta sección está en construcción.</p>
     </div>
   );
 }

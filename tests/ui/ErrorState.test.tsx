@@ -13,12 +13,13 @@ describe('ErrorState', () => {
     render(<ErrorState error={new ApiError('noEncontrado', 'GET /viajes/x', 404, null)} />);
 
     expect(screen.getByRole('alert')).toHaveTextContent('No encontramos lo que buscas');
-    expect(screen.queryByText('Algo se rompio')).toBeNull();
+    expect(screen.queryByText('Algo se rompió')).toBeNull();
   });
 
   it('un error sin clasificar sigue siendo un fallo', () => {
     render(<ErrorState error={new ApiError('roto', 'GET /viajes/x', 500, null)} />);
 
-    expect(screen.getByRole('alert')).toHaveTextContent('Algo se rompio');
+    expect(screen.getByRole('alert')).toHaveTextContent('Algo se rompió');
+    expect(screen.getByRole('alert')).toHaveTextContent('Se registró el fallo.');
   });
 });

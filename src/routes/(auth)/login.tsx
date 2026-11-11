@@ -59,8 +59,8 @@ function LoginPage() {
               />
             </ToastContainer>
           )}
-          <h1 className="mb-1 text-xl font-semibold text-slate-900">Iniciar sesion</h1>
-          <p className="mb-6 text-sm text-slate-600">Ingresa a tu Portal de Clientes</p>
+          <h1 className="text-on-surface mb-1 text-xl font-semibold">Iniciar sesión</h1>
+          <p className="text-on-surface-variant mb-6 text-sm">Ingresa a tu Portal de Clientes</p>
           <LoginSection redirectTo={redirect} />
         </div>
       </div>
