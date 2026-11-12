@@ -22,10 +22,8 @@ import type { DestinoIntermedio } from './ordenDestinos';
 
 interface DestinosIntermediosProps {
   readonly destinos: readonly DestinoIntermedio[];
-  readonly onActualizar: (
-    indice: number,
-    patch: Partial<Pick<DestinoIntermedio, 'nombre' | 'numeroEnvio'>>,
-  ) => void;
+  /** Cambia el nombre del destino de la posición `indice`. */
+  readonly onActualizar: (indice: number, nombre: string) => void;
   readonly onQuitar: (indice: number) => void;
   readonly onMover: (desde: number, hasta: number) => void;
 }
@@ -83,12 +81,6 @@ export function DestinosIntermedios({
 
   return (
     <div className="flex flex-col gap-4">
-      {reordenable && (
-        <p id={ID_AYUDA_ORDEN} className="text-on-surface-variant text-xs">
-          Arrastra el control de cada destino para cambiar el orden, o enfócalo y usa las flechas ↑
-          y ↓.
-        </p>
-      )}
       <p role="status" className="sr-only">
         {anuncio}
       </p>
@@ -155,18 +147,10 @@ export function DestinosIntermedios({
               <FormField label={`Destino ${numero}`} required>
                 <Input
                   value={destino.nombre}
-                  onChange={(evento) => onActualizar(indice, { nombre: evento.target.value })}
+                  onChange={(evento) => onActualizar(indice, evento.target.value)}
                   placeholder="Ciudad o sitio del destino"
                   startAdornment={ICONO_UBICACION}
                   required
-                />
-              </FormField>
-              <FormField label="Número de envío (opcional)">
-                <Input
-                  value={destino.numeroEnvio}
-                  onChange={(evento) => onActualizar(indice, { numeroEnvio: evento.target.value })}
-                  placeholder="Referencia del envío"
-                  aria-label={`Número de envío del destino ${numero}`}
                 />
               </FormField>
             </div>

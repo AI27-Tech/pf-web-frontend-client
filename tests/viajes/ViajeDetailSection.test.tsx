@@ -18,7 +18,6 @@
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import type { IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
 import { listEmergencias } from '@/lib/api/emergencias';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
@@ -321,7 +320,7 @@ describe('ViajeDetailSection — frescura del ETA (E9-T5)', () => {
 
 /*
  * Estructura del seguimiento: recorrido en cuatro pasos, tarjetas de hito y ETA, aviso de
- * emergencia activa y actualización a demanda.
+ * emergencia activa.
  */
 function seguimientoEnEstado(estado: string): ViajeSeguimiento {
   return {
@@ -365,7 +364,7 @@ describe('ViajeDetailSection — recorrido del viaje', () => {
   });
 });
 
-describe('ViajeDetailSection — hito, ETA y actualización', () => {
+describe('ViajeDetailSection — hito y ETA', () => {
   it('muestra el hito actual con su etiqueta', () => {
     render(<ViajeDetailSection viaje={seguimientoEnEstado('SOLICITADO')} />);
 
@@ -383,23 +382,6 @@ describe('ViajeDetailSection — hito, ETA y actualización', () => {
     render(<ViajeDetailSection viaje={viaje} />);
 
     expect(screen.queryByText('Hito actual')).not.toBeInTheDocument();
-  });
-
-  it('sin `onActualizar` no ofrece el botón Actualizar', () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
-
-    expect(screen.queryByRole('button', { name: 'Actualizar' })).not.toBeInTheDocument();
-  });
-
-  it('Actualizar pide un refresco al pulsarlo', async () => {
-    const onActualizar = vi.fn();
-    render(
-      <ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} onActualizar={onActualizar} />,
-    );
-
-    await userEvent.click(screen.getByRole('button', { name: 'Actualizar' }));
-
-    expect(onActualizar).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -10,7 +10,6 @@
 export interface DestinoIntermedio {
   readonly id: string;
   readonly nombre: string;
-  readonly numeroEnvio: string;
 }
 
 let secuencia = 0;
@@ -18,7 +17,7 @@ let secuencia = 0;
 /** Destino intermedio vacío con un `id` propio (la clave de React no puede ser el índice). */
 export function nuevoDestinoIntermedio(): DestinoIntermedio {
   secuencia += 1;
-  return { id: `destino-intermedio-${secuencia}`, nombre: '', numeroEnvio: '' };
+  return { id: `destino-intermedio-${secuencia}`, nombre: '' };
 }
 
 /** Copia de `lista` con el elemento de `desde` movido a `hasta`. Índices fuera de rango: sin cambio. */

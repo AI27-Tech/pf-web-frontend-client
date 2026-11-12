@@ -19,8 +19,8 @@
  */
 
 import { Link } from '@tanstack/react-router';
-import { ChevronLeft, CircleCheck, MessageSquare, RefreshCw, TriangleAlert } from 'lucide-react';
-import { Badge, Button, Card, CardBody } from '@ai27-tech/ui';
+import { ChevronLeft, CircleCheck, MessageSquare, TriangleAlert } from 'lucide-react';
+import { Badge, Card, CardBody } from '@ai27-tech/ui';
 import type { EstadoViaje, IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
 import { conservarFiltro } from './filtroEstado';
@@ -91,15 +91,9 @@ function IncidenciaItem({ incidencia }: { readonly incidencia: IncidenciaCurada 
 export function ViajeDetailSection({
   viaje,
   estadoHistorial,
-  onActualizar,
-  actualizando = false,
 }: {
   readonly viaje: ViajeSeguimiento;
   readonly estadoHistorial?: EstadoViaje | undefined;
-  /** Refresca el seguimiento a demanda. Sin esta función no se ofrece el botón. */
-  readonly onActualizar?: (() => void) | undefined;
-  /** Hay una actualización en curso: el botón muestra su estado de carga. */
-  readonly actualizando?: boolean | undefined;
 }) {
   const { hito, eta, incidencias } = viaje;
   const filtro = conservarFiltro(estadoHistorial);
@@ -185,9 +179,9 @@ export function ViajeDetailSection({
             <Card
               variant="outlined"
               padding="lg"
-              className={hito.etiqueta === undefined ? 'sm:col-span-2' : undefined}
+              className={hito.etiqueta === undefined ? 'xl:col-span-2' : undefined}
             >
-              <CardBody className="flex items-center justify-between gap-3">
+              <CardBody>
                 <dl>
                   <div>
                     <dt className="text-on-surface-variant text-xs">ETA estimado</dt>
@@ -207,17 +201,6 @@ export function ViajeDetailSection({
                     </dd>
                   </div>
                 </dl>
-                {onActualizar !== undefined && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={onActualizar}
-                    loading={actualizando}
-                    startIcon={<RefreshCw aria-hidden="true" className="size-3.5" />}
-                  >
-                    Actualizar
-                  </Button>
-                )}
               </CardBody>
             </Card>
           </div>

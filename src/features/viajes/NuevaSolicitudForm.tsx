@@ -4,6 +4,8 @@
  * Captura EXACTAMENTE la forma del contrato `CrearViajeEntrada`:
  *   { origen, destinos:[{nombre, numero_envio?}], tipo_servicio?, fecha_hora_servicio?,
  *     cliente_id? }
+ * El `numero_envio` de cada destino es opcional en el contrato y esta pantalla NO lo
+ * captura (instrucción de Product Management): ningún destino lo lleva.
  *
  * Disposición: el formulario a la izquierda y, a su derecha, una vista previa en vivo
  * (`SolicitudVistaPrevia`) con el origen, los destinos y el destino final capturados,
@@ -23,10 +25,11 @@
  *   - Origen y destino final son TEXTO LIBRE y OBLIGATORIOS. El botón de envío queda
  *     DESHABILITADO mientras falte cualquiera de los dos (o cualquier destino quede
  *     vacío). No dependen de ningún catálogo: `rutas` no es catálogo en V1.
- *   - MÚLTIPLES DESTINOS: el interruptor "Seguimiento con múltiples destinos" muestra la sección y, al
- *     activarse, abre el primer destino; permite añadir 1..N uno por uno. Cada destino se
- *     puede agregar, quitar y reordenar; sin destinos el viaje tiene uno solo (el final).
- *     No hay tope: ninguna decisión lo fija.
+ *   - MÚLTIPLES DESTINOS: el interruptor "Seguimiento con múltiples destinos" va en la
+ *     misma fila que la etiqueta del Destino final. Al activarse abre el primer destino
+ *     intermedio y permite añadir 1..N uno por uno. Cada destino se puede agregar, quitar
+ *     y reordenar; sin destinos el viaje tiene uno solo (el final). No hay tope: ninguna
+ *     decisión lo fija.
  *   - Tipo de servicio: el cliente PUEDE elegir entre dos opciones fijas, Local o Foráneo
  *     (instrucción de Product Management, pendiente de registrarse como DEC). Ya no sale
  *     del catálogo `tipos-servicio`: los códigos `local` y `foraneo` los define esta
@@ -74,14 +77,6 @@ import { resolverFechaHora } from './fechaHora';
 import { moverElemento, nuevoDestinoIntermedio, type DestinoIntermedio } from './ordenDestinos';
 import { SolicitudVistaPrevia } from './SolicitudVistaPrevia';
 
-/** El destino final en edición: nombre libre y número de envío opcional. */
-interface DestinoFinalEnEdicion {
-  readonly nombre: string;
-  readonly numeroEnvio: string;
-}
-
-const DESTINO_FINAL_VACIO: DestinoFinalEnEdicion = { nombre: '', numeroEnvio: '' };
-
 /** Tipo de servicio: dos opciones fijas. El `value` es el código que viaja en `tipo_servicio`. */
 type TipoServicio = 'local' | 'foraneo';
 
@@ -125,7 +120,7 @@ export function NuevaSolicitudForm() {
   // Destinos intermedios, en orden. Vacío = sin ellos (el interruptor va apagado).
   const [paradas, setParadas] = useState<readonly DestinoIntermedio[]>([]);
   // El destino final: siempre existe y siempre es el último punto de la ruta.
-  const [destino, setDestino] = useState<DestinoFinalEnEdicion>(DESTINO_FINAL_VACIO);
+  const [destino, setDestino] = useState('');
   const [tipoServicio, setTipoServicio] = useState<TipoServicio | ''>('');
   // Escolta: hoy solo se captura y se muestra; el contrato aún no la acepta (ver cabecera).
   const [tipoEscolta, setTipoEscolta] = useState<TipoEscolta | ''>('');
@@ -141,14 +136,11 @@ export function NuevaSolicitudForm() {
 
   useEffect(() => onCut(() => setAvisoSesionFinalizada(true)), []);
 
-  // "Seguimiento con múltiples destinos" está activo exactamente cuando hay al menos un destino intermedio.
+  // El interruptor está activo exactamente cuando hay al menos un destino intermedio.
   const conParadas = paradas.length > 0;
 
-  function actualizarParada(
-    indice: number,
-    patch: Partial<Pick<DestinoIntermedio, 'nombre' | 'numeroEnvio'>>,
-  ): void {
-    setParadas((prev) => prev.map((p, i) => (i === indice ? { ...p, ...patch } : p)));
+  function actualizarParada(indice: number, nombre: string): void {
+    setParadas((prev) => prev.map((p, i) => (i === indice ? { ...p, nombre } : p)));
   }
 
   function agregarParada(): void {
@@ -194,7 +186,7 @@ export function NuevaSolicitudForm() {
   // si se pidió sobreescolta, su tipo gobiernan el envío.
   const puedeEnviar =
     origen.trim() !== '' &&
-    destino.nombre.trim() !== '' &&
+    destino.trim() !== '' &&
     paradas.every((p) => p.nombre.trim() !== '') &&
     tipoEscolta !== '' &&
     fechaHoraCompleta &&
@@ -211,18 +203,16 @@ export function NuevaSolicitudForm() {
     setPending(true);
 
     try {
-      // Solo los campos del contrato. `numero_envio` y los opcionales se omiten vacíos.
-      // Los destinos van primero, en su orden actual, y el destino final al último. El
-      // número de envío del destino final solo se captura (y se envía) cuando hay destinos.
+      // Solo los campos del contrato; los opcionales se omiten vacíos. `numero_envio` no se
+      // captura: no va en ningún destino.
+      // Los destinos van primero, en su orden actual, y el destino final al último.
       // La escolta no se envía: el contrato aún no la modela (ver cabecera).
       // `fecha_hora_servicio` es el instante en UTC (RFC 3339) que arma `resolverFechaHora`.
       // Todo el armado vive dentro del `try` para que ningún fallo deje `pending` activo.
-      const destinoFinal = conParadas ? destino : { ...destino, numeroEnvio: '' };
       const entrada: CrearViajeEntrada = {
         origen: origen.trim(),
-        destinos: [...paradas, destinoFinal].map((p) => ({
-          nombre: p.nombre.trim(),
-          ...(p.numeroEnvio.trim() !== '' ? { numero_envio: p.numeroEnvio.trim() } : {}),
+        destinos: [...paradas.map((p) => p.nombre), destino].map((nombre) => ({
+          nombre: nombre.trim(),
         })),
         ...(tipoServicio !== '' ? { tipo_servicio: tipoServicio } : {}),
         ...(fechaHora.estado === 'valido' ? { fecha_hora_servicio: fechaHora.iso } : {}),
@@ -245,7 +235,7 @@ export function NuevaSolicitudForm() {
     setCreado(null);
     setOrigen('');
     setParadas([]);
-    setDestino(DESTINO_FINAL_VACIO);
+    setDestino('');
     setTipoServicio('');
     setTipoEscolta('');
     setConSobreescolta(false);
@@ -312,64 +302,41 @@ export function NuevaSolicitudForm() {
               />
             </FormField>
 
-            {/* Origen y Destino final van juntos al inicio del formulario. */}
-            <FormField label="Destino final" required>
-              <Input
-                value={destino.nombre}
-                onChange={(event) =>
-                  setDestino((prev) => ({ ...prev, nombre: event.target.value }))
-                }
-                placeholder="Ciudad o sitio del destino final"
-                startAdornment={ICONO_UBICACION}
-                required
-              />
-            </FormField>
-
             {conParadas && (
-              <FormField label="Número de envío (opcional)">
-                <Input
-                  value={destino.numeroEnvio}
-                  onChange={(event) =>
-                    setDestino((prev) => ({ ...prev, numeroEnvio: event.target.value }))
-                  }
-                  placeholder="Referencia del envío"
-                  aria-label="Número de envío del destino final"
-                />
-              </FormField>
-            )}
-
-            {/*
-              Destinos: el interruptor muestra la sección. Se capturan aquí, debajo del
-              Destino final, pero en la ruta (vista previa y envío) van ENTRE el origen y
-              el destino final. Son los únicos que se numeran y se pueden reordenar.
-            */}
-            <div className="border-outline-variant flex flex-col gap-4 rounded-lg border p-4">
-              <div className="flex flex-col gap-1">
-                <Switch
-                  label="Seguimiento con múltiples destinos"
-                  checked={conParadas}
-                  onChange={(event) => alternarParadas(event.target.checked)}
-                  aria-describedby="ayuda-agregar-paradas"
-                />
-                <p id="ayuda-agregar-paradas" className="text-on-surface-variant text-xs">
+              <div className="border-outline-variant flex flex-col gap-4 rounded-lg border p-4">
+                <p className="text-on-surface-variant text-xs">
                   Agrega destinos intermedios entre el origen y el destino final.
                 </p>
-              </div>
 
-              {conParadas && (
                 <DestinosIntermedios
                   destinos={paradas}
                   onActualizar={actualizarParada}
                   onQuitar={quitarParada}
                   onMover={moverParada}
                 />
-              )}
 
-              {conParadas && (
                 <Button type="button" variant="outline" onClick={agregarParada}>
                   Agregar otro destino
                 </Button>
-              )}
+              </div>
+            )}
+            <div className="relative flex flex-col">
+              <FormField label="Destino final" required>
+                <Input
+                  value={destino}
+                  onChange={(event) => setDestino(event.target.value)}
+                  placeholder="Ciudad o sitio del destino final"
+                  startAdornment={ICONO_UBICACION}
+                  required
+                />
+              </FormField>
+              <div className="pt-2 sm:absolute sm:-top-1 sm:right-0 sm:pt-0">
+                <Switch
+                  label="Seguimiento con múltiples destinos"
+                  checked={conParadas}
+                  onChange={(event) => alternarParadas(event.target.checked)}
+                />
+              </div>
             </div>
 
             <FormField label="Tipo de servicio">
@@ -447,7 +414,7 @@ export function NuevaSolicitudForm() {
         <SolicitudVistaPrevia
           origen={origen}
           paradas={paradas.map((p) => p.nombre)}
-          destino={destino.nombre}
+          destino={destino}
           tipoServicio={etiquetaTipoServicio ?? ''}
           tipoEscolta={etiquetaEscolta(tipoEscolta)}
           sobreescolta={conSobreescolta ? etiquetaEscolta(tipoSobreescolta) : 'No'}

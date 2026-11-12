@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## 2026:11:11 21:00
+
+**Resumen:** Se quitó el botón "Actualizar" de la tarjeta "ETA estimado" del seguimiento de un viaje. El seguimiento sigue actualizándose solo con el polling (ADR 27), que no cambió. Sin el botón, la fecha del ETA ocupa todo el ancho de la tarjeta y deja de partirse en dos líneas.
+**Cambios:**
+
+- `ViajeDetailSection.tsx`: sin el botón ni las props `onActualizar` y `actualizando`. De paso, el `col-span-2` de la tarjeta de ETA cuando no hay etiqueta de hito pasó de `sm:` a `xl:`, que es el punto desde el que la rejilla de hito y ETA tiene dos columnas.
+- `routes/_private/viajes/$viajeId/index.tsx`: ya no pasa `refetch` ni `isFetching`.
+- `ViajeDetailSection.test.tsx`: se eliminaron las dos pruebas del botón.
+  **Archivos modificados:**
+- `src/features/viajes/ViajeDetailSection.tsx` · `src/routes/_private/viajes/$viajeId/index.tsx`
+- `tests/viajes/ViajeDetailSection.test.tsx`
+- `CHANGELOG.md`
+
 ## 2026:11:11 20:20
 
 **Resumen:** En el seguimiento de un viaje, las dos columnas arrancaban a distinta altura: la derecha llevaba el rótulo "ACCIONES" y la izquierda empezaba directo con la tarjeta del recorrido, así que sus primeras tarjetas quedaban desfasadas. Ahora la izquierda también lleva un rótulo ("SEGUIMIENTO") con el mismo estilo y la misma separación, y las dos columnas usan el mismo espacio entre tarjetas (`gap-4`; antes la derecha usaba `gap-3`). Se midió: en 1024px y 1440px la primera tarjeta de cada columna empieza a la misma altura.
