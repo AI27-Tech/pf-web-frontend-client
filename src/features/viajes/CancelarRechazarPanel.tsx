@@ -26,6 +26,7 @@
  */
 
 import { useState } from 'react';
+import { Lock } from 'lucide-react';
 import { Button, Card, CardBody, FormField, Modal, Textarea } from '@ai27-tech/ui';
 import { EstadoViaje, esTerminal, type ViajeSeguimiento } from '@/lib/contracts';
 import { isApiError } from '@/lib/api/errors';
@@ -103,7 +104,10 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
     return (
       <Card variant="outlined" padding="lg">
         <CardBody>
-          <h2 className="text-on-surface text-lg font-semibold">Cancelar o rechazar</h2>
+          <h2 className="text-on-surface flex items-center gap-2 text-base font-semibold">
+            <Lock aria-hidden="true" className="text-on-surface-variant size-4" />
+            Cancelar o rechazar
+          </h2>
           <p className="text-on-surface-variant mt-1 text-sm">{explicacionNoDisponible(estado)}</p>
         </CardBody>
       </Card>
@@ -157,16 +161,20 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
   return (
     <>
       <Card variant="outlined" padding="lg">
-        <CardBody className="flex flex-col gap-3">
+        <CardBody className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-on-surface text-lg font-semibold">Cancelar o rechazar</h2>
+            <h2 className="text-on-surface text-base font-semibold">Cancelar o rechazar</h2>
             <p className="text-on-surface-variant text-sm">
               Puedes cancelar el viaje o rechazar el servicio mientras no haya salido.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             {puedeCancelar && (
-              <Button variant="danger" onClick={() => abrir('cancelar')}>
+              <Button
+                variant="outline"
+                className="border-error/40! text-error!"
+                onClick={() => abrir('cancelar')}
+              >
                 {META.cancelar.tituloBoton}
               </Button>
             )}

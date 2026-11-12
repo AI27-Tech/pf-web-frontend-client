@@ -5,17 +5,52 @@
  *   { origen, destinos:[{nombre, numero_envio?}], tipo_servicio?, fecha_hora_servicio?,
  *     cliente_id? }
  *
+ * Disposición: el formulario a la izquierda y, a su derecha, una vista previa en vivo
+ * (`SolicitudVistaPrevia`) con el origen, los destinos y el destino final capturados,
+ * más el resto de los datos. En pantallas angostas la vista previa queda debajo.
+ *
+ * Modelo de la ruta: Origen → Destino 1..N → Destino final.
+ *   - El DESTINO FINAL es siempre el último punto de la ruta. Es el único campo de destino
+ *     obligatorio que no se numera.
+ *   - Los DESTINOS (intermedios) son opcionales, van entre el origen y el destino final, y
+ *     son los únicos que se numeran (Destino 1, Destino 2, …) según su posición. Se pueden
+ *     reordenar arrastrándolos (ver `DestinosIntermedios`).
+ *   - Al enviar, `destinos` del contrato lleva los destinos en su orden actual y el destino
+ *     final AL ÚLTIMO: `[...destinos, destinoFinal]` (DEC-013: el último destino de la
+ *     lista es el que cierra el viaje).
+ *
  * Reglas de negocio aplicadas (DEC-010, DEC-020 #1, DEC-017):
- *   - Origen y destino son TEXTO LIBRE y OBLIGATORIOS. El botón de envío queda
- *     DESHABILITADO mientras falte cualquiera de los dos (o cualquier parada quede
- *     vacía). No dependen de ningún catálogo: `rutas` no es catálogo en V1.
- *   - MÚLTIPLES PARADAS: un booleano "agregar paradas" que, al activarse, permite
- *     añadir destinos 1..N uno por uno (el contrato acepta `destinos: [{nombre}]`).
- *     Cada parada se puede agregar y quitar. Sin el booleano, hay un solo destino.
- *   - Tipo de servicio: el cliente PUEDE elegirlo del catálogo `tipos-servicio`. Su
- *     obligatoriedad NO está decidida, así que NO se fuerza en ninguna dirección.
- *   - Fecha/hora deseada: opcional (operación la fija antes de aprobar si falta).
+ *   - Origen y destino final son TEXTO LIBRE y OBLIGATORIOS. El botón de envío queda
+ *     DESHABILITADO mientras falte cualquiera de los dos (o cualquier destino quede
+ *     vacío). No dependen de ningún catálogo: `rutas` no es catálogo en V1.
+ *   - MÚLTIPLES DESTINOS: el interruptor "Seguimiento con múltiples destinos" muestra la sección y, al
+ *     activarse, abre el primer destino; permite añadir 1..N uno por uno. Cada destino se
+ *     puede agregar, quitar y reordenar; sin destinos el viaje tiene uno solo (el final).
+ *     No hay tope: ninguna decisión lo fija.
+ *   - Tipo de servicio: el cliente PUEDE elegir entre dos opciones fijas, Local o Foráneo
+ *     (instrucción de Product Management, pendiente de registrarse como DEC). Ya no sale
+ *     del catálogo `tipos-servicio`: los códigos `local` y `foraneo` los define esta
+ *     pantalla y se envían tal cual en `tipo_servicio`. Su obligatoriedad NO está
+ *     decidida, así que NO se fuerza en ninguna dirección.
+ *   - Fecha y hora del servicio: OBLIGATORIAS. Se capturan en dos campos, Fecha y Hora, y
+ *     se envían como UNO solo: `fecha_hora_servicio`, un instante en UTC (RFC 3339). Si
+ *     falta cualquiera, o la fecha no es real, el envío queda bloqueado y el motivo se ve
+ *     junto al campo (ver `fechaHora.ts`). No se rechazan fechas pasadas: ninguna HU lo
+ *     define. OJO: E1-HU-001 y DEC-010 #2 siguen diciendo que son opcionales para el
+ *     cliente (operación las fija antes de aprobar); esta obligatoriedad es una
+ *     instrucción nueva de Product Management, pendiente de registrarse como DEC.
  *   - El cliente/tenant NO se captura: lo deriva la identidad en el `bff` (DEC-010 #5).
+ *
+ * BRECHA CONTRACTUAL — escolta: el formulario captura el tipo de escolta (Patrulla o Moto)
+ * y, con el interruptor "Agregar sobreescolta", el tipo de la sobreescolta. Hoy
+ * `CrearViajeEntrada` NO tiene campos para esto, así que se muestran en la vista previa
+ * pero NO se envían (no se inventa wire). Cuando el contrato los publique, se agregan a
+ * `entrada` en `onSubmit`. Los valores `patrulla`/`moto` coinciden con `tipo` de la unidad
+ * del roster (ADR 31). El tipo de escolta es OBLIGATORIO (instrucción de Product
+ * Management, pendiente de registrarse como DEC): sin él no se envía, aunque hoy el dato
+ * no viaje al backend. La sobreescolta es opcional; si se activa, se exige su tipo (igual
+ * que un destino abierto exige su nombre) para no enviar un interruptor encendido sin
+ * contenido.
  *
  * Fuera del contrato (NO se capturan aquí): operador y tracto son opcionales según
  * DEC-010 #4, pero `CrearViajeEntrada` no los modela; capturarlos sería inventar una
@@ -28,37 +63,77 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Button, Card, CardBody, Checkbox, FormField, Input, Select } from '@ai27-tech/ui';
+import { Button, Card, CardBody, FormField, Input, Select, Switch } from '@ai27-tech/ui';
+import { CalendarDays, Clock, MapPin } from 'lucide-react';
 import { crearViaje } from '@/lib/api/viajes';
-import type { CrearViajeEntrada, TipoServicioCliente } from '@/lib/contracts';
+import type { CrearViajeEntrada } from '@/lib/contracts';
 import { isApiError } from '@/lib/api/errors';
 import { onCut } from '@/lib/api/sessionCut';
+import { DestinosIntermedios } from './DestinosIntermedios';
+import { resolverFechaHora } from './fechaHora';
+import { moverElemento, nuevoDestinoIntermedio, type DestinoIntermedio } from './ordenDestinos';
+import { SolicitudVistaPrevia } from './SolicitudVistaPrevia';
 
-interface NuevaSolicitudFormProps {
-  /**
-   * Catálogo de tipos de servicio para el select opcional. Puede venir vacío: el
-   * catálogo es de PRESENTACIÓN y no bloqueante (el loader degrada a [] si no está).
-   */
-  readonly tiposServicio: readonly TipoServicioCliente[];
-}
-
-/** Un destino en edición: el nombre es texto libre; el número de envío es opcional. */
-interface DestinoEnEdicion {
+/** El destino final en edición: nombre libre y número de envío opcional. */
+interface DestinoFinalEnEdicion {
   readonly nombre: string;
   readonly numeroEnvio: string;
 }
 
-const DESTINO_VACIO: DestinoEnEdicion = { nombre: '', numeroEnvio: '' };
+const DESTINO_FINAL_VACIO: DestinoFinalEnEdicion = { nombre: '', numeroEnvio: '' };
 
-export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
+/** Tipo de servicio: dos opciones fijas. El `value` es el código que viaja en `tipo_servicio`. */
+type TipoServicio = 'local' | 'foraneo';
+
+const OPCIONES_TIPO_SERVICIO: readonly { readonly value: TipoServicio; readonly label: string }[] =
+  [
+    { value: 'local', label: 'Local' },
+    { value: 'foraneo', label: 'Foráneo' },
+  ];
+
+/** Valor del `Select` → tipo de servicio, o '' si no se eligió ninguno. */
+function aTipoServicio(valor: string | number): TipoServicio | '' {
+  return OPCIONES_TIPO_SERVICIO.find((opcion) => opcion.value === valor)?.value ?? '';
+}
+
+/** Tipo de vehículo de la escolta. Coincide con `tipo` de la unidad del roster (ADR 31). */
+type TipoEscolta = 'patrulla' | 'moto';
+
+const OPCIONES_ESCOLTA: readonly { readonly value: TipoEscolta; readonly label: string }[] = [
+  { value: 'patrulla', label: 'Patrulla' },
+  { value: 'moto', label: 'Moto' },
+];
+
+/** Valor del `Select` → tipo de escolta, o '' si no se eligió ninguno. */
+function aTipoEscolta(valor: string | number): TipoEscolta | '' {
+  return OPCIONES_ESCOLTA.find((opcion) => opcion.value === valor)?.value ?? '';
+}
+
+function etiquetaEscolta(tipo: TipoEscolta | ''): string {
+  return OPCIONES_ESCOLTA.find((opcion) => opcion.value === tipo)?.label ?? '';
+}
+
+const ICONO_UBICACION = <MapPin aria-hidden="true" className="size-4" />;
+
+/** El botón de envío vive fuera del <form> (bajo la vista previa) y se asocia por este id. */
+const ID_FORMULARIO = 'form-nueva-solicitud';
+
+export function NuevaSolicitudForm() {
   const navigate = useNavigate();
 
   const [origen, setOrigen] = useState('');
-  // Siempre hay al menos un destino. Con "agregar paradas" se añaden más (1..N).
-  const [destinos, setDestinos] = useState<readonly DestinoEnEdicion[]>([DESTINO_VACIO]);
-  const [conParadas, setConParadas] = useState(false);
-  const [tipoServicio, setTipoServicio] = useState('');
-  const [fechaHora, setFechaHora] = useState('');
+  // Destinos intermedios, en orden. Vacío = sin ellos (el interruptor va apagado).
+  const [paradas, setParadas] = useState<readonly DestinoIntermedio[]>([]);
+  // El destino final: siempre existe y siempre es el último punto de la ruta.
+  const [destino, setDestino] = useState<DestinoFinalEnEdicion>(DESTINO_FINAL_VACIO);
+  const [tipoServicio, setTipoServicio] = useState<TipoServicio | ''>('');
+  // Escolta: hoy solo se captura y se muestra; el contrato aún no la acepta (ver cabecera).
+  const [tipoEscolta, setTipoEscolta] = useState<TipoEscolta | ''>('');
+  const [conSobreescolta, setConSobreescolta] = useState(false);
+  const [tipoSobreescolta, setTipoSobreescolta] = useState<TipoEscolta | ''>('');
+  // Fecha (`YYYY-MM-DD`) y hora (`HH:mm`) son dos campos; se combinan al enviar.
+  const [fecha, setFecha] = useState('');
+  const [hora, setHora] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [creado, setCreado] = useState<{ id: string } | null>(null);
@@ -66,31 +141,64 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
 
   useEffect(() => onCut(() => setAvisoSesionFinalizada(true)), []);
 
-  function actualizarDestino(indice: number, patch: Partial<DestinoEnEdicion>): void {
-    setDestinos((prev) => prev.map((d, i) => (i === indice ? { ...d, ...patch } : d)));
+  // "Seguimiento con múltiples destinos" está activo exactamente cuando hay al menos un destino intermedio.
+  const conParadas = paradas.length > 0;
+
+  function actualizarParada(
+    indice: number,
+    patch: Partial<Pick<DestinoIntermedio, 'nombre' | 'numeroEnvio'>>,
+  ): void {
+    setParadas((prev) => prev.map((p, i) => (i === indice ? { ...p, ...patch } : p)));
   }
 
   function agregarParada(): void {
-    setDestinos((prev) => [...prev, DESTINO_VACIO]);
+    setParadas((prev) => [...prev, nuevoDestinoIntermedio()]);
   }
 
   function quitarParada(indice: number): void {
-    // Nunca se queda sin destinos: al quitar el último extra, vuelve a un solo destino.
-    setDestinos((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== indice)));
+    // Al quitar el último destino, la ruta vuelve a ser origen → destino final.
+    setParadas((prev) => prev.filter((_, i) => i !== indice));
+  }
+
+  function moverParada(desde: number, hasta: number): void {
+    setParadas((prev) => moverElemento(prev, desde, hasta));
   }
 
   function alternarParadas(activo: boolean): void {
-    setConParadas(activo);
-    // Al desactivar paradas, se conserva solo el primer destino.
-    if (!activo) {
-      setDestinos((prev) => [prev[0] ?? DESTINO_VACIO]);
-    }
+    // Activar abre el primer destino; desactivar descarta todos.
+    setParadas(activo ? [nuevoDestinoIntermedio()] : []);
   }
 
-  // Origen y todos los destinos deben tener texto. Esto gobierna el botón de envío.
-  const origenCompleto = origen.trim() !== '';
-  const destinosCompletos = destinos.every((d) => d.nombre.trim() !== '');
-  const puedeEnviar = origenCompleto && destinosCompletos;
+  function alternarSobreescolta(activo: boolean): void {
+    setConSobreescolta(activo);
+    // Apagar el interruptor descarta el tipo elegido.
+    if (!activo) setTipoSobreescolta('');
+  }
+
+  // Fecha y hora son obligatorias y van juntas: el contrato solo acepta un instante
+  // completo (`fecha_hora_servicio`). Si falta una, o la fecha es irreal, no se envía.
+  const fechaHora = resolverFechaHora(fecha, hora);
+  const errorFecha =
+    fechaHora.estado === 'invalido'
+      ? 'Escribe una fecha válida: el año debe tener 4 dígitos.'
+      : fechaHora.estado === 'incompleto' && fechaHora.falta === 'fecha'
+        ? 'Indica también la fecha.'
+        : undefined;
+  const errorHora =
+    fechaHora.estado === 'incompleto' && fechaHora.falta === 'hora'
+      ? 'Indica también la hora.'
+      : undefined;
+  const fechaHoraCompleta = fechaHora.estado === 'valido';
+
+  // Origen, destino final, todos los destinos, tipo de escolta, fecha y hora completas y,
+  // si se pidió sobreescolta, su tipo gobiernan el envío.
+  const puedeEnviar =
+    origen.trim() !== '' &&
+    destino.nombre.trim() !== '' &&
+    paradas.every((p) => p.nombre.trim() !== '') &&
+    tipoEscolta !== '' &&
+    fechaHoraCompleta &&
+    (!conSobreescolta || tipoSobreescolta !== '');
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -102,18 +210,24 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
     setError(null);
     setPending(true);
 
-    // Solo los campos del contrato. `numero_envio` y los opcionales se omiten vacíos.
-    const entrada: CrearViajeEntrada = {
-      origen: origen.trim(),
-      destinos: destinos.map((d) => ({
-        nombre: d.nombre.trim(),
-        ...(d.numeroEnvio.trim() !== '' ? { numero_envio: d.numeroEnvio.trim() } : {}),
-      })),
-      ...(tipoServicio !== '' ? { tipo_servicio: tipoServicio } : {}),
-      ...(fechaHora !== '' ? { fecha_hora_servicio: new Date(fechaHora).toISOString() } : {}),
-    };
-
     try {
+      // Solo los campos del contrato. `numero_envio` y los opcionales se omiten vacíos.
+      // Los destinos van primero, en su orden actual, y el destino final al último. El
+      // número de envío del destino final solo se captura (y se envía) cuando hay destinos.
+      // La escolta no se envía: el contrato aún no la modela (ver cabecera).
+      // `fecha_hora_servicio` es el instante en UTC (RFC 3339) que arma `resolverFechaHora`.
+      // Todo el armado vive dentro del `try` para que ningún fallo deje `pending` activo.
+      const destinoFinal = conParadas ? destino : { ...destino, numeroEnvio: '' };
+      const entrada: CrearViajeEntrada = {
+        origen: origen.trim(),
+        destinos: [...paradas, destinoFinal].map((p) => ({
+          nombre: p.nombre.trim(),
+          ...(p.numeroEnvio.trim() !== '' ? { numero_envio: p.numeroEnvio.trim() } : {}),
+        })),
+        ...(tipoServicio !== '' ? { tipo_servicio: tipoServicio } : {}),
+        ...(fechaHora.estado === 'valido' ? { fecha_hora_servicio: fechaHora.iso } : {}),
+      };
+
       const viaje = await crearViaje(entrada);
       setCreado({ id: viaje.id });
     } catch (cause) {
@@ -130,10 +244,14 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
   function reiniciar(): void {
     setCreado(null);
     setOrigen('');
-    setDestinos([DESTINO_VACIO]);
-    setConParadas(false);
+    setParadas([]);
+    setDestino(DESTINO_FINAL_VACIO);
     setTipoServicio('');
-    setFechaHora('');
+    setTipoEscolta('');
+    setConSobreescolta(false);
+    setTipoSobreescolta('');
+    setFecha('');
+    setHora('');
     setError(null);
   }
 
@@ -165,139 +283,193 @@ export function NuevaSolicitudForm({ tiposServicio }: NuevaSolicitudFormProps) {
     );
   }
 
-  const destinoPrincipalLabel = conParadas ? 'Destino 1' : 'Destino';
+  const etiquetaTipoServicio = OPCIONES_TIPO_SERVICIO.find(
+    (opcion) => opcion.value === tipoServicio,
+  )?.label;
 
   return (
-    <Card variant="outlined" padding="lg" className="mx-auto w-full max-w-xl">
-      <CardBody>
-        {avisoSesionFinalizada && (
-          <p role="alert" className="text-error mb-4 text-sm">
-            Tu sesión finalizó. La información capturada no se envió.
-          </p>
-        )}
-        <form onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-4" noValidate>
-          <FormField label="Origen" required>
-            <Input
-              value={origen}
-              onChange={(event) => setOrigen(event.target.value)}
-              placeholder="Ciudad o sitio de origen"
-              required
-            />
-          </FormField>
-
-          <FormField label={destinoPrincipalLabel} required>
-            <Input
-              value={destinos[0]?.nombre ?? ''}
-              onChange={(event) => actualizarDestino(0, { nombre: event.target.value })}
-              placeholder="Ciudad o sitio de destino"
-              required
-            />
-          </FormField>
-
-          {conParadas && destinos[0] !== undefined && (
-            <FormField label="Número de envío (opcional)">
-              <Input
-                value={destinos[0].numeroEnvio}
-                onChange={(event) => actualizarDestino(0, { numeroEnvio: event.target.value })}
-                placeholder="Referencia del envío"
-                aria-label="Número de envío del destino 1"
-              />
-            </FormField>
-          )}
-
-          <FormField>
-            <Checkbox
-              label="Agregar paradas"
-              checked={conParadas}
-              onChange={(event) => alternarParadas(event.target.checked)}
-            />
-          </FormField>
-
-          {conParadas &&
-            destinos.slice(1).map((destino, offset) => {
-              const indice = offset + 1;
-              return (
-                <div
-                  key={indice}
-                  className="border-outline-variant flex flex-col gap-3 rounded border p-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-on-surface text-sm font-semibold">
-                      Parada {indice + 1}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => quitarParada(indice)}
-                      aria-label={`Quitar parada ${indice + 1}`}
-                    >
-                      Quitar
-                    </Button>
-                  </div>
-                  <FormField label={`Destino ${indice + 1}`} required>
-                    <Input
-                      value={destino.nombre}
-                      onChange={(event) =>
-                        actualizarDestino(indice, { nombre: event.target.value })
-                      }
-                      placeholder="Ciudad o sitio de destino"
-                      required
-                    />
-                  </FormField>
-                  <FormField label="Número de envío (opcional)">
-                    <Input
-                      value={destino.numeroEnvio}
-                      onChange={(event) =>
-                        actualizarDestino(indice, { numeroEnvio: event.target.value })
-                      }
-                      placeholder="Referencia del envío"
-                      aria-label={`Número de envío de la parada ${indice + 1}`}
-                    />
-                  </FormField>
-                </div>
-              );
-            })}
-
-          {conParadas && (
-            <Button type="button" variant="outline" onClick={agregarParada}>
-              Agregar otra parada
-            </Button>
-          )}
-
-          <FormField label="Tipo de servicio">
-            <div role="group" aria-label="Tipo de servicio">
-              <Select
-                value={tipoServicio}
-                onChange={(valor) => setTipoServicio(String(valor))}
-                options={[
-                  { value: '', label: 'Selecciona un tipo' },
-                  ...tiposServicio.map((tipo) => ({ value: tipo.codigo, label: tipo.etiqueta })),
-                ]}
-              />
-            </div>
-          </FormField>
-
-          <FormField label="Fecha y hora del servicio">
-            <Input
-              type="datetime-local"
-              value={fechaHora}
-              onChange={(event) => setFechaHora(event.target.value)}
-              aria-label="Fecha y hora del servicio"
-            />
-          </FormField>
-
-          {error !== null && (
-            <p role="alert" className="text-error text-sm">
-              {error}
+    <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <Card variant="outlined" padding="lg" className="w-full">
+        <CardBody>
+          {avisoSesionFinalizada && (
+            <p role="alert" className="text-error mb-4 text-sm">
+              Tu sesión finalizó. La información capturada no se envió.
             </p>
           )}
+          <form
+            id={ID_FORMULARIO}
+            onSubmit={(event) => void onSubmit(event)}
+            className="flex flex-col gap-5"
+            noValidate
+          >
+            <FormField label="Origen" required>
+              <Input
+                value={origen}
+                onChange={(event) => setOrigen(event.target.value)}
+                placeholder="Ciudad o sitio de origen"
+                startAdornment={ICONO_UBICACION}
+                required
+              />
+            </FormField>
 
-          <Button type="submit" loading={pending} disabled={!puedeEnviar} fullWidth>
-            {pending ? 'Enviando' : 'Solicitar servicio'}
-          </Button>
-        </form>
-      </CardBody>
-    </Card>
+            {/* Origen y Destino final van juntos al inicio del formulario. */}
+            <FormField label="Destino final" required>
+              <Input
+                value={destino.nombre}
+                onChange={(event) =>
+                  setDestino((prev) => ({ ...prev, nombre: event.target.value }))
+                }
+                placeholder="Ciudad o sitio del destino final"
+                startAdornment={ICONO_UBICACION}
+                required
+              />
+            </FormField>
+
+            {conParadas && (
+              <FormField label="Número de envío (opcional)">
+                <Input
+                  value={destino.numeroEnvio}
+                  onChange={(event) =>
+                    setDestino((prev) => ({ ...prev, numeroEnvio: event.target.value }))
+                  }
+                  placeholder="Referencia del envío"
+                  aria-label="Número de envío del destino final"
+                />
+              </FormField>
+            )}
+
+            {/*
+              Destinos: el interruptor muestra la sección. Se capturan aquí, debajo del
+              Destino final, pero en la ruta (vista previa y envío) van ENTRE el origen y
+              el destino final. Son los únicos que se numeran y se pueden reordenar.
+            */}
+            <div className="border-outline-variant flex flex-col gap-4 rounded-lg border p-4">
+              <div className="flex flex-col gap-1">
+                <Switch
+                  label="Seguimiento con múltiples destinos"
+                  checked={conParadas}
+                  onChange={(event) => alternarParadas(event.target.checked)}
+                  aria-describedby="ayuda-agregar-paradas"
+                />
+                <p id="ayuda-agregar-paradas" className="text-on-surface-variant text-xs">
+                  Agrega destinos intermedios entre el origen y el destino final.
+                </p>
+              </div>
+
+              {conParadas && (
+                <DestinosIntermedios
+                  destinos={paradas}
+                  onActualizar={actualizarParada}
+                  onQuitar={quitarParada}
+                  onMover={moverParada}
+                />
+              )}
+
+              {conParadas && (
+                <Button type="button" variant="outline" onClick={agregarParada}>
+                  Agregar otro destino
+                </Button>
+              )}
+            </div>
+
+            <FormField label="Tipo de servicio">
+              <div role="group" aria-label="Tipo de servicio">
+                <Select
+                  value={tipoServicio}
+                  onChange={(valor) => setTipoServicio(aTipoServicio(valor))}
+                  options={[{ value: '', label: 'Selecciona un tipo' }, ...OPCIONES_TIPO_SERVICIO]}
+                />
+              </div>
+            </FormField>
+
+            <FormField label="Tipo de escolta" required>
+              <div role="group" aria-label="Tipo de escolta">
+                <Select
+                  value={tipoEscolta}
+                  onChange={(valor) => setTipoEscolta(aTipoEscolta(valor))}
+                  options={[{ value: '', label: 'Selecciona un tipo' }, ...OPCIONES_ESCOLTA]}
+                />
+              </div>
+            </FormField>
+
+            <div className="flex flex-col gap-4">
+              <Switch
+                label="Agregar sobreescolta"
+                checked={conSobreescolta}
+                onChange={(event) => alternarSobreescolta(event.target.checked)}
+              />
+              {conSobreescolta && (
+                <FormField label="Tipo de sobreescolta" required>
+                  <div role="group" aria-label="Tipo de sobreescolta">
+                    <Select
+                      value={tipoSobreescolta}
+                      onChange={(valor) => setTipoSobreescolta(aTipoEscolta(valor))}
+                      options={[{ value: '', label: 'Selecciona un tipo' }, ...OPCIONES_ESCOLTA]}
+                    />
+                  </div>
+                </FormField>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="grid items-start gap-4 sm:grid-cols-2">
+                <FormField label="Fecha del servicio" error={errorFecha} required>
+                  <Input
+                    type="date"
+                    value={fecha}
+                    onChange={(event) => setFecha(event.target.value)}
+                    max="9999-12-31"
+                    required
+                    startAdornment={<CalendarDays aria-hidden="true" className="size-4" />}
+                  />
+                </FormField>
+                <FormField label="Hora del servicio" error={errorHora} required>
+                  <Input
+                    type="time"
+                    value={hora}
+                    onChange={(event) => setHora(event.target.value)}
+                    required
+                    startAdornment={<Clock aria-hidden="true" className="size-4" />}
+                  />
+                </FormField>
+              </div>
+            </div>
+          </form>
+        </CardBody>
+      </Card>
+
+      {/*
+        Columna derecha: la vista previa y, debajo, el botón de envío y su error. El botón
+        está fuera del <form> y lo envía por el atributo `form`; la tecla Enter en un campo
+        también lo dispara porque es el botón de envío asociado al formulario.
+      */}
+      <div className="flex flex-col gap-4 lg:sticky lg:top-6">
+        <SolicitudVistaPrevia
+          origen={origen}
+          paradas={paradas.map((p) => p.nombre)}
+          destino={destino.nombre}
+          tipoServicio={etiquetaTipoServicio ?? ''}
+          tipoEscolta={etiquetaEscolta(tipoEscolta)}
+          sobreescolta={conSobreescolta ? etiquetaEscolta(tipoSobreescolta) : 'No'}
+          fechaHora={fechaHora.estado === 'valido' ? fechaHora.iso : ''}
+        />
+
+        {error !== null && (
+          <p role="alert" className="text-error text-sm">
+            {error}
+          </p>
+        )}
+
+        <Button
+          type="submit"
+          form={ID_FORMULARIO}
+          loading={pending}
+          disabled={!puedeEnviar}
+          fullWidth
+        >
+          {pending ? 'Enviando' : 'Solicitar servicio'}
+        </Button>
+      </div>
+    </div>
   );
 }

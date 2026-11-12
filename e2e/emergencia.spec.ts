@@ -31,7 +31,12 @@ test.describe('emergencia · activación y notas', () => {
     await page.getByRole('button', { name: 'Activar ahora' }).click();
 
     // El caso aparece y el agregado pasa a "activa". Identificado por fecha/hora + estado.
-    await expect(page.getByText('Hay una emergencia activa en este viaje.')).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Hay una emergencia activa en este viaje.' }),
+    ).toBeVisible();
+    await expect(
+      page.getByText('Hay una emergencia activa en este viaje.', { exact: true }).last(),
+    ).toBeVisible();
     await expect(page.getByRole('listitem').filter({ hasText: 'En atención' })).toBeVisible();
     await expect(page.getByText('Sin emergencias en este viaje.')).toBeHidden();
   });
@@ -43,7 +48,9 @@ test.describe('emergencia · activación y notas', () => {
     // viaje-2 arranca CON un caso en atención (seed del mock).
     await page.goto('/viajes/viaje-2');
 
-    await expect(page.getByText('Hay una emergencia activa en este viaje.')).toBeVisible();
+    await expect(
+      page.getByText('Hay una emergencia activa en este viaje.', { exact: true }).last(),
+    ).toBeVisible();
 
     const agregar = page.getByRole('button', { name: 'Agregar nota' });
     // Sin texto: deshabilitado.

@@ -23,7 +23,14 @@ export const Route = createFileRoute('/_private/viajes/$viajeId/')({
 function ViajeDetailPage() {
   const { viajeId } = Route.useParams();
   const { estado } = Route.useSearch();
-  const { data: viaje } = useViajeSeguimiento(viajeId, Route.useLoaderData());
+  const { data: viaje, refetch, isFetching } = useViajeSeguimiento(viajeId, Route.useLoaderData());
 
-  return <ViajeDetailSection viaje={viaje} estadoHistorial={estado} />;
+  return (
+    <ViajeDetailSection
+      viaje={viaje}
+      estadoHistorial={estado}
+      onActualizar={() => void refetch()}
+      actualizando={isFetching}
+    />
+  );
 }

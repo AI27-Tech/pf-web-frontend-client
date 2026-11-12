@@ -25,11 +25,10 @@ test.describe('historial · contenido', () => {
     ).toBeVisible();
     await expect(page.getByText(/Consulta los registros detallados/i)).toBeVisible();
 
-    // La barra de filtros. El filtro por estado esta cableado; el rango de fechas
-    // sigue presente pero inerte (su etiqueta lo dice). La busqueda de texto NO se
-    // renderiza: el contrato no la soporta.
-    await expect(filtro(page, 'Rango de fechas')).toBeVisible();
+    // La barra de filtros. Solo el filtro por estado esta cableado. El rango de fechas
+    // y la busqueda de texto NO se renderizan: el contrato no los soporta.
     await expect(filtro(page, 'Estado')).toBeVisible();
+    await expect(filtro(page, 'Rango de fechas')).toHaveCount(0);
     await expect(page.getByPlaceholder(/Buscar por ID/i)).toHaveCount(0);
 
     await expect(page.getByRole('table')).toBeVisible();

@@ -22,7 +22,8 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Button, Card, CardBody, FormField, Modal, Select, Textarea } from '@ai27-tech/ui';
+import { TriangleAlert } from 'lucide-react';
+import { Badge, Button, Card, CardBody, FormField, Modal, Select, Textarea } from '@ai27-tech/ui';
 import { NOTA_EMERGENCIA_MAX_CHARS } from '@/lib/constants';
 import type { EmergenciaCliente } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
@@ -85,22 +86,28 @@ export function EmergenciaPanel({ viajeId }: { readonly viajeId: string }) {
     cuerpoRecortado.length >= 1 && cuerpoRecortado.length <= NOTA_EMERGENCIA_MAX_CHARS;
 
   return (
-    <Card variant="outlined" padding="lg" className="border-error/40">
+    <Card variant="outlined" padding="lg" className="border-error/40 bg-error/5">
       <CardBody className="flex flex-col gap-4">
-        <header className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-on-surface text-lg font-semibold">Emergencia</h2>
-            <p className="text-on-surface-variant text-sm">
-              {emergenciaActiva
-                ? 'Hay una emergencia activa en este viaje.'
-                : 'Si tu unidad está en riesgo, activa una emergencia.'}
-            </p>
+        <header className="flex flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-on-surface flex items-center gap-2 text-base font-semibold">
+              <TriangleAlert aria-hidden="true" className="text-error size-4" />
+              Emergencia
+            </h2>
+            <Button
+              variant="danger"
+              onClick={() => setConfirmando(true)}
+              loading={activar.isPending}
+            >
+              Activar emergencia
+            </Button>
           </div>
-          <Button variant="danger" onClick={() => setConfirmando(true)} loading={activar.isPending}>
-            Activar emergencia
-          </Button>
+          <p className="text-on-surface-variant text-sm">
+            {emergenciaActiva
+              ? 'Hay una emergencia activa en este viaje.'
+              : 'Si tu unidad está en riesgo, actívala solo en caso real: notifica de inmediato a la central.'}
+          </p>
         </header>
-
         {activar.isError && (
           <p role="alert" className="text-error text-sm">
             No pudimos activar la emergencia. Intenta de nuevo.
@@ -111,20 +118,23 @@ export function EmergenciaPanel({ viajeId }: { readonly viajeId: string }) {
           <p className="text-on-surface-variant text-sm">Sin emergencias en este viaje.</p>
         ) : (
           <section aria-labelledby="emergencia-casos" className="flex flex-col gap-3">
-            <h3 id="emergencia-casos" className="text-sm font-semibold">
+            <h3
+              id="emergencia-casos"
+              className="text-on-surface-variant text-xs font-semibold tracking-wider uppercase"
+            >
               Casos
             </h3>
             <ul className="flex flex-col gap-2">
               {casos.map((caso) => (
                 <li
                   key={caso.id}
-                  className="bg-error/5 flex items-center justify-between rounded-md px-3 py-2 text-sm"
+                  className="border-error/20 bg-error/5 flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm"
                 >
                   {/* Identificado SOLO por fecha/hora + estado: nada interno. */}
                   <span className="text-on-surface">{formatDateTime(caso.activada_en)}</span>
-                  <span className="text-on-surface-variant text-xs">
+                  <Badge variant={caso.estado === 'resuelta' ? 'secure' : 'warning'} pill>
                     {etiquetaEstado(caso.estado)}
-                  </span>
+                  </Badge>
                 </li>
               ))}
             </ul>
