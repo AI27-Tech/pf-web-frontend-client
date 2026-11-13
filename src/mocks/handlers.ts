@@ -241,6 +241,19 @@ export const handlers = [
     const activacionId = body.activacion_id ?? '';
     const casos = (emergenciasWire[viajeId] ??= []);
 
+    // Como el bff: solo se activa con el viaje EN_TRANSITO; si no, 409 sin crear caso.
+    const estadoViaje = (viajeDetalleWire[viajeId] as { hito?: { estado?: string } } | undefined)
+      ?.hito?.estado;
+    if (estadoViaje !== EstadoViaje.EnTransito) {
+      return HttpResponse.json(
+        {
+          codigo: 'viaje_no_admite_emergencia',
+          mensaje: 'El viaje no admite emergencia en su estado actual.',
+        },
+        { status: 409 },
+      );
+    }
+
     // Idempotencia por activacion_id: reentrega del MISMO id → caso original (200);
     // id nuevo → caso nuevo (201). Es la regla contractual del ticket.
     const existente = casos.find((c) => c.activacion_id === activacionId);

@@ -237,8 +237,8 @@ export function ViajeDetailSection({
           </h2>
           <CancelarRechazarPanel viaje={viaje} />
 
-          {/* El panel es dueño de su propio estado de servidor (useEmergencias), por eso solo recibe el `viajeId`. */}
-          <EmergenciaPanel viajeId={viaje.id} />
+          {/* El panel es dueño de su propio estado de servidor (useEmergencias), por eso solo recibe el `viajeId` y el estado que habilita activar. */}
+          <EmergenciaPanel viajeId={viaje.id} estadoViaje={hito.estado} />
         </section>
       </div>
 
