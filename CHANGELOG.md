@@ -1,5 +1,105 @@
 # CHANGELOG
 
+## 2026:11:11 21:00
+
+**Resumen:** Se quitó el botón "Actualizar" de la tarjeta "ETA estimado" del seguimiento de un viaje. El seguimiento sigue actualizándose solo con el polling (ADR 27), que no cambió. Sin el botón, la fecha del ETA ocupa todo el ancho de la tarjeta y deja de partirse en dos líneas.
+**Cambios:**
+
+- `ViajeDetailSection.tsx`: sin el botón ni las props `onActualizar` y `actualizando`. De paso, el `col-span-2` de la tarjeta de ETA cuando no hay etiqueta de hito pasó de `sm:` a `xl:`, que es el punto desde el que la rejilla de hito y ETA tiene dos columnas.
+- `routes/_private/viajes/$viajeId/index.tsx`: ya no pasa `refetch` ni `isFetching`.
+- `ViajeDetailSection.test.tsx`: se eliminaron las dos pruebas del botón.
+  **Archivos modificados:**
+- `src/features/viajes/ViajeDetailSection.tsx` · `src/routes/_private/viajes/$viajeId/index.tsx`
+- `tests/viajes/ViajeDetailSection.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:11 20:20
+
+**Resumen:** En el seguimiento de un viaje, las dos columnas arrancaban a distinta altura: la derecha llevaba el rótulo "ACCIONES" y la izquierda empezaba directo con la tarjeta del recorrido, así que sus primeras tarjetas quedaban desfasadas. Ahora la izquierda también lleva un rótulo ("SEGUIMIENTO") con el mismo estilo y la misma separación, y las dos columnas usan el mismo espacio entre tarjetas (`gap-4`; antes la derecha usaba `gap-3`). Se midió: en 1024px y 1440px la primera tarjeta de cada columna empieza a la misma altura.
+**Archivos modificados:**
+
+- `src/features/viajes/ViajeDetailSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:11 20:00
+
+**Resumen:** El seguimiento de un viaje (`/viajes/:id`) ahora tiene dos columnas desde el ancho `lg` (1024px): a la izquierda el seguimiento (recorrido, hito y ETA, incidencias) y a la derecha la sección Acciones (cancelar o rechazar, emergencia). El título, el estado, Conversación y el aviso de emergencia siguen arriba a todo el ancho. En pantallas angostas las columnas se apilan en el mismo orden. La columna derecha mide 22rem como máximo y la izquierda ocupa el resto.
+**Cambios:**
+
+- `ViajeDetailSection.tsx`: contenedor en rejilla `lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]`. Las tarjetas de hito y ETA van lado a lado solo desde `xl` (1280px); en `lg` se apilan para no apretar el botón Actualizar.
+- Sin cambios de comportamiento ni de textos: las pruebas existentes pasan sin tocarse.
+  **Archivos modificados:**
+- `src/features/viajes/ViajeDetailSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:11 19:30
+
+**Resumen:** El seguimiento de un viaje (`/viajes/:id`) se reorganizó con la estructura del diseño de referencia, usando los componentes de `@ai27-tech/ui` (Card, Badge, Button) y los colores ya definidos en `globals.css`; no se agregaron colores. **No se pintó el resumen de ruta** (origen, destino, tipo de servicio, programado, unidad, operador): `ViajeSeguimiento` no trae esos datos. Es una brecha contractual a pedir a `bff`/contratos. Tampoco se copió el texto del diseño "Se calculará al confirmar la unidad" del ETA, porque es una regla de negocio no definida; se conserva "Sin ETA".
+**Cambios:**
+
+- Orden de arriba abajo: volver al historial; título, estado y Conversación; aviso de emergencia activa con "Ver casos"; recorrido en 4 pasos; tarjetas Hito actual y ETA estimado (con botón Actualizar); Incidencias; sección Acciones (cancelar o rechazar, emergencia).
+- Recorrido nuevo (`ProgresoViaje.tsx`, `pasosViaje.ts`): Solicitado, Confirmado, En tránsito, Entregado. **El agrupamiento de los 13 estados en estos pasos es una propuesta de presentación, pendiente de validar con PM** (SOLICITADO y APROBADO en el primero; ASIGNADO y APTO_PARA_SALIDA en Confirmado; todos los estados en ruta en En tránsito; CERRADO en Entregado). CANCELADO y los rechazos no pintan recorrido.
+- Incidencias: en atención se resaltan como advertencia (tokens `warning`) con etiqueta "En atención"; las resueltas, con etiqueta "Resuelta". El texto "(obsoleto)" del ETA pasó de `degradado-800` (casi invisible en el tema oscuro) a `warning`.
+- Actualizar vuelve a pedir el seguimiento a demanda (además del polling); la ruta pasa `refetch` e `isFetching`.
+- Emergencia: icono, descripción bajo el título, casos con etiqueta de estado; el aviso de arriba comparte la consulta con el panel (misma clave de caché, sin petición extra). Cancelar o rechazar: título y botón en una fila; candado cuando ya no aplica.
+- e2e de emergencia: el texto "Hay una emergencia activa en este viaje." ahora sale dos veces (aviso y panel), como en el diseño; las aserciones se acotaron.
+  **Archivos modificados:**
+- `src/features/viajes/ViajeDetailSection.tsx` · `CancelarRechazarPanel.tsx` · `EmergenciaPanel.tsx` · `ProgresoViaje.tsx` y `pasosViaje.ts` (nuevos)
+- `src/routes/_private/viajes/$viajeId/index.tsx`
+- `tests/viajes/ViajeDetailSection.test.tsx` · `tests/viajes/pasosViaje.test.ts` (nuevo) · `e2e/emergencia.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:11 18:30
+
+**Resumen:** En "Solicitar nuevo servicio", **Tipo de servicio tiene solo dos opciones: Local y Foráneo**. Antes salía del catálogo `tipos-servicio`; ahora son opciones fijas del formulario. Sigue siendo opcional. **Aviso:** los códigos que viajan en `tipo_servicio` son `local` y `foraneo`, definidos en esta pantalla; no existen en el catálogo `catalogos` (el demo siembra `custodia_armada`, `monitoreo_activo` y `localizacion_gps`). `operacion` guarda el texto sin validarlo contra el catálogo, así que el envío funciona, pero hay que confirmar los códigos con el dueño de `catalogos` y registrar la decisión como DEC.
+**Cambios:**
+
+- `NuevaSolicitudForm.tsx`: sin la prop `tiposServicio`; opciones fijas `local` / `foraneo`.
+- `routes/_private/viajes/new.tsx`: se quitó el loader y el spinner de carga; la pantalla ya no consulta el catálogo.
+- `lib/api/catalogos.ts` (`listarTiposServicio`) y el handler del mock `tipos-servicio` no se tocaron: quedaron sin uso en esta pantalla.
+- Pruebas: 4 nuevas (solo dos opciones, código enviado, sigue opcional, vista previa). El e2e de alta elige Foráneo; ya no recorre la segunda página del catálogo.
+  **Archivos modificados:**
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `src/routes/_private/viajes/new.tsx`
+- `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:11 18:00
+
+**Resumen:** En "Solicitar nuevo servicio", **Tipo de escolta, Fecha y Hora pasan a ser obligatorios**. El botón "Solicitar servicio" sigue deshabilitado hasta que los tres tengan valor (además de origen y destino final), y cada uno lleva el asterisco de requerido. **Dos avisos:** (1) E1-HU-001 y DEC-010 #2 siguen diciendo que la fecha/hora es opcional para el cliente; esta obligatoriedad es una instrucción nueva de Product Management y falta registrarla como DEC. (2) El tipo de escolta es obligatorio pero todavía no viaja al backend, porque `CrearViajeEntrada` no tiene campo para él (brecha contractual).
+**Cambios:**
+
+- `NuevaSolicitudForm.tsx`: `puedeEnviar` exige tipo de escolta y una fecha/hora válida (`valido`, ya no basta `vacio`). Los mensajes "Indica también la fecha/hora" y el de año inválido siguen igual.
+- `fechaHora.ts`: solo se actualizó el comentario; la función no cambió.
+- Pruebas: las que enviaban con solo origen y destino ahora completan escolta, fecha y hora. Nuevas: obligatorios por separado, asterisco de requerido, y "sin fecha ni hora no se envía". Helpers en `e2e/support/solicitud.ts`.
+  **Archivos modificados:**
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `fechaHora.ts`
+- `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` · `e2e/solicitud-fecha-hora.spec.ts` · `e2e/support/solicitud.ts` (nuevo)
+- `CHANGELOG.md`
+
+## 2026:11:11 17:30
+
+**Resumen:** En "Solicitar nuevo servicio", el botón "Solicitar servicio" pasó de la parte baja del formulario a la columna derecha, debajo de la vista previa. Sigue enviando el mismo formulario: está fuera del `<form>` y se asocia con el atributo `form`, así que Enter en un campo también envía. El mensaje de error de envío se movió con él, para que se vea junto al botón.
+**Archivos modificados:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `SolicitudVistaPrevia.tsx` (el `sticky` ahora está en la columna que agrupa vista previa y botón)
+- `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` (el interruptor se busca por su nombre actual, "Seguimiento con múltiples destinos")
+- `CHANGELOG.md`
+
+## 2026:11:11 17:10
+
+**Resumen:** En "Solicitar nuevo servicio", "Seguimiento con múltiples destinos" (antes "Agregar paradas") es ahora un interruptor, los destinos intermedios se pueden reordenar arrastrándolos, y se agregó el tipo de escolta con sobreescolta opcional. **La escolta todavía no se envía:** `CrearViajeEntrada` no tiene campos para ella (brecha contractual). Se captura y se muestra en la vista previa, y falta publicarla en el contrato para agregarla a `entrada` en `onSubmit`.
+**Cambios:**
+
+- Nombres: lo que era "Parada N" ahora es "Destino N" y lo que era "Destino" ahora es "Destino final". El interruptor se llama "Seguimiento con múltiples destinos".
+- Reordenar destinos: se arrastra el control de la izquierda de cada destino. También funciona con el teclado (↑ y ↓ con el control enfocado) y se anuncia el movimiento a lectores de pantalla. Los destinos se renumeran por posición y el destino final queda siempre al último. Sin librería nueva (arrastre nativo del navegador); no funciona al tacto, para eso quedan las flechas.
+- Tipo de escolta (Patrulla o Moto, opcional) y el interruptor "Agregar sobreescolta", que abre otro selector con las mismas dos opciones. Si la sobreescolta está encendida, su tipo es obligatorio para enviar (decisión de interfaz, no regla de negocio: pendiente de confirmar con PM).
+- Vista previa: filas "Tipo de escolta" y "Sobreescolta"; la fila "Paradas" pasó a "Destinos intermedios".
+  **Archivos modificados:**
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `SolicitudVistaPrevia.tsx`
+- `src/features/viajes/DestinosIntermedios.tsx` · `ordenDestinos.ts` (nuevos)
+- `tests/viajes/NuevaSolicitudForm.test.tsx` (10 pruebas nuevas) · `e2e/solicitud.spec.ts` (3 nuevas) · `e2e/solicitud-fecha-hora.spec.ts`
+- `CHANGELOG.md`
+
 ## 2026:11:10 17:41
 
 **Resumen:** En la conversación se corrigió el contraste de la burbuja del cliente y se evitó que una palabra larguísima sin espacios se salga de su burbuja. En el tema oscuro (el que usa la app) el texto del cliente se leía casi invisible: usaba `bg-brand-50`, un celeste fijo muy claro, con `text-on-surface`, casi blanco en ese tema. Ahora usa los roles `primary` / `on-primary`, que cambian con el tema, sin colores nuevos ni cambios en `globals.css` ni en la librería.

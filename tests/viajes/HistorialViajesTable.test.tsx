@@ -189,7 +189,7 @@ describe('HistorialViajesTable · columnas', () => {
 /*
  * Barra de filtros. El filtro por estado esta CABLEADO: al elegir un estado se navega
  * con el search param, para que el loader pida a bff la pagina ya filtrada. Lo que el
- * contrato no soporta (rango de fechas, busqueda de texto) sigue deshabilitado.
+ * contrato no soporta (rango de fechas, busqueda de texto) no se muestra.
  */
 describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () => {
   beforeEach(() => {
@@ -252,18 +252,15 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
 });
 
 /*
- * Lo que el contrato NO soporta se queda deshabilitado y honesto. No se cablea.
+ * Lo que el contrato NO soporta no se pinta ni se cablea.
  */
 describe('HistorialViajesTable · controles sin contrato (deshabilitados y honestos)', () => {
-  it('el rango de fechas esta presente pero inerte: todas sus opciones deshabilitadas', async () => {
+  it('no renderiza el rango de fechas: el contrato no lo soporta', async () => {
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    const rango = grupoDeFiltro('Rango de fechas');
-    await userEvent.click(within(rango).getByRole('button'));
-    for (const nombre of ['Últimos 7 días', 'Últimos 30 días', 'Últimos 90 días']) {
-      expect(within(rango).getByRole('button', { name: nombre })).toBeDisabled();
-    }
+    expect(screen.queryByRole('group', { name: 'Rango de fechas' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rango de fechas/i)).not.toBeInTheDocument();
   });
 
   it('no renderiza un cuadro de busqueda: el contrato no soporta busqueda de texto', async () => {

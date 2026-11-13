@@ -95,7 +95,7 @@ test.describe('viajes', () => {
       page.getByRole('heading', { name: 'Solicitar nuevo servicio', level: 1 }),
     ).toBeVisible();
     await expect(page.getByLabel('Origen')).toBeVisible();
-    await expect(page.getByLabel('Destino')).toBeVisible();
+    await expect(page.getByLabel('Destino final')).toBeVisible();
   });
 
   // DESCONECTADO (recorte al contrato): la ruta /viajes/$viajeId/bitacora se retiró

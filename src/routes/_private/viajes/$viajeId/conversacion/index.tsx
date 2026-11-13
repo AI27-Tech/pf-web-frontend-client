@@ -22,12 +22,12 @@ function ConversacionPage() {
   const { viajeId } = Route.useParams();
   const { estado } = Route.useSearch();
   return (
-    <div className="flex flex-col gap-6">
+    <div className="-mb-6 flex h-[calc(100dvh-1.5rem)] min-h-0 flex-col gap-4">
       <Link
         to="/viajes/$viajeId"
         params={{ viajeId }}
         search={conservarFiltro(estado)}
-        className="border-outline-variant text-on-surface hover:bg-surface-container inline-flex items-center gap-2 self-start rounded-md border px-3 py-2 text-sm font-medium"
+        className="border-outline-variant text-on-surface hover:bg-surface-container inline-flex shrink-0 items-center gap-2 self-start rounded-md border px-3 py-2 text-sm font-medium"
       >
         <ArrowLeft aria-hidden="true" className="size-4" />
         Volver al viaje

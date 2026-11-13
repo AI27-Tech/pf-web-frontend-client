@@ -57,12 +57,6 @@ const OPCIONES_ESTADO: SelectOption[] = [
   { value: EstadoViaje.Cancelado, label: 'Cancelado' },
 ];
 
-const OPCIONES_RANGO: SelectOption[] = [
-  { value: '7d', label: 'Últimos 7 días', disabled: true },
-  { value: '30d', label: 'Últimos 30 días', disabled: true },
-  { value: '90d', label: 'Últimos 90 días', disabled: true },
-];
-
 /*
  * Columnas mínimas apegadas al contrato `ViajeResumen` ({id, estado, origen}). Las
  * columnas Folio/Fecha, Ruta (destino/sitios), Vehículo/Conductor y Reporte de
@@ -147,9 +141,6 @@ export function HistorialViajesTable({
   return (
     <div className="flex flex-col gap-4" style={cellPadding}>
       <div className="flex flex-wrap items-center gap-3">
-        <div role="group" aria-label="Rango de fechas" className="w-full sm:w-64">
-          <Select options={OPCIONES_RANGO} placeholder="Rango de fechas (no disponible)" />
-        </div>
         <div role="group" aria-label="Estado" className="w-full sm:w-52">
           <Select value={estado ?? ''} options={OPCIONES_ESTADO} onChange={onEstadoChange} />
         </div>
