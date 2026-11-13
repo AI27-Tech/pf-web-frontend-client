@@ -44,15 +44,15 @@ function sesionEmitida(): SesionEmitida {
 const campo = (nombre: string | RegExp): HTMLInputElement =>
   screen.getByRole('textbox', { name: nombre });
 const campoPassword = (): HTMLInputElement =>
-  screen.getByLabelText('Contrasena', { exact: true }) as HTMLInputElement;
-const botonEntrar = (): HTMLButtonElement => screen.getByRole('button', { name: /Iniciar sesion/ });
+  screen.getByLabelText('Contraseña', { exact: true }) as HTMLInputElement;
+const botonEntrar = (): HTMLButtonElement => screen.getByRole('button', { name: /Iniciar sesión/ });
 
 /** Texto del `role="alert"` que pinta el error, o null si no hay. */
 const textoDeError = (): string | null => screen.queryByRole('alert')?.textContent ?? null;
 
 async function montar(): Promise<void> {
   renderConRouter(<LoginSection />);
-  await screen.findByRole('textbox', { name: 'Correo electronico empresarial' });
+  await screen.findByRole('textbox', { name: 'Correo electrónico empresarial' });
 }
 
 /** Llena los tres campos y envía. El segundo factor es opcional. */
@@ -60,10 +60,10 @@ async function enviar(
   user: ReturnType<typeof userEvent.setup>,
   datos: { usuario: string; password: string; codigo?: string },
 ): Promise<void> {
-  await user.type(campo('Correo electronico empresarial'), datos.usuario);
+  await user.type(campo('Correo electrónico empresarial'), datos.usuario);
   await user.type(campoPassword(), datos.password);
   if (datos.codigo !== undefined && datos.codigo.length > 0) {
-    await user.type(campo('Codigo de verificacion'), datos.codigo);
+    await user.type(campo('Código de verificación'), datos.codigo);
   }
   await user.click(botonEntrar());
 }
@@ -122,15 +122,15 @@ describe('LoginSection · no enumeración de cuentas', () => {
     const textoExistente = mensajeUsuarioExistente.textContent;
 
     // Segundo intento, usuario que no existe: debe producir el mismo texto.
-    await user.clear(campo('Correo electronico empresarial'));
+    await user.clear(campo('Correo electrónico empresarial'));
     await user.clear(campoPassword());
-    await user.clear(campo('Codigo de verificacion'));
+    await user.clear(campo('Código de verificación'));
     await enviar(user, { usuario: 'noexiste@demo.ai27', password: 'otra', codigo: '111111' });
 
     await waitFor(() => {
       expect(textoDeError()).toBe(textoExistente);
     });
-    expect(textoExistente).toBe('Usuario, contrasena o codigo de verificacion incorrectos.');
+    expect(textoExistente).toBe('Usuario, contraseña o código de verificación incorrectos.');
   });
 
   it('un segundo factor inválido o vencido da el mismo mensaje que una credencial mala', async () => {
@@ -142,7 +142,7 @@ describe('LoginSection · no enumeración de cuentas', () => {
     await enviar(user, { usuario: 'cliente@demo.ai27', password: 'demo1234', codigo: '999999' });
 
     await waitFor(() => {
-      expect(textoDeError()).toBe('Usuario, contrasena o codigo de verificacion incorrectos.');
+      expect(textoDeError()).toBe('Usuario, contraseña o código de verificación incorrectos.');
     });
   });
 });
@@ -157,7 +157,7 @@ describe('LoginSection · fallo del proveedor de identidad', () => {
 
     await waitFor(() => {
       const texto = textoDeError() ?? '';
-      expect(texto).toMatch(/servicio de identidad no esta disponible/i);
+      expect(texto).toMatch(/servicio de identidad no está disponible/i);
       // No culpa al usuario: no habla de credenciales ni de código incorrecto.
       expect(texto).not.toMatch(/incorrect/i);
     });

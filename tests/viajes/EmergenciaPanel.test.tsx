@@ -86,8 +86,9 @@ describe('EmergenciaPanel — estados de la lista (E9-T9)', () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO, CASO_RESUELTO]));
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
 
-    const selector = await screen.findByLabelText('Caso de emergencia');
-    const opciones = within(selector as HTMLElement).getAllByRole('option');
+    const selector = await screen.findByRole('group', { name: 'Caso de emergencia' });
+    await userEvent.click(within(selector).getByRole('button'));
+    const opciones = within(selector).getAllByRole('button').slice(1);
     expect(opciones).toHaveLength(2);
     // Las opciones solo llevan fecha/hora: ni id, ni estado, ni nada interno.
     for (const opcion of opciones) {
@@ -187,8 +188,9 @@ describe('EmergenciaPanel — notas (E9-T9)', () => {
     const user = userEvent.setup();
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
 
-    const selector = await screen.findByLabelText('Caso de emergencia');
-    await user.selectOptions(selector, 'emg-2');
+    const selector = await screen.findByRole('group', { name: 'Caso de emergencia' });
+    await user.click(within(selector).getByRole('button'));
+    await user.click(within(selector).getAllByRole('button')[2] as HTMLElement);
 
     await user.type(screen.getByLabelText('Nota de emergencia'), 'nota al segundo caso');
     await user.click(screen.getByRole('button', { name: 'Agregar nota' }));

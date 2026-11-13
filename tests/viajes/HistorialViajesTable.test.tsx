@@ -6,10 +6,13 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EstadoViaje, type ViajeResumen } from '@/lib/contracts';
-import { HistorialViajesTable } from '@/features/viajes/historial/HistorialViajesTable';
+import {
+  HISTORIAL_PAGE_SIZE,
+  HistorialViajesTable,
+} from '@/features/viajes/historial/HistorialViajesTable';
 import { renderConRouter } from '../support/router';
 
 /*
@@ -24,6 +27,21 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
+function grupoDeFiltro(nombre: string): HTMLElement {
+  return screen.getByRole('group', { name: nombre });
+}
+
+/** Abre el filtro y pulsa la opción con ese nombre. */
+async function elegirEnFiltro(nombre: string, opcion: string): Promise<void> {
+  const grupo = grupoDeFiltro(nombre);
+  await userEvent.click(within(grupo).getByRole('button'));
+  await userEvent.click(within(grupo).getByRole('button', { name: opcion }));
+}
+
+function muchosViajes(total: number): readonly ViajeResumen[] {
+  return Array.from({ length: total }, (_, i) => viaje(i + 1, EstadoViaje.EnTransito));
+}
+
 function viaje(indice: number, estado: EstadoViaje): ViajeResumen {
   return {
     id: `viaje-${indice}`,
@@ -31,8 +49,6 @@ function viaje(indice: number, estado: EstadoViaje): ViajeResumen {
     origen: `Origen ${indice}`,
   };
 }
-
-/** Seis viajes: dos paginas a tres por pagina. El segundo esta cancelado. */
 const viajes: readonly ViajeResumen[] = [
   viaje(1, EstadoViaje.EnTransito),
   viaje(2, EstadoViaje.Cancelado),
@@ -69,18 +85,22 @@ describe('HistorialViajesTable', () => {
     expect(badge?.className).toContain('alert');
   });
 
-  it('parte los seis registros en dos paginas y navega entre ellas', async () => {
+  it('con pocos viajes (6) caben en una sola pagina y la paginacion sigue visible', async () => {
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
+    await screen.findByRole('table');
 
-    expect(await screen.findByRole('link', { name: 'viaje-1' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'viaje-3' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'viaje-4' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /^viaje-/ })).toHaveLength(6);
+    // El conteo y las paginas se ven siempre, tambien con una sola pagina.
+    const paginacion = screen.getByRole('navigation', { name: 'Pagination' });
+    expect(paginacion).toHaveTextContent('1–6 of 6');
+    expect(within(paginacion).getByRole('button', { name: 'Page 1' })).toBeInTheDocument();
+  });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+  it('con un filtro sin resultados no hay nada que contar: se oculta la paginacion', async () => {
+    renderConRouter(<HistorialViajesTable viajes={[]} estado={EstadoViaje.Cancelado} />);
+    await screen.findByText('Sin resultados');
 
-    expect(screen.getByRole('link', { name: 'viaje-4' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'viaje-6' })).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: 'viaje-1' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).not.toBeInTheDocument();
   });
 
   it('sin viajes muestra un vacio explicativo en lugar de una tabla vacia', async () => {
@@ -92,10 +112,84 @@ describe('HistorialViajesTable', () => {
 });
 
 /*
+ * Tamaño de página: la lista crece hasta 10 viajes y, a partir del 11, se pagina.
+ */
+describe('HistorialViajesTable · crece hasta 10 y despues pagina', () => {
+  it('el tamano de pagina es 10', () => {
+    expect(HISTORIAL_PAGE_SIZE).toBe(10);
+  });
+
+  it('con exactamente 10 viajes caben todos en una pagina: "1–10 of 10"', async () => {
+    renderConRouter(<HistorialViajesTable viajes={muchosViajes(10)} />);
+    await screen.findByRole('table');
+
+    expect(screen.getAllByRole('link', { name: /^viaje-/ })).toHaveLength(10);
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('1–10 of 10');
+    // Una sola pagina: no hay a donde avanzar.
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled();
+  });
+
+  it('con 11 viajes aparece la segunda pagina: 10 en la primera y 1 en la segunda', async () => {
+    renderConRouter(<HistorialViajesTable viajes={muchosViajes(11)} />);
+    await screen.findByRole('table');
+
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('1–10 of 11');
+    expect(screen.getAllByRole('link', { name: /^viaje-/ })).toHaveLength(10);
+    expect(screen.queryByRole('link', { name: 'viaje-11' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeEnabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('11–11 of 11');
+    expect(screen.getAllByRole('link', { name: /^viaje-/ })).toHaveLength(1);
+    expect(screen.getByRole('link', { name: 'viaje-11' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'viaje-1' })).not.toBeInTheDocument();
+  });
+
+  it('con 21 viajes hay tres paginas (10, 10 y 1) y se puede volver', async () => {
+    renderConRouter(<HistorialViajesTable viajes={muchosViajes(21)} />);
+    await screen.findByRole('table');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('11–20 of 21');
+    expect(screen.getAllByRole('link', { name: /^viaje-/ })).toHaveLength(10);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('21–21 of 21');
+    expect(screen.getAllByRole('link', { name: /^viaje-/ })).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('11–20 of 21');
+  });
+
+  it('cambiar de filtro vuelve a la primera pagina', async () => {
+    renderConRouter(<HistorialViajesTable viajes={muchosViajes(21)} />);
+    await screen.findByRole('table');
+    await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('11–20 of 21');
+
+    await elegirEnFiltro('Estado', 'Cerrado');
+
+    expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('1–10 of 21');
+  });
+});
+
+/*
+ * Columnas del listado: las que trae el contrato (`ViajeResumen`).
+ */
+describe('HistorialViajesTable · columnas', () => {
+  it('no pinta Destino: el contrato no lo trae en el listado (brecha contractual)', async () => {
+    renderConRouter(<HistorialViajesTable viajes={viajes} />);
+    await screen.findByRole('table');
+
+    expect(screen.queryByRole('columnheader', { name: /destino/i })).not.toBeInTheDocument();
+  });
+});
+
+/*
  * Barra de filtros. El filtro por estado esta CABLEADO: al elegir un estado se navega
  * con el search param, para que el loader pida a bff la pagina ya filtrada. Lo que el
- * contrato no soporta (rango de fechas, busqueda de texto, exportar CSV) sigue
- * deshabilitado y honesto, y no se cablea.
+ * contrato no soporta (rango de fechas, busqueda de texto) no se muestra.
  */
 describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () => {
   beforeEach(() => {
@@ -106,7 +200,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'CERRADO');
+    await elegirEnFiltro('Estado', 'Cerrado');
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/viajes', search: { estado: 'CERRADO' } });
   });
@@ -116,7 +210,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     const { unmount } = renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'EN_TRANSITO');
+    await elegirEnFiltro('Estado', 'En tránsito');
     expect(navigateMock).toHaveBeenLastCalledWith({
       to: '/viajes',
       search: { estado: 'EN_TRANSITO' },
@@ -127,7 +221,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.EnTransito} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'CERRADO');
+    await elegirEnFiltro('Estado', 'Cerrado');
     expect(navigateMock).toHaveBeenLastCalledWith({ to: '/viajes', search: { estado: 'CERRADO' } });
   });
 
@@ -135,7 +229,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.Cerrado} />);
     await screen.findByRole('table');
 
-    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'Todos los estados');
+    await elegirEnFiltro('Estado', 'Todos los estados');
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/viajes', search: {} });
   });
@@ -144,7 +238,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.Cerrado} />);
     await screen.findByRole('table');
 
-    expect(screen.getByLabelText('Estado')).toHaveValue('CERRADO');
+    expect(within(grupoDeFiltro('Estado')).getByRole('button')).toHaveTextContent('Cerrado');
   });
 
   it('un filtro sin coincidencias conserva la toolbar para poder volver a "todos"', async () => {
@@ -153,22 +247,20 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
 
     expect(await screen.findByText('Sin resultados')).toBeInTheDocument();
     // La toolbar sigue ahi: el usuario puede cambiar el filtro.
-    expect(screen.getByLabelText('Estado')).toBeInTheDocument();
+    expect(grupoDeFiltro('Estado')).toBeInTheDocument();
   });
 });
 
 /*
- * Lo que el contrato NO soporta se queda deshabilitado y honesto. No se cablea.
+ * Lo que el contrato NO soporta no se pinta ni se cablea.
  */
 describe('HistorialViajesTable · controles sin contrato (deshabilitados y honestos)', () => {
-  it('el rango de fechas esta presente pero inerte: todas sus opciones deshabilitadas', async () => {
+  it('no renderiza el rango de fechas: el contrato no lo soporta', async () => {
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    const rango = screen.getByLabelText(/Rango de fechas/);
-    const opciones = Array.from(rango.querySelectorAll('option')).filter((o) => o.value !== '');
-    expect(opciones.length).toBeGreaterThan(0);
-    expect(opciones.every((o) => o.disabled)).toBe(true);
+    expect(screen.queryByRole('group', { name: 'Rango de fechas' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rango de fechas/i)).not.toBeInTheDocument();
   });
 
   it('no renderiza un cuadro de busqueda: el contrato no soporta busqueda de texto', async () => {
@@ -182,8 +274,6 @@ describe('HistorialViajesTable · controles sin contrato (deshabilitados y hones
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    // Ni "Filtrar" ni un segundo "Exportar CSV" (ese vive en el encabezado): no hay
-    // boton de accion en la toolbar de la tabla.
     expect(screen.queryByRole('button', { name: 'Filtrar' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Exportar CSV' })).not.toBeInTheDocument();
   });

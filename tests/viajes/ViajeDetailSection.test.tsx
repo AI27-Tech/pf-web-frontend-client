@@ -19,6 +19,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import type { IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
+import { listEmergencias } from '@/lib/api/emergencias';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
 import { renderConQuery as render } from '../support/query';
 
@@ -314,5 +315,94 @@ describe('ViajeDetailSection — frescura del ETA (E9-T5)', () => {
     const grupo = screen.getByText('ETA estimado').closest('div') as HTMLElement;
     expect(within(grupo).getByText('Sin ETA')).toBeInTheDocument();
     expect(within(grupo).queryByText('(obsoleto)')).not.toBeInTheDocument();
+  });
+});
+
+/*
+ * Estructura del seguimiento: recorrido en cuatro pasos, tarjetas de hito y ETA, aviso de
+ * emergencia activa.
+ */
+function seguimientoEnEstado(estado: string): ViajeSeguimiento {
+  return {
+    id: 'viaje-1',
+    hito: { estado, etiqueta: 'Hito de prueba' },
+    eta: null,
+    incidencias: [],
+  };
+}
+
+describe('ViajeDetailSection — recorrido del viaje', () => {
+  it('pinta los cuatro pasos y marca el actual con aria-current', () => {
+    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
+
+    const recorrido = screen.getByRole('group', { name: 'Progreso del viaje' });
+    for (const paso of ['Solicitado', 'Confirmado', 'En tránsito', 'Entregado']) {
+      expect(within(recorrido).getByText(new RegExp(paso))).toBeInTheDocument();
+    }
+    const actual = recorrido.querySelector('[aria-current="step"]');
+    expect(actual).toHaveTextContent('En tránsito');
+    expect(actual).toHaveTextContent('paso actual');
+    expect(
+      within(recorrido)
+        .getByText(/Solicitado/)
+        .closest('div'),
+    ).toHaveTextContent('completado');
+  });
+
+  it('un viaje cancelado no pinta el recorrido', () => {
+    render(<ViajeDetailSection viaje={seguimientoEnEstado('CANCELADO')} />);
+
+    expect(screen.queryByRole('group', { name: 'Progreso del viaje' })).not.toBeInTheDocument();
+  });
+
+  it('un viaje cerrado muestra todos los pasos completados y ninguno en curso', () => {
+    render(<ViajeDetailSection viaje={seguimientoEnEstado('CERRADO')} />);
+
+    const recorrido = screen.getByRole('group', { name: 'Progreso del viaje' });
+    expect(recorrido.querySelector('[aria-current="step"]')).toBeNull();
+    expect(within(recorrido).getAllByText(/completado/)).toHaveLength(4);
+  });
+});
+
+describe('ViajeDetailSection — hito y ETA', () => {
+  it('muestra el hito actual con su etiqueta', () => {
+    render(<ViajeDetailSection viaje={seguimientoEnEstado('SOLICITADO')} />);
+
+    expect(screen.getByText('Hito actual')).toBeInTheDocument();
+    expect(screen.getByText('Hito de prueba')).toBeInTheDocument();
+  });
+
+  it('sin etiqueta de hito no inventa la tarjeta', () => {
+    const viaje: ViajeSeguimiento = {
+      id: 'viaje-1',
+      hito: { estado: 'SOLICITADO' },
+      eta: null,
+      incidencias: [],
+    };
+    render(<ViajeDetailSection viaje={viaje} />);
+
+    expect(screen.queryByText('Hito actual')).not.toBeInTheDocument();
+  });
+});
+
+describe('ViajeDetailSection — aviso de emergencia activa', () => {
+  it('sin emergencia activa no hay aviso', async () => {
+    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
+
+    // Espera a que la consulta de emergencias resuelva antes de afirmar la ausencia.
+    await screen.findByText('Sin emergencias en este viaje.');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('con emergencia activa muestra el aviso con "Ver casos"', async () => {
+    vi.mocked(listEmergencias).mockResolvedValueOnce({
+      emergencia_activa: true,
+      casos: [{ id: 'e-1', activada_en: '2026-10-23T14:05:00Z', estado: 'en_atencion' }],
+    });
+    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
+
+    const aviso = await screen.findByRole('status');
+    expect(aviso).toHaveTextContent('Hay una emergencia activa en este viaje.');
+    expect(within(aviso).getByRole('button', { name: /Ver casos/ })).toBeInTheDocument();
   });
 });

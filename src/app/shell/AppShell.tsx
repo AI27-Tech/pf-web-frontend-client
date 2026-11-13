@@ -1,6 +1,9 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Plus, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
+import { useState } from 'react';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { LogOut, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
 import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
+import { useSession } from '@/context/SessionContext';
 
 type NavItem = {
   readonly to: string;
@@ -59,6 +62,26 @@ function isItemActive(pathname: string, to: string, exact: boolean): boolean {
 
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { logout } = useSession();
+  const [cerrandoSesion, setCerrandoSesion] = useState(false);
+  const [colapsado, setColapsado] = useState(false);
+
+  async function cerrarSesion(): Promise<void> {
+    if (cerrandoSesion) return;
+    setCerrandoSesion(true);
+    try {
+      await queryClient.cancelQueries();
+      await logout();
+    } catch {
+      // Sin acción: el token local ya se limpió y el destino es el mismo.
+    } finally {
+      await navigate({ to: '/login' });
+      queryClient.clear();
+      setCerrandoSesion(false);
+    }
+  }
 
   /*
    * Un item con `to` exacto que coincide con el pathname "reclama" esa ruta: en ese
@@ -86,23 +109,30 @@ export function AppShell() {
       <div className="sticky top-0 h-dvh shrink-0 self-start">
         <Sidebar
           className="h-full"
+          collapsed={colapsado}
+          onToggleCollapse={() => setColapsado((actual) => !actual)}
           header={
             <div className="flex items-center gap-3">
               <ShieldHalf className="size-6 shrink-0" />
-              <div className="flex flex-col leading-tight">
-                <span className="text-base font-bold">AI27</span>
-                <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
-              </div>
+              {!colapsado && (
+                <div className="flex flex-col leading-tight">
+                  <span className="text-base font-bold">AI27</span>
+                  <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
+                </div>
+              )}
             </div>
           }
           footer={
             <Button
-              variant="primary"
+              variant="secondary"
               fullWidth
-              startIcon={<Plus />}
-              onClick={() => console.log('Redirect to new travel...')}
+              startIcon={<LogOut aria-hidden="true" />}
+              loading={cerrandoSesion}
+              onClick={() => void cerrarSesion()}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
             >
-              Nuevo viaje
+              {!colapsado && 'Cerrar sesión'}
             </Button>
           }
         >

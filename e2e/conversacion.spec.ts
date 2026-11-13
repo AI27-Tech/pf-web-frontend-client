@@ -59,3 +59,72 @@ test.describe('conversación · lectura y envío', () => {
     await expect(page.getByRole('button', { name: 'Enviar' })).toBeHidden();
   });
 });
+
+test.describe('conversación · palabra larga sin espacios', () => {
+  /**
+   * Afirma que NINGUNA burbuja desborda. Con `paginaCompleta` también que la página no
+   * scrollea en horizontal.
+   */
+  async function sinDesborde(
+    page: import('@playwright/test').Page,
+    { paginaCompleta = true }: { paginaCompleta?: boolean } = {},
+  ): Promise<void> {
+    const burbujas = page.locator('ol > li');
+    const total = await burbujas.count();
+    expect(total).toBeGreaterThan(0);
+    for (let i = 0; i < total; i++) {
+      const burbuja = burbujas.nth(i);
+      const caja = await burbuja.boundingBox();
+      const medidas = await burbuja.evaluate((el) => {
+        const lista = el.parentElement!.getBoundingClientRect();
+        return {
+          scrollWidth: el.scrollWidth,
+          clientWidth: el.clientWidth,
+          // Lo más a la derecha que llega cualquier descendiente con texto.
+          derecha: Math.max(
+            ...Array.from(el.querySelectorAll('p')).map((p) => p.getBoundingClientRect().right),
+          ),
+          limiteLista: lista.right,
+        };
+      });
+      expect(medidas.scrollWidth, `burbuja ${i}`).toBeLessThanOrEqual(medidas.clientWidth + 1);
+      expect(medidas.derecha, `burbuja ${i}`).toBeLessThanOrEqual(medidas.limiteLista + 1);
+      expect(caja).not.toBeNull();
+    }
+    if (!paginaCompleta) return;
+    const paginaDesborda = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth,
+    );
+    expect(paginaDesborda).toBe(false);
+  }
+
+  test('la palabra larga que ya trae el mock se parte dentro de su burbuja', async ({ page }) => {
+    await login(page);
+    await page.goto('/viajes/viaje-9/conversacion');
+    await expect(page.getByText('asodhaskdgaskldhaksdhiasdh')).toBeVisible();
+    await sinDesborde(page);
+  });
+
+  test('una palabra larga escrita y enviada tampoco se sale de la burbuja', async ({ page }) => {
+    await login(page);
+    await page.goto('/viajes/viaje-1/conversacion');
+    await expect(page.getByRole('heading', { name: 'Conversación', level: 2 })).toBeVisible();
+    // 300 caracteres seguidos, sin un solo espacio ni guion.
+    const larga = 'x'.repeat(300);
+    await page.getByLabel('Nuevo mensaje').fill(larga);
+    await page.getByRole('button', { name: 'Enviar' }).click();
+    await expect(page.getByText(larga)).toBeVisible();
+    await sinDesborde(page);
+  });
+
+  test('en una pantalla angosta la palabra larga tampoco desborda', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 700 });
+    await login(page);
+    await page.goto('/viajes/viaje-9/conversacion');
+    await expect(page.getByText('asodhaskdgaskldhaksdhiasdh')).toBeVisible();
+    // Solo las burbujas: a 375px la barra lateral (240px) no se pliega y el botón "Cargar
+    // mensajes anteriores" ensancha la página por sí solo. Es un problema de layout aparte
+    // de la palabra larga, así que aquí no se mide la página completa.
+    await sinDesborde(page, { paginaCompleta: false });
+  });
+});

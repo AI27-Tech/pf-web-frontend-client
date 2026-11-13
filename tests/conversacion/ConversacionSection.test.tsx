@@ -172,6 +172,61 @@ describe('ConversacionSection — envío (E9-T8)', () => {
     await user.type(screen.getByLabelText('Nuevo mensaje'), '   ');
     expect(enviar).toBeDisabled();
   });
+
+  it('Enter envía el mensaje', async () => {
+    enviarMensajeViaje.mockResolvedValue(mensaje({ id: 'm-1', seq: 1, cuerpo: 'hola' }));
+    const user = userEvent.setup();
+    renderConQuery(<ConversacionSection viajeId="viaje-1" />);
+    await screen.findByText('Sin mensajes todavía');
+
+    const campo = screen.getByLabelText('Nuevo mensaje');
+    await user.type(campo, 'hola{Enter}');
+
+    await waitFor(() => expect(enviarMensajeViaje).toHaveBeenCalledTimes(1));
+    const args = enviarMensajeViaje.mock.calls[0] as [string, { cuerpo: string }];
+    expect(args[1].cuerpo).toBe('hola');
+    expect(campo).toHaveValue('');
+  });
+
+  it('Shift+Enter inserta un salto de línea y NO envía; el cuerpo conserva el salto', async () => {
+    enviarMensajeViaje.mockResolvedValue(mensaje({ id: 'm-1', seq: 1, cuerpo: 'x' }));
+    const user = userEvent.setup();
+    renderConQuery(<ConversacionSection viajeId="viaje-1" />);
+    await screen.findByText('Sin mensajes todavía');
+
+    const campo = screen.getByLabelText('Nuevo mensaje');
+    await user.type(campo, 'línea 1{Shift>}{Enter}{/Shift}línea 2');
+
+    expect(enviarMensajeViaje).not.toHaveBeenCalled();
+    expect(campo).toHaveValue('línea 1\nlínea 2');
+
+    await user.click(screen.getByRole('button', { name: 'Enviar' }));
+    await waitFor(() => expect(enviarMensajeViaje).toHaveBeenCalledTimes(1));
+    const args = enviarMensajeViaje.mock.calls[0] as [string, { cuerpo: string }];
+    expect(args[1].cuerpo).toBe('línea 1\nlínea 2');
+  });
+
+  it('Enter sin texto (o solo espacios) no envía', async () => {
+    const user = userEvent.setup();
+    renderConQuery(<ConversacionSection viajeId="viaje-1" />);
+    await screen.findByText('Sin mensajes todavía');
+
+    await user.type(screen.getByLabelText('Nuevo mensaje'), '   {Enter}');
+
+    expect(enviarMensajeViaje).not.toHaveBeenCalled();
+  });
+
+  it('la burbuja respeta los saltos de línea del mensaje', async () => {
+    listarMensajesViaje.mockResolvedValue(
+      pagina([mensaje({ id: 'm-1', seq: 1, cuerpo: 'línea 1\nlínea 2', deCliente: true })]),
+    );
+    renderConQuery(<ConversacionSection viajeId="viaje-1" />);
+
+    const texto = await screen.findByText(/línea 1/);
+    // El salto llega intacto al DOM y la clase hace que se vea como salto.
+    expect(texto.textContent).toBe('línea 1\nlínea 2');
+    expect(texto).toHaveClass('whitespace-pre-wrap');
+  });
 });
 
 describe('ConversacionSection — solo lectura / cerrada (E9-T8, DEC-030/DEC-041)', () => {

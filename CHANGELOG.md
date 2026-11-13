@@ -1,5 +1,252 @@
 # CHANGELOG
 
+## 2026:11:11 21:00
+
+**Resumen:** Se quitó el botón "Actualizar" de la tarjeta "ETA estimado" del seguimiento de un viaje. El seguimiento sigue actualizándose solo con el polling (ADR 27), que no cambió. Sin el botón, la fecha del ETA ocupa todo el ancho de la tarjeta y deja de partirse en dos líneas.
+**Cambios:**
+
+- `ViajeDetailSection.tsx`: sin el botón ni las props `onActualizar` y `actualizando`. De paso, el `col-span-2` de la tarjeta de ETA cuando no hay etiqueta de hito pasó de `sm:` a `xl:`, que es el punto desde el que la rejilla de hito y ETA tiene dos columnas.
+- `routes/_private/viajes/$viajeId/index.tsx`: ya no pasa `refetch` ni `isFetching`.
+- `ViajeDetailSection.test.tsx`: se eliminaron las dos pruebas del botón.
+  **Archivos modificados:**
+- `src/features/viajes/ViajeDetailSection.tsx` · `src/routes/_private/viajes/$viajeId/index.tsx`
+- `tests/viajes/ViajeDetailSection.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:11 20:20
+
+**Resumen:** En el seguimiento de un viaje, las dos columnas arrancaban a distinta altura: la derecha llevaba el rótulo "ACCIONES" y la izquierda empezaba directo con la tarjeta del recorrido, así que sus primeras tarjetas quedaban desfasadas. Ahora la izquierda también lleva un rótulo ("SEGUIMIENTO") con el mismo estilo y la misma separación, y las dos columnas usan el mismo espacio entre tarjetas (`gap-4`; antes la derecha usaba `gap-3`). Se midió: en 1024px y 1440px la primera tarjeta de cada columna empieza a la misma altura.
+**Archivos modificados:**
+
+- `src/features/viajes/ViajeDetailSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:11 20:00
+
+**Resumen:** El seguimiento de un viaje (`/viajes/:id`) ahora tiene dos columnas desde el ancho `lg` (1024px): a la izquierda el seguimiento (recorrido, hito y ETA, incidencias) y a la derecha la sección Acciones (cancelar o rechazar, emergencia). El título, el estado, Conversación y el aviso de emergencia siguen arriba a todo el ancho. En pantallas angostas las columnas se apilan en el mismo orden. La columna derecha mide 22rem como máximo y la izquierda ocupa el resto.
+**Cambios:**
+
+- `ViajeDetailSection.tsx`: contenedor en rejilla `lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]`. Las tarjetas de hito y ETA van lado a lado solo desde `xl` (1280px); en `lg` se apilan para no apretar el botón Actualizar.
+- Sin cambios de comportamiento ni de textos: las pruebas existentes pasan sin tocarse.
+  **Archivos modificados:**
+- `src/features/viajes/ViajeDetailSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:11 19:30
+
+**Resumen:** El seguimiento de un viaje (`/viajes/:id`) se reorganizó con la estructura del diseño de referencia, usando los componentes de `@ai27-tech/ui` (Card, Badge, Button) y los colores ya definidos en `globals.css`; no se agregaron colores. **No se pintó el resumen de ruta** (origen, destino, tipo de servicio, programado, unidad, operador): `ViajeSeguimiento` no trae esos datos. Es una brecha contractual a pedir a `bff`/contratos. Tampoco se copió el texto del diseño "Se calculará al confirmar la unidad" del ETA, porque es una regla de negocio no definida; se conserva "Sin ETA".
+**Cambios:**
+
+- Orden de arriba abajo: volver al historial; título, estado y Conversación; aviso de emergencia activa con "Ver casos"; recorrido en 4 pasos; tarjetas Hito actual y ETA estimado (con botón Actualizar); Incidencias; sección Acciones (cancelar o rechazar, emergencia).
+- Recorrido nuevo (`ProgresoViaje.tsx`, `pasosViaje.ts`): Solicitado, Confirmado, En tránsito, Entregado. **El agrupamiento de los 13 estados en estos pasos es una propuesta de presentación, pendiente de validar con PM** (SOLICITADO y APROBADO en el primero; ASIGNADO y APTO_PARA_SALIDA en Confirmado; todos los estados en ruta en En tránsito; CERRADO en Entregado). CANCELADO y los rechazos no pintan recorrido.
+- Incidencias: en atención se resaltan como advertencia (tokens `warning`) con etiqueta "En atención"; las resueltas, con etiqueta "Resuelta". El texto "(obsoleto)" del ETA pasó de `degradado-800` (casi invisible en el tema oscuro) a `warning`.
+- Actualizar vuelve a pedir el seguimiento a demanda (además del polling); la ruta pasa `refetch` e `isFetching`.
+- Emergencia: icono, descripción bajo el título, casos con etiqueta de estado; el aviso de arriba comparte la consulta con el panel (misma clave de caché, sin petición extra). Cancelar o rechazar: título y botón en una fila; candado cuando ya no aplica.
+- e2e de emergencia: el texto "Hay una emergencia activa en este viaje." ahora sale dos veces (aviso y panel), como en el diseño; las aserciones se acotaron.
+  **Archivos modificados:**
+- `src/features/viajes/ViajeDetailSection.tsx` · `CancelarRechazarPanel.tsx` · `EmergenciaPanel.tsx` · `ProgresoViaje.tsx` y `pasosViaje.ts` (nuevos)
+- `src/routes/_private/viajes/$viajeId/index.tsx`
+- `tests/viajes/ViajeDetailSection.test.tsx` · `tests/viajes/pasosViaje.test.ts` (nuevo) · `e2e/emergencia.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:11 18:30
+
+**Resumen:** En "Solicitar nuevo servicio", **Tipo de servicio tiene solo dos opciones: Local y Foráneo**. Antes salía del catálogo `tipos-servicio`; ahora son opciones fijas del formulario. Sigue siendo opcional. **Aviso:** los códigos que viajan en `tipo_servicio` son `local` y `foraneo`, definidos en esta pantalla; no existen en el catálogo `catalogos` (el demo siembra `custodia_armada`, `monitoreo_activo` y `localizacion_gps`). `operacion` guarda el texto sin validarlo contra el catálogo, así que el envío funciona, pero hay que confirmar los códigos con el dueño de `catalogos` y registrar la decisión como DEC.
+**Cambios:**
+
+- `NuevaSolicitudForm.tsx`: sin la prop `tiposServicio`; opciones fijas `local` / `foraneo`.
+- `routes/_private/viajes/new.tsx`: se quitó el loader y el spinner de carga; la pantalla ya no consulta el catálogo.
+- `lib/api/catalogos.ts` (`listarTiposServicio`) y el handler del mock `tipos-servicio` no se tocaron: quedaron sin uso en esta pantalla.
+- Pruebas: 4 nuevas (solo dos opciones, código enviado, sigue opcional, vista previa). El e2e de alta elige Foráneo; ya no recorre la segunda página del catálogo.
+  **Archivos modificados:**
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `src/routes/_private/viajes/new.tsx`
+- `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:11 18:00
+
+**Resumen:** En "Solicitar nuevo servicio", **Tipo de escolta, Fecha y Hora pasan a ser obligatorios**. El botón "Solicitar servicio" sigue deshabilitado hasta que los tres tengan valor (además de origen y destino final), y cada uno lleva el asterisco de requerido. **Dos avisos:** (1) E1-HU-001 y DEC-010 #2 siguen diciendo que la fecha/hora es opcional para el cliente; esta obligatoriedad es una instrucción nueva de Product Management y falta registrarla como DEC. (2) El tipo de escolta es obligatorio pero todavía no viaja al backend, porque `CrearViajeEntrada` no tiene campo para él (brecha contractual).
+**Cambios:**
+
+- `NuevaSolicitudForm.tsx`: `puedeEnviar` exige tipo de escolta y una fecha/hora válida (`valido`, ya no basta `vacio`). Los mensajes "Indica también la fecha/hora" y el de año inválido siguen igual.
+- `fechaHora.ts`: solo se actualizó el comentario; la función no cambió.
+- Pruebas: las que enviaban con solo origen y destino ahora completan escolta, fecha y hora. Nuevas: obligatorios por separado, asterisco de requerido, y "sin fecha ni hora no se envía". Helpers en `e2e/support/solicitud.ts`.
+  **Archivos modificados:**
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `fechaHora.ts`
+- `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` · `e2e/solicitud-fecha-hora.spec.ts` · `e2e/support/solicitud.ts` (nuevo)
+- `CHANGELOG.md`
+
+## 2026:11:11 17:30
+
+**Resumen:** En "Solicitar nuevo servicio", el botón "Solicitar servicio" pasó de la parte baja del formulario a la columna derecha, debajo de la vista previa. Sigue enviando el mismo formulario: está fuera del `<form>` y se asocia con el atributo `form`, así que Enter en un campo también envía. El mensaje de error de envío se movió con él, para que se vea junto al botón.
+**Archivos modificados:**
+
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `SolicitudVistaPrevia.tsx` (el `sticky` ahora está en la columna que agrupa vista previa y botón)
+- `tests/viajes/NuevaSolicitudForm.test.tsx` · `e2e/solicitud.spec.ts` (el interruptor se busca por su nombre actual, "Seguimiento con múltiples destinos")
+- `CHANGELOG.md`
+
+## 2026:11:11 17:10
+
+**Resumen:** En "Solicitar nuevo servicio", "Seguimiento con múltiples destinos" (antes "Agregar paradas") es ahora un interruptor, los destinos intermedios se pueden reordenar arrastrándolos, y se agregó el tipo de escolta con sobreescolta opcional. **La escolta todavía no se envía:** `CrearViajeEntrada` no tiene campos para ella (brecha contractual). Se captura y se muestra en la vista previa, y falta publicarla en el contrato para agregarla a `entrada` en `onSubmit`.
+**Cambios:**
+
+- Nombres: lo que era "Parada N" ahora es "Destino N" y lo que era "Destino" ahora es "Destino final". El interruptor se llama "Seguimiento con múltiples destinos".
+- Reordenar destinos: se arrastra el control de la izquierda de cada destino. También funciona con el teclado (↑ y ↓ con el control enfocado) y se anuncia el movimiento a lectores de pantalla. Los destinos se renumeran por posición y el destino final queda siempre al último. Sin librería nueva (arrastre nativo del navegador); no funciona al tacto, para eso quedan las flechas.
+- Tipo de escolta (Patrulla o Moto, opcional) y el interruptor "Agregar sobreescolta", que abre otro selector con las mismas dos opciones. Si la sobreescolta está encendida, su tipo es obligatorio para enviar (decisión de interfaz, no regla de negocio: pendiente de confirmar con PM).
+- Vista previa: filas "Tipo de escolta" y "Sobreescolta"; la fila "Paradas" pasó a "Destinos intermedios".
+  **Archivos modificados:**
+- `src/features/viajes/NuevaSolicitudForm.tsx` · `SolicitudVistaPrevia.tsx`
+- `src/features/viajes/DestinosIntermedios.tsx` · `ordenDestinos.ts` (nuevos)
+- `tests/viajes/NuevaSolicitudForm.test.tsx` (10 pruebas nuevas) · `e2e/solicitud.spec.ts` (3 nuevas) · `e2e/solicitud-fecha-hora.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 17:41
+
+**Resumen:** En la conversación se corrigió el contraste de la burbuja del cliente y se evitó que una palabra larguísima sin espacios se salga de su burbuja. En el tema oscuro (el que usa la app) el texto del cliente se leía casi invisible: usaba `bg-brand-50`, un celeste fijo muy claro, con `text-on-surface`, casi blanco en ese tema. Ahora usa los roles `primary` / `on-primary`, que cambian con el tema, sin colores nuevos ni cambios en `globals.css` ni en la librería.
+
+**Palabra larga:**
+
+- `ConversacionSection.tsx`: las burbujas llevan `wrap-anywhere` (`overflow-wrap: anywhere`). A diferencia de `break-words`, también reduce el ancho mínimo del contenido, que es lo que impide que la burbuja se ensanche. Corrige tanto una palabra de 150 o 300 caracteres como una URL sin guiones.
+- Mock: `viaje-9` trae ahora un mensaje del cliente con una "palabra" de 150 caracteres para verlo en `pnpm dev:mock`.
+- `e2e/conversacion.spec.ts` (3 pruebas nuevas): la palabra larga del mock, una palabra de 300 caracteres escrita y enviada desde el campo, y la misma a 375px. Miden el layout real (ninguna burbuja es más ancha que su contenido ni sale del cuadro de la conversación). Se comprobó que fallan sin `wrap-anywhere` y pasan con él.
+
+**Archivos modificados:**
+
+- `src/features/conversacion/ConversacionSection.tsx` · `src/mocks/data.ts`
+- `e2e/conversacion.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 17:25
+
+**Resumen:** Se corrigieron los acentos de los textos visibles fuera del login: mensajes de error, página "no existe", encabezado y filtros del historial y estados vacíos. Solo cambia texto que ve el usuario; no se tocó ningún identificador, ruta ni campo del contrato.
+
+**Cambios:**
+
+- `src/components/ui/Feedback.tsx` (mensajes de error de todas las pantallas): "Tu sesión no permite ver esto", "Algo se rompió", "…no está respondiendo…", "Vuelve a iniciar sesión…" y "Se registró el fallo. Puedes reintentar."
+- `src/routes/__root.tsx`: "Esta página no existe".
+- `src/features/viajes/historial/HistorialHeader.tsx`: "operaciones logísticas".
+- `src/features/viajes/historial/HistorialViajesTable.tsx`: "Últimos 7 / 30 / 90 días" (opciones del rango de fechas, aún inerte), "Cuando se registren viajes aparecerán aquí." y "Ningún viaje coincide con el estado seleccionado."
+- `src/routes/_private/configuracion/index.tsx`: "Esta sección está en construcción." (ruta que ya no está en el menú).
+- Pruebas: `tests/ui/ErrorState.test.tsx` y `tests/viajes/HistorialViajesTable.test.tsx` leen los textos nuevos.
+
+**Archivos modificados:**
+
+- `src/components/ui/Feedback.tsx` · `src/routes/__root.tsx` · `src/routes/_private/configuracion/index.tsx`
+- `src/features/viajes/historial/HistorialHeader.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx`
+- `tests/ui/ErrorState.test.tsx` · `tests/viajes/HistorialViajesTable.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:10 17:19
+
+**Resumen:** Se corrigió el contraste del texto del login. En el tema oscuro (el que usa la app) el título "Iniciar sesión" se leía casi invisible (1.06:1), el subtítulo apenas (2.49:1) y el enlace "¿Olvidaste tu contraseña?" mal (2.1:1), porque usaban colores fijos pensados para fondo claro (`text-slate-900`, `text-slate-600`, `text-brand-700`). Ahora usan roles del tema que cambian con él, sin colores nuevos ni cambios en `globals.css` ni en la librería.
+
+**Cambios:**
+
+- `src/routes/(auth)/login.tsx`: el título usa `text-on-surface` y el subtítulo `text-on-surface-variant`, en lugar de `text-slate-900` y `text-slate-600`.
+- `src/features/sesion/LoginSection.tsx`: el enlace usa `text-primary-container` en lugar de `text-brand-700`. Se descartó `text-primary` porque en el tema claro quedaba en 4.22:1.
+- El panel izquierdo (texto blanco sobre la imagen) ya cumplía y no se tocó.
+
+**Pendiente, de la librería `@ai27-tech/ui` (no se parcha aquí):** el color del placeholder de los campos ("nombre@empresa.com", "123456") queda en 3.35:1 en el tema oscuro y 3.08:1 en el claro. Lo define `::placeholder { color: var(--ui-color-text-placeholder) }`.
+
+**Archivos modificados:**
+
+- `src/routes/(auth)/login.tsx` · `src/features/sesion/LoginSection.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:35
+
+**Resumen:** Se corrigió la ortografía de los textos visibles del login: faltaban acentos, la `ñ` y el signo de apertura `¿`. Solo cambia texto que ve el usuario; no se tocó ningún identificador ni campo del contrato (`contrasena` en `CredencialesEntrada`, `sesion_finalizada`). Las pruebas que buscan por texto se actualizaron.
+
+**Cambios:**
+
+- Etiquetas y botones: "Correo electrónico empresarial", "Contraseña", "Código de verificación", "Iniciar sesión" (botón y título de la página), y los nombres accesibles "Mostrar contraseña" / "Ocultar contraseña".
+- Enlace: "¿Olvidaste tu contraseña?" (además faltaba el `¿`).
+- Nota de seguridad: "Tu conexión es segura y está protegida por los protocolos de seguridad de AI27."
+- Mensajes de error: "Usuario, contraseña o código de verificación incorrectos.", "El servicio de identidad no está disponible…", "No encontramos el servicio de sesión. Revisa la configuración del entorno." y "No pudimos completar el acceso. Inténtalo de nuevo."
+- Pruebas actualizadas a los textos nuevos: `tests/sesion/LoginSection.test.tsx`, `e2e/login.spec.ts`, `e2e/journey.spec.ts`, `e2e/support/login.ts` y `e2e/session-cut.spec.ts`. Quien tenga selectores con los textos antiguos (`.scratch/pruebas-portal-cliente/` los cita) debe actualizarlos.
+
+**Archivos modificados:**
+
+- `src/features/sesion/LoginSection.tsx` · `src/routes/(auth)/login.tsx`
+- `tests/sesion/LoginSection.test.tsx`
+- `e2e/login.spec.ts` · `e2e/journey.spec.ts` · `e2e/support/login.ts` · `e2e/session-cut.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:16
+
+**Resumen:** Se quitó del mock la variante con 32 viajes (`viajesMuchosWire`): el mock queda solo con los 15 viajes normales, que con páginas de 10 ya muestran la paginación (10 y 5). La variante solo se podía activar desde Playwright con un header (el navegador no puede enviarlo en `pnpm dev:mock`) y la alternativa por cookie no funcionó al probarla.
+
+**Cambios:**
+
+- `src/mocks/data.ts`: se eliminan `viajesMuchosWire`, la lista de orígenes de la variante, la interfaz `ViajeResumenWire` (solo la usaba la variante) y el import de `ESTADOS_VIAJE`. El comentario de `viajesWire` ya no menciona la variante. `RECHAZADO_POR_AI27` queda sin cubrir en el mock (era el único estado que solo salía en la variante).
+- `src/mocks/handlers.ts`: `GET /viajes` vuelve a filtrar `viajesWire` directamente; ya no lee el header `x-mock-viajes-muchos` ni la cookie.
+- `e2e/historial.spec.ts`: se elimina el helper `conMuchosViajes` y el test de 32 viajes (cuatro páginas: 10, 10, 10 y 2). Sigue el test de los 15 viajes del mock (10 + 5). Las pruebas unitarias conservan su cobertura de varias páginas (10, 11 y 21 viajes) con datos propios.
+
+**Archivos modificados:**
+
+- `src/mocks/data.ts` · `src/mocks/handlers.ts`
+- `e2e/historial.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:09
+
+**Resumen:** El Historial de Viajes muestra como máximo **10** viajes por página. La tabla crece con los viajes hasta 10 y, a partir del 11, se parte en páginas de 10; la paginación (conteo y páginas) sigue siempre visible debajo de la tabla. Con los 15 viajes del mock, el historial queda en dos páginas (10 y 5).
+
+**Cambios:**
+
+- `HISTORIAL_PAGE_SIZE` a 10. Es la única fuente del tamaño: la partición de filas y la `Pagination` la leen de ahí.
+- Mock: comentarios de `data.ts` y `handlers.ts` al día. Los 15 viajes del mock (`viaje-1` a `viaje-15`) ya no caben en una página: la primera muestra `viaje-1` a `viaje-10` y la segunda `viaje-11` a `viaje-15`, así que la paginación se ve con los datos normales. Ojo: `viaje-11` a `viaje-15` (entre ellos `viaje-14`, con 60 mensajes, y `viaje-15`) quedan en la segunda página.
+- Pruebas unitarias: los límites pasan a 10, 11 y 21 viajes (una página llena, 10 + 1, y 10 + 10 + 1), con el cambio de filtro que vuelve a la página 1.
+- e2e `historial.spec.ts`: los 15 viajes del mock se ven como 10 + 5 (`1–10 of 15` y `11–15 of 15`) con la paginación justo debajo de la tabla. El filtro "Cerrado" sigue cubriendo la lista corta (`1–2 of 2`).
+
+**Archivos modificados:**
+
+- `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/features/viajes/historial/HistorialViajesSection.tsx`
+- `src/mocks/data.ts` · `src/mocks/handlers.ts`
+- `tests/viajes/HistorialViajesTable.test.tsx` · `e2e/historial.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 16:05
+
+**Resumen:** Se amplió el mock con situaciones distintas para probar el portal sin backend. El historial pasa de 6 a 15 viajes (justo una página) que cubren 12 de los 13 estados del ciclo de vida, y cada viaje del listado ya tiene detalle: antes `viaje-6`, `viaje-7` y `viaje-8` llevaban a "No encontramos lo que buscas". Solo cambian datos del mock y un e2e; no cambia código de la app.
+
+**Cambios:**
+
+- Listado (`viajesWire`): 15 viajes, de `viaje-1` a `viaje-15`. Los 6 originales conservan su id, estado y origen, así que las pruebas que dependen de ellos no cambian. Los nuevos agregan APROBADO, ASIGNADO, EN_TRANSITO, EN_DESTINO, APTO_PARA_SALIDA, EN_EMBARQUE, PATRULLA_EN_CAMINO, EN_DESCARGA y RECHAZADO_POR_CLIENTE. Solo falta RECHAZADO_POR_AI27. Los filtros "Cerrado" (2 filas) y "Cancelado" (1) quedan igual.
+- Detalle (`viajeDetalleWire`): detalle para `viaje-4`, `5`, `6`, `7`, `8`, `11`, `12`, `13`, `14` y `15`. Cubre ETA ausente, vigente y obsoleto, incidencias resueltas y en atención, incidencias con impacto en el ETA y las combinaciones de acciones del cliente: solo cancelar (SOLICITADO, APROBADO), cancelar y rechazar (ASIGNADO, APTO_PARA_SALIDA) y ninguna (EN_EMBARQUE, EN_DESCARGA, terminales). La descripción de cada situación está en el comentario de `viajesWire`.
+- Conversaciones: `viaje-4` abierta y vacía; `viaje-5` con un mensaje sin respuesta; `viaje-7` en estado `cerrada` (hasta ahora solo había `solo_lectura`); `viaje-9` con un párrafo largo con saltos de línea y una URL larguísima sin espacios; `viaje-10` atendida; `viaje-14` con 60 mensajes (pasa del límite de 50 y ofrece "Cargar mensajes anteriores"); `viaje-15` en solo lectura. `viaje-3`, `8`, `11`, `12` y `13` siguen sin conversación (404) a propósito.
+- Emergencias: `viaje-9` con dos casos (uno resuelto y otro en atención, para ver el selector de caso), `viaje-10` con un caso ya resuelto (hay historia pero no emergencia activa) y `viaje-13` con un caso recién abierto.
+
+**Archivos modificados:**
+
+- `src/mocks/data.ts`
+- `e2e/historial.spec.ts`
+- `CHANGELOG.md`
+
+## 2026:11:10 11:10
+
+**Resumen:** Revisión general de botones del portal. Se quitan dos botones que no hacían nada ("Nuevo viaje" y "Exportar CSV"), se agregan "Cerrar sesión", el botón para plegar el sidebar y los botones de regreso del detalle y la conversación, y el filtro de estado del historial se conserva al moverse entre esas pantallas. Para que el botón del sidebar salga en español se subió `@ai27-tech/ui` de `0.2.0-beta.1` a `0.2.0-beta.6` (la versión de los otros dos portales), lo que obligó a migrar `Select` y `FilterTable`.
+
+**Cambios:**
+
+- Se quitó "Nuevo viaje" del pie del sidebar: solo hacía `console.log` y duplicaba "Solicitar Servicio".
+- Se quitó "Exportar CSV" del encabezado del historial: estaba deshabilitado y la exportación es V2 (DEC-023). Se eliminó la prueba e2e que lo exigía deshabilitado.
+- "Cerrar sesión" en el pie del sidebar: revoca la sesión (`DELETE /sesion`), limpia los tokens aunque el servidor falle y lleva a `/login` sin el aviso de "sesión finalizada". Cancela las lecturas en vuelo antes de salir y vacía la caché de consultas después de navegar. El `loading` evita enviar la petición dos veces con doble clic.
+- Sidebar plegable con `collapsed` y `onToggleCollapse` de la librería. Plegado, el encabezado muestra solo el escudo y "Cerrar sesión" solo el ícono (con `aria-label` y `title`). El estado vive en memoria.
+- `@ai27-tech/ui` `0.2.0-beta.1` → `0.2.0-beta.6`: desde `beta.2` el botón de plegar dice "Contraer" y "Expandir barra lateral". Migración por cambios de la librería: `Select` ahora es un botón con lista (`options` y `onChange(valor)`), sin hijos `<option>` ni `aria-label`, así que los dos de la app van en un `role="group"` con su nombre ("Tipo de servicio", "Caso de emergencia"); `FilterTable` exige `label` en cada filtro. En `src/_desconectado/solicitud` solo se cambió el `onChange` de tres `Select`, porque ese código entra al typecheck.
+- "Volver al historial" en el detalle del viaje y "Volver al viaje" en la conversación, como `Link` (no `history.back()`) para que funcionen con enlaces directos.
+- El filtro de estado del historial viaja en la URL historial → detalle → conversación y de regreso (por ejemplo `/viajes/viaje-1?estado=EN_TRANSITO`). `filtroEstado.ts` comparte el `validateSearch` de las tres rutas y `conservarFiltro`, que revalida el valor porque `Route.useSearch()` mezcla la search del padre sin validar y un `?estado=BASURA` escrito a mano llegaba a los enlaces. Las columnas de la tabla pasan de constante a función del filtro activo.
+- Pruebas actualizadas a los selects nuevos (se abre el botón y se pulsa la opción) y al filtro sin "Exportar CSV".
+
+**Archivos modificados:**
+
+- `package.json` · `pnpm-lock.yaml` · `CHANGELOG.md`
+- `src/app/shell/AppShell.tsx` · `src/features/viajes/historial/HistorialHeader.tsx` · `src/features/viajes/historial/HistorialViajesTable.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/features/viajes/NuevaSolicitudForm.tsx` · `src/features/viajes/EmergenciaPanel.tsx`
+- `src/routes/_private/viajes/index.tsx` · `src/routes/_private/viajes/$viajeId/index.tsx` · `src/routes/_private/viajes/$viajeId/conversacion/index.tsx`
+- `src/_desconectado/solicitud/PasoDetalles.tsx` · `src/_desconectado/solicitud/PasoServicioFecha.tsx` · `src/_desconectado/solicitud/__tests__/PasoDetalles.test.tsx` · `src/_desconectado/solicitud/__tests__/PasoServicioFecha.test.tsx`
+- `tests/viajes/HistorialViajesTable.test.tsx` · `tests/viajes/HistorialViajesSection.test.tsx` · `tests/viajes/EmergenciaPanel.test.tsx` · `e2e/historial.spec.ts` · `e2e/solicitud.spec.ts`
+- (nuevo) `src/features/viajes/filtroEstado.ts`
+
 ## 2026:11:05 16:45
 
 **Resumen:** Se reactivó la prueba e2e **"historial · tema oscuro"** (`e2e/historial.spec.ts`), que estaba en `skip`. Agregaba la clase `.dark` al `<html>`, pero el tema de los tokens lo conmuta `@ai27-tech/ui` por el atributo **`data-theme`** (index.html lo fija en `"dark"`); la clase solo ajusta `color-scheme`. Ahora la prueba alterna `data-theme` entre `light` y `dark` y comprueba que cambia el fondo y que el contenido sigue visible. No cambia nada para el usuario del portal. e2e en verde (27 activos, 12 `skip`; antes 26/13). Con la clase `.dark` en lugar de `data-theme`, la prueba falla (comprobado).
@@ -7,6 +254,7 @@
 **Archivos modificados:**
 
 - `e2e/historial.spec.ts` · `CHANGELOG.md`
+
 ## 2026:11:05 16:30
 
 **Resumen:** Se alineó `src/lib/api/` con el `bff.yaml` de `tracer.37`, operación por operación. El hallazgo que cambia algo para el usuario: **"Mis viajes" (`listarViajes`) responde una página `{ items, cursor_siguiente }`, no una lista**, y el portal la trataba como lista; contra el backend real el historial no habría pintado. Ahora se sigue el cursor y se junta el listado. Además, un **404** (viaje inexistente o de otra empresa, DEC-132) se presenta como "No encontramos lo que buscas" en lugar de "Algo se rompió". `lint`, `format:check`, `typecheck` y `test` (35 archivos, 225 pruebas) en verde; e2e en verde (26 activos, 13 `skip`).

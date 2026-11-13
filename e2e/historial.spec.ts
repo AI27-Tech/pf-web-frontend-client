@@ -3,8 +3,17 @@
  *
  */
 
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 import { login } from './support/login';
+
+/**
+ * Columna de un filtro de la barra (etiqueta + selector). El `Select` de la librería es
+ * un botón que abre una lista, sin `<label for>`, así que se localiza por su etiqueta
+ * visible y no por `getByLabel`.
+ */
+function filtro(page: Page, nombre: string): Locator {
+  return page.getByRole('group', { name: nombre });
+}
 
 test.describe('historial · contenido', () => {
   test('muestra el encabezado, los filtros y la tabla', async ({ page }) => {
@@ -16,13 +25,10 @@ test.describe('historial · contenido', () => {
     ).toBeVisible();
     await expect(page.getByText(/Consulta los registros detallados/i)).toBeVisible();
 
-    // La barra de filtros. El filtro por estado esta cableado; el rango de fechas
-    // sigue presente pero inerte (su etiqueta lo dice). La busqueda de texto NO se
-    // renderiza: el contrato no la soporta.
-    // `Estado` va con exact: el aria-label de la tabla termina en "...y estado" y
-    // getByLabel hace match por substring; sin exact resolveria dos elementos.
-    await expect(page.getByLabel(/Rango de fechas/)).toBeVisible();
-    await expect(page.getByLabel('Estado', { exact: true })).toBeVisible();
+    // La barra de filtros. Solo el filtro por estado esta cableado. El rango de fechas
+    // y la busqueda de texto NO se renderizan: el contrato no los soporta.
+    await expect(filtro(page, 'Estado')).toBeVisible();
+    await expect(filtro(page, 'Rango de fechas')).toHaveCount(0);
     await expect(page.getByPlaceholder(/Buscar por ID/i)).toHaveCount(0);
 
     await expect(page.getByRole('table')).toBeVisible();
@@ -45,10 +51,6 @@ test.describe('historial · contenido', () => {
     await page.goto('/viajes');
     await expect(page.getByRole('table')).toBeVisible();
 
-    // viaje-6/8 son CERRADO y viaje-7 CANCELADO; a 3 por pagina caen en la 2a.
-    // La `Pagination` del design system usa controles con aria-label en ingles.
-    await page.getByRole('button', { name: 'Next page' }).click();
-
     // Se acota a la tabla: "Cerrado"/"Cancelado" tambien son opciones del filtro.
     const tabla = page.getByRole('table');
     await expect(tabla.getByText('Cerrado').first()).toBeVisible();
@@ -56,25 +58,37 @@ test.describe('historial · contenido', () => {
   });
 });
 
-test.describe('historial · paginacion', () => {
-  test('parte los seis registros en dos paginas y navega', async ({ page }) => {
+test.describe('historial · crece hasta 10 y despues pagina', () => {
+  test('con los 15 viajes del mock muestra 10 y pasa a una segunda pagina con 5', async ({
+    page,
+  }) => {
     await login(page);
     await page.goto('/viajes');
-
     const tabla = page.getByRole('table');
-    await expect(tabla).toBeVisible();
-
-    // Pagina 1: tres filas y el conteo del pie.
-    // La `Pagination` del design system muestra "1–3 of 6" (en ingles) dentro del
-    // nav "Pagination"; se acota a ese nav para no chocar con otros numeros.
     const paginacion = page.getByRole('navigation', { name: 'Pagination' });
-    await expect(tabla.locator('tbody tr')).toHaveCount(3);
-    await expect(paginacion).toContainText('1–3 of 6');
+    await expect(tabla.locator('tbody tr')).toHaveCount(10);
 
+    // Conteo y paginas siempre visibles; hay una segunda pagina.
+    await expect(paginacion).toContainText('1–10 of 15');
+    await expect(paginacion.getByRole('button', { name: 'Page 1' })).toBeVisible();
+    await expect(paginacion.getByRole('button', { name: 'Page 2' })).toBeVisible();
+
+    // La tabla crece con sus filas y la paginacion queda justo debajo: no se estira al
+    // alto de la pantalla dejando un hueco entre ambas.
+    const cajaTabla = await tabla.boundingBox();
+    const cajaPaginacion = await paginacion.boundingBox();
+    expect(cajaTabla).not.toBeNull();
+    expect(cajaPaginacion).not.toBeNull();
+    const huecoPx = cajaPaginacion!.y - (cajaTabla!.y + cajaTabla!.height);
+    expect(huecoPx).toBeGreaterThanOrEqual(0);
+    expect(huecoPx).toBeLessThan(48);
+
+    // La segunda pagina trae los 5 restantes (viaje-11 a viaje-15).
     await page.getByRole('button', { name: 'Next page' }).click();
-
-    await expect(tabla.locator('tbody tr')).toHaveCount(3);
-    await expect(paginacion).toContainText('4–6 of 6');
+    await expect(paginacion).toContainText('11–15 of 15');
+    await expect(tabla.locator('tbody tr')).toHaveCount(5);
+    await expect(page.getByRole('link', { name: 'viaje-15' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'viaje-1', exact: true })).toHaveCount(0);
   });
 });
 
@@ -89,7 +103,8 @@ test.describe('historial · filtro por estado (servidor)', () => {
     await expect(tabla.getByText('En tránsito').first()).toBeVisible();
 
     // Elegir "Cerrado" navega con el search param: el filtrado es del servidor.
-    await page.getByLabel('Estado', { exact: true }).selectOption('CERRADO');
+    await filtro(page, 'Estado').getByRole('button').click();
+    await filtro(page, 'Estado').getByRole('button', { name: 'Cerrado', exact: true }).click();
 
     await expect(page).toHaveURL(/[?&]estado=CERRADO/);
     // El mock de bff devuelve solo los CERRADO (viaje-6, viaje-8): dos filas, todas
@@ -97,6 +112,7 @@ test.describe('historial · filtro por estado (servidor)', () => {
     await expect(tabla.locator('tbody tr')).toHaveCount(2);
     await expect(tabla.getByText('En tránsito')).toHaveCount(0);
     await expect(tabla.getByText('Cerrado').first()).toBeVisible();
+    await expect(page.getByRole('navigation', { name: 'Pagination' })).toContainText('1–2 of 2');
   });
 
   test('"en curso" y "cerrado" se distinguen: EN_TRANSITO no trae los cerrados', async ({
@@ -111,20 +127,6 @@ test.describe('historial · filtro por estado (servidor)', () => {
     await expect(tabla.getByText('Cerrado')).toHaveCount(0);
     await expect(tabla.getByText('Cancelado')).toHaveCount(0);
     await expect(tabla.getByText('En tránsito').first()).toBeVisible();
-  });
-});
-
-test.describe('historial · controles sin funcionalidad', () => {
-  test('"Exportar CSV" (en el encabezado) esta deshabilitado (fuera de alcance V1)', async ({
-    page,
-  }) => {
-    await login(page);
-    await page.goto('/viajes');
-    await expect(page.getByRole('table')).toBeVisible();
-
-    // El unico "Exportar CSV" vive en el encabezado; la toolbar de la tabla ya no lo
-    // duplica. Sigue deshabilitado: exportar el listado esta fuera de V1 (DEC-023).
-    await expect(page.getByRole('button', { name: /Exportar CSV/ })).toBeDisabled();
   });
 });
 

@@ -10,7 +10,7 @@ export const Route = createRootRoute({
   ),
   notFoundComponent: () => (
     <div className="mx-auto max-w-2xl p-6">
-      <h1 className="text-lg font-semibold">Esta pagina no existe</h1>
+      <h1 className="text-lg font-semibold">Esta página no existe</h1>
     </div>
   ),
 });

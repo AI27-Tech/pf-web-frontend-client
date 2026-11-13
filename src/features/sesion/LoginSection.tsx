@@ -72,14 +72,14 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
        */
       if (isApiError(cause) && cause.esDegradacion) {
         setError(
-          'El servicio de identidad no esta disponible en este momento. Intenta de nuevo en unos minutos.',
+          'El servicio de identidad no está disponible en este momento. Intenta de nuevo en unos minutos.',
         );
       } else if (isApiError(cause) && cause.kind === 'noEncontrado') {
-        setError('No encontramos el servicio de sesion. Revisa la configuracion del entorno.');
+        setError('No encontramos el servicio de sesión. Revisa la configuración del entorno.');
       } else if (isApiError(cause) && cause.kind === 'noAutorizado') {
-        setError('Usuario, contrasena o codigo de verificacion incorrectos.');
+        setError('Usuario, contraseña o código de verificación incorrectos.');
       } else {
-        setError('No pudimos completar el acceso. Intentalo de nuevo.');
+        setError('No pudimos completar el acceso. Inténtalo de nuevo.');
       }
     } finally {
       setPending(false);
@@ -88,7 +88,7 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
 
   return (
     <form onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-4" noValidate>
-      <FormField label="Correo electronico empresarial">
+      <FormField label="Correo electrónico empresarial">
         <Input
           type="text"
           autoComplete="username"
@@ -100,7 +100,7 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
         />
       </FormField>
 
-      <FormField label="Contrasena">
+      <FormField label="Contraseña">
         <Input
           type={showPassword ? 'text' : 'password'}
           autoComplete="current-password"
@@ -110,7 +110,7 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
               type="button"
               onClick={() => setShowPassword((value) => !value)}
               aria-pressed={showPassword}
-              aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
               className="text-on-surface-variant hover:text-on-surface"
             >
               {showPassword ? (
@@ -130,7 +130,7 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
        * Segundo factor (TOTP). La politica de MFA es del IdP,
        * no del portal; por eso el campo no es `required` en el cliente.
        */}
-      <FormField label="Codigo de verificacion">
+      <FormField label="Código de verificación">
         <Input
           type="text"
           inputMode="numeric"
@@ -155,8 +155,8 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
          * contrasena implementado. `href="#"` evita un <a> sin destino real
          * mientras no exista la ruta.
          */}
-        <a href="#" className="text-brand-700 font-medium hover:underline">
-          Olvidaste tu contrasena?
+        <a href="#" className="text-primary-container font-medium hover:underline">
+          ¿Olvidaste tu contraseña?
         </a>
       </div>
 
@@ -172,13 +172,13 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
         fullWidth
         endIcon={!pending ? <ArrowRight aria-hidden="true" className="size-4" /> : undefined}
       >
-        {pending ? 'Entrando' : 'Iniciar sesion'}
+        {pending ? 'Entrando' : 'Iniciar sesión'}
       </Button>
 
       {/* Nota de confianza del diseno. */}
       <p className="text-on-surface-variant flex items-center gap-1.5 text-xs">
         <ShieldCheck aria-hidden="true" className="size-3.5" />
-        Tu conexion es segura y esta protegida por los protocolos de seguridad de AI27.
+        Tu conexión es segura y está protegida por los protocolos de seguridad de AI27.
       </p>
     </form>
   );

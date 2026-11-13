@@ -1,5 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, Link } from '@tanstack/react-router';
+import { ArrowLeft } from 'lucide-react';
 import { ConversacionSection } from '@/features/conversacion/ConversacionSection';
+import { conservarFiltro, validarFiltroEstado } from '@/features/viajes/filtroEstado';
 
 /*
  * Conversación del viaje (E9-T8 / E3-HU-014, AI27-27).
@@ -12,10 +14,25 @@ import { ConversacionSection } from '@/features/conversacion/ConversacionSection
  * y error. Así la ruta no duplica la lectura ni decide la cadencia.
  */
 export const Route = createFileRoute('/_private/viajes/$viajeId/conversacion/')({
+  validateSearch: validarFiltroEstado,
   component: ConversacionPage,
 });
 
 function ConversacionPage() {
   const { viajeId } = Route.useParams();
-  return <ConversacionSection viajeId={viajeId} />;
+  const { estado } = Route.useSearch();
+  return (
+    <div className="-mb-6 flex h-[calc(100dvh-1.5rem)] min-h-0 flex-col gap-4">
+      <Link
+        to="/viajes/$viajeId"
+        params={{ viajeId }}
+        search={conservarFiltro(estado)}
+        className="border-outline-variant text-on-surface hover:bg-surface-container inline-flex shrink-0 items-center gap-2 self-start rounded-md border px-3 py-2 text-sm font-medium"
+      >
+        <ArrowLeft aria-hidden="true" className="size-4" />
+        Volver al viaje
+      </Link>
+      <ConversacionSection viajeId={viajeId} />
+    </div>
+  );
 }
