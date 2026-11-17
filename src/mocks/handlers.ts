@@ -20,7 +20,6 @@
  */
 
 import { HttpResponse, delay, http } from 'msw';
-import { admiteEmergencia } from '@/features/viajes/admiteEmergencia';
 import { EstadoViaje, puedeTransicionar } from '@/lib/contracts';
 import {
   DEV_USER,
@@ -241,20 +240,6 @@ export const handlers = [
     const body = (await request.json().catch(() => ({}))) as { activacion_id?: string };
     const activacionId = body.activacion_id ?? '';
     const casos = (emergenciasWire[viajeId] ??= []);
-
-    // Como el bff: solo se activa con el viaje en recorrido (EN_TRANSITO, EN_DESTINO o
-    // EN_DESCARGA); si no, 409 sin crear caso.
-    const estadoViaje = (viajeDetalleWire[viajeId] as { hito?: { estado?: string } } | undefined)
-      ?.hito?.estado;
-    if (estadoViaje === undefined || !admiteEmergencia(estadoViaje)) {
-      return HttpResponse.json(
-        {
-          codigo: 'viaje_no_admite_emergencia',
-          mensaje: 'El viaje no admite emergencia en su estado actual.',
-        },
-        { status: 409 },
-      );
-    }
 
     // Idempotencia por activacion_id: reentrega del MISMO id → caso original (200);
     // id nuevo → caso nuevo (201). Es la regla contractual del ticket.

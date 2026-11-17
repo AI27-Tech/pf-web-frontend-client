@@ -5,13 +5,12 @@
 **Resumen:** Corrección de la regla de activación: el botón "Activar emergencia" se ofrece durante todo el recorrido del viaje (`EN_TRANSITO`, `EN_DESTINO` y `EN_DESCARGA`), no solo en tránsito. `EN_EMBARQUE` queda fuera porque es previo al recorrido. Misma regla que aplica el `bff`.
 **Cambios:**
 
-- `admiteEmergencia.ts` (nuevo): helper que compara contra el enum generado del contrato.
-- `EmergenciaPanel.tsx`: usa el helper. Textos nuevos: fuera del recorrido, "La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga."; ante un 409, "El viaje ya no admite emergencias en su estado actual, por eso no se pudo activar."
-- `mocks/handlers.ts`: el mock responde 409 fuera del recorrido, con el mismo helper.
+- `EmergenciaPanel.tsx`: la lista de estados permitidos (`ESTADOS_CON_EMERGENCIA`) vive en el propio panel y compara contra el enum generado del contrato. Textos nuevos: fuera del recorrido, "La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga."; ante un 409, "El viaje ya no admite emergencias en su estado actual, por eso no se pudo activar."
+- `mocks/handlers.ts`: se retira el 409 simulado de la activación; el mock queda igual que en `pf-wfc-d`.
 - `EmergenciaPanel.test.tsx` y `ViajeDetailSection.test.tsx`: se ajustan a los tres estados permitidos y a `EN_EMBARQUE` fuera.
   **Verificación:** `typecheck`, `lint`, `format:check` y `vitest` (299 pruebas) en verde; `e2e/emergencia.spec.ts` con 3 pruebas en verde.
   **Archivos modificados:**
-- `src/features/viajes/admiteEmergencia.ts` · `src/features/viajes/EmergenciaPanel.tsx` · `src/mocks/handlers.ts`
+- `src/features/viajes/EmergenciaPanel.tsx` · `src/mocks/handlers.ts`
 - `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx`
 - `CHANGELOG.md`
 
@@ -22,12 +21,11 @@
 
 - `EmergenciaPanel.tsx`: recibe el estado del viaje (`estadoViaje`). El botón solo se muestra si el viaje es `EN_TRANSITO` y no hay casos `abierta` ni `en_atencion`. Fuera de tránsito explica el motivo; con un caso sin resolver dice "Podrás activar otra cuando la emergencia actual esté resuelta." Los casos y las notas de los casos existentes se siguen viendo. Un 409 al activar muestra "El viaje ya no está en tránsito, por eso no se pudo activar la emergencia."
 - `ViajeDetailSection.tsx`: pasa el estado del hito al panel.
-- `mocks/handlers.ts`: el mock responde 409 `viaje_no_admite_emergencia` si el viaje no está `EN_TRANSITO`, como el `bff`.
 - `EmergenciaPanel.test.tsx` y `ViajeDetailSection.test.tsx`: pruebas por cada estado distinto de `EN_TRANSITO`, bloqueo con casos `abierta` y `en_atencion`, botón con todos los casos resueltos, reaparición del botón al refrescar, aviso del 409 y integración con el hito.
 - Pendiente: la regla de un caso a la vez solo vive en el portal; el `bff` no la aplica y requiere un DEC. El código `viaje_no_admite_emergencia` aún no está en el contrato.
   **Verificación:** `typecheck`, `lint`, `format:check` y `vitest` (296 pruebas) en verde; `e2e/emergencia.spec.ts` con 3 pruebas en verde.
   **Archivos modificados:**
-- `src/features/viajes/EmergenciaPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx` · `src/mocks/handlers.ts`
+- `src/features/viajes/EmergenciaPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx`
 - `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx`
 - `CHANGELOG.md`
 

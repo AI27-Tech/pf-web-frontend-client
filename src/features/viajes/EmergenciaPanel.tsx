@@ -34,9 +34,8 @@ import { TriangleAlert } from 'lucide-react';
 import { Badge, Button, Card, CardBody, FormField, Modal, Select, Textarea } from '@ai27-tech/ui';
 import { NOTA_EMERGENCIA_MAX_CHARS } from '@/lib/constants';
 import { isApiError } from '@/lib/api/errors';
-import type { EmergenciaCliente } from '@/lib/contracts';
+import { EstadoViaje, type EmergenciaCliente } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
-import { admiteEmergencia } from './admiteEmergencia';
 import { useEmergencias } from './useEmergencias';
 
 /** Etiqueta visible del estado del caso, en la forma curada del cliente. */
@@ -51,6 +50,16 @@ function etiquetaEstado(estado: EmergenciaCliente['estado']): string {
       return 'Resuelta';
   }
 }
+
+/**
+ * Estados del viaje en los que se puede activar una emergencia: el recorrido, es decir
+ * EN_TRANSITO y el bucle de paradas EN_DESTINO y EN_DESCARGA (ADR 19, DEC-013).
+ */
+const ESTADOS_CON_EMERGENCIA: readonly string[] = [
+  EstadoViaje.EnTransito,
+  EstadoViaje.EnDestino,
+  EstadoViaje.EnDescarga,
+];
 
 /**
  * Mensaje del fallo de activación. Un 409 del `bff` significa que el viaje ya no admite
@@ -84,7 +93,7 @@ export function EmergenciaPanel({
   const emergenciaActiva = consulta.data?.emergencia_activa ?? false;
   // Se activa solo con el viaje en recorrido Y sin un caso previo sin resolver: otra
   // emergencia hasta que la anterior esté `resuelta`.
-  const enRecorrido = admiteEmergencia(estadoViaje);
+  const enRecorrido = ESTADOS_CON_EMERGENCIA.includes(estadoViaje);
   const puedeActivar = enRecorrido && !emergenciaActiva;
 
   // El caso al que va la nota: el seleccionado si existe en la lista, o el único/primero.
