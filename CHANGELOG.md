@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 2026:11:13 18:10
+
+**Resumen:** Corrección de la regla de activación: el botón "Activar emergencia" se ofrece durante todo el recorrido del viaje (`EN_TRANSITO`, `EN_DESTINO` y `EN_DESCARGA`), no solo en tránsito. `EN_EMBARQUE` queda fuera porque es previo al recorrido. Misma regla que aplica el `bff`.
+**Cambios:**
+
+- `admiteEmergencia.ts` (nuevo): helper que compara contra el enum generado del contrato.
+- `EmergenciaPanel.tsx`: usa el helper. Textos nuevos: fuera del recorrido, "La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga."; ante un 409, "El viaje ya no admite emergencias en su estado actual, por eso no se pudo activar."
+- `mocks/handlers.ts`: el mock responde 409 fuera del recorrido, con el mismo helper.
+- `EmergenciaPanel.test.tsx` y `ViajeDetailSection.test.tsx`: se ajustan a los tres estados permitidos y a `EN_EMBARQUE` fuera.
+  **Verificación:** `typecheck`, `lint`, `format:check` y `vitest` (299 pruebas) en verde; `e2e/emergencia.spec.ts` con 3 pruebas en verde.
+  **Archivos modificados:**
+- `src/features/viajes/admiteEmergencia.ts` · `src/features/viajes/EmergenciaPanel.tsx` · `src/mocks/handlers.ts`
+- `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx`
+- `CHANGELOG.md`
+
 ## 2026:11:13 17:31
 
 **Resumen:** El portal solo ofrece "Activar emergencia" cuando el viaje está en tránsito y todos los casos del viaje están resueltos. Antes el botón aparecía en cualquier estado y aunque ya hubiera una emergencia en curso. Si el `bff` responde 409 al activar, el portal avisa que el viaje ya no está en tránsito.

@@ -20,6 +20,7 @@
  */
 
 import { HttpResponse, delay, http } from 'msw';
+import { admiteEmergencia } from '@/features/viajes/admiteEmergencia';
 import { EstadoViaje, puedeTransicionar } from '@/lib/contracts';
 import {
   DEV_USER,
@@ -241,10 +242,11 @@ export const handlers = [
     const activacionId = body.activacion_id ?? '';
     const casos = (emergenciasWire[viajeId] ??= []);
 
-    // Como el bff: solo se activa con el viaje EN_TRANSITO; si no, 409 sin crear caso.
+    // Como el bff: solo se activa con el viaje en recorrido (EN_TRANSITO, EN_DESTINO o
+    // EN_DESCARGA); si no, 409 sin crear caso.
     const estadoViaje = (viajeDetalleWire[viajeId] as { hito?: { estado?: string } } | undefined)
       ?.hito?.estado;
-    if (estadoViaje !== EstadoViaje.EnTransito) {
+    if (estadoViaje === undefined || !admiteEmergencia(estadoViaje)) {
       return HttpResponse.json(
         {
           codigo: 'viaje_no_admite_emergencia',

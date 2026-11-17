@@ -17,7 +17,8 @@
  *   - Cuando coexisten varios casos, un selector mínimo identificado SOLO por fecha/hora
  *     elige a cuál caso va la nota. Con un solo caso, no hay selector.
  *
- * Regla de activación: SOLO con el viaje `EN_TRANSITO` y SIN un caso previo sin resolver
+ * Regla de activación: SOLO con el viaje en recorrido (`EN_TRANSITO`, `EN_DESTINO` o
+ * `EN_DESCARGA`; no `EN_EMBARQUE`) y SIN un caso previo sin resolver
  * (`abierta` o `en_atencion`); otra emergencia se activa hasta que la anterior esté `resuelta`.
  * Fuera de esa regla el botón no se ofrece (se explica por qué) y la lista de casos y las notas
  * siguen disponibles. El `bff`
@@ -33,8 +34,9 @@ import { TriangleAlert } from 'lucide-react';
 import { Badge, Button, Card, CardBody, FormField, Modal, Select, Textarea } from '@ai27-tech/ui';
 import { NOTA_EMERGENCIA_MAX_CHARS } from '@/lib/constants';
 import { isApiError } from '@/lib/api/errors';
-import { EstadoViaje, type EmergenciaCliente } from '@/lib/contracts';
+import type { EmergenciaCliente } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
+import { admiteEmergencia } from './admiteEmergencia';
 import { useEmergencias } from './useEmergencias';
 
 /** Etiqueta visible del estado del caso, en la forma curada del cliente. */
@@ -52,12 +54,12 @@ function etiquetaEstado(estado: EmergenciaCliente['estado']): string {
 
 /**
  * Mensaje del fallo de activación. Un 409 del `bff` significa que el viaje ya no admite
- * emergencia (salió de tránsito o terminó); no se ata al `codigo` exacto para no copiar
+ * emergencia (salió del recorrido o terminó); no se ata al `codigo` exacto para no copiar
  * un literal del contrato que aún no se publica.
  */
 function mensajeErrorActivacion(error: unknown): string {
   if (isApiError(error) && error.status === 409) {
-    return 'El viaje ya no está en tránsito, por eso no se pudo activar la emergencia.';
+    return 'El viaje ya no admite emergencias en su estado actual, por eso no se pudo activar.';
   }
   return 'No pudimos activar la emergencia. Intenta de nuevo.';
 }
@@ -67,7 +69,7 @@ export function EmergenciaPanel({
   estadoViaje,
 }: {
   readonly viajeId: string;
-  /** Estado actual del viaje (hito del seguimiento). Solo `EN_TRANSITO` admite activar. */
+  /** Estado actual del viaje (hito del seguimiento). Solo el recorrido admite activar. */
   readonly estadoViaje: string;
 }) {
   const { consulta, activar, agregarNota } = useEmergencias(viajeId);
@@ -80,10 +82,10 @@ export function EmergenciaPanel({
   const casos = useMemo(() => consulta.data?.casos ?? [], [consulta.data]);
   // `emergencia_activa` = hay algún caso `abierta` o `en_atencion` (ADR 21 §6).
   const emergenciaActiva = consulta.data?.emergencia_activa ?? false;
-  // Se activa solo con el viaje en tránsito Y sin un caso previo sin resolver: otra
+  // Se activa solo con el viaje en recorrido Y sin un caso previo sin resolver: otra
   // emergencia hasta que la anterior esté `resuelta`.
-  const enTransito = estadoViaje === EstadoViaje.EnTransito;
-  const puedeActivar = enTransito && !emergenciaActiva;
+  const enRecorrido = admiteEmergencia(estadoViaje);
+  const puedeActivar = enRecorrido && !emergenciaActiva;
 
   // El caso al que va la nota: el seleccionado si existe en la lista, o el único/primero.
   const casoDestino = useMemo(() => {
@@ -139,9 +141,9 @@ export function EmergenciaPanel({
           <p className="text-on-surface-variant text-sm">
             {emergenciaActiva
               ? 'Hay una emergencia activa en este viaje.'
-              : enTransito
+              : enRecorrido
                 ? 'Si tu unidad está en riesgo, actívala solo en caso real: notifica de inmediato a la central.'
-                : 'La emergencia solo se puede activar cuando el viaje está en tránsito.'}
+                : 'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.'}
           </p>
           {emergenciaActiva && (
             <p className="text-on-surface-variant text-sm">

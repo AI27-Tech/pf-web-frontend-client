@@ -408,13 +408,16 @@ describe('ViajeDetailSection — aviso de emergencia activa', () => {
 });
 
 describe('ViajeDetailSection — activación de emergencia según el hito', () => {
-  it('EN_TRANSITO ofrece "Activar emergencia"', async () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
-    expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeInTheDocument();
-  });
+  it.each(['EN_TRANSITO', 'EN_DESTINO', 'EN_DESCARGA'])(
+    '%s ofrece "Activar emergencia"',
+    async (estado) => {
+      render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
+      expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeInTheDocument();
+    },
+  );
 
-  it('otro estado (ASIGNADO) no la ofrece', async () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('ASIGNADO')} />);
+  it.each(['ASIGNADO', 'EN_EMBARQUE'])('%s no la ofrece', async (estado) => {
+    render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
     await screen.findByText('Sin emergencias en este viaje.');
     expect(screen.queryByRole('button', { name: 'Activar emergencia' })).not.toBeInTheDocument();
   });

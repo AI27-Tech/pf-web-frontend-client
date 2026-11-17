@@ -132,32 +132,39 @@ describe('EmergenciaPanel — activación idempotente (E9-T9)', () => {
   });
 });
 
-describe('EmergenciaPanel — solo se activa EN_TRANSITO', () => {
-  const FUERA_DE_TRANSITO = ESTADOS_VIAJE.filter((estado) => estado !== EstadoViaje.EnTransito);
+describe('EmergenciaPanel — solo se activa durante el recorrido', () => {
+  const RECORRIDO: readonly string[] = [
+    EstadoViaje.EnTransito,
+    EstadoViaje.EnDestino,
+    EstadoViaje.EnDescarga,
+  ];
+  const FUERA_DEL_RECORRIDO = ESTADOS_VIAJE.filter((estado) => !RECORRIDO.includes(estado));
 
-  it.each(FUERA_DE_TRANSITO)('%s: no ofrece el botón y explica por qué', async (estado) => {
+  it.each(FUERA_DEL_RECORRIDO)('%s: no ofrece el botón y explica por qué', async (estado) => {
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={estado} />);
     expect(await screen.findByText('Sin emergencias en este viaje.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Activar emergencia' })).not.toBeInTheDocument();
     expect(
-      screen.getByText('La emergencia solo se puede activar cuando el viaje está en tránsito.'),
+      screen.getByText(
+        'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.',
+      ),
     ).toBeInTheDocument();
   });
 
-  it('EN_TRANSITO: ofrece el botón', async () => {
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={EstadoViaje.EnTransito} />);
+  it.each(RECORRIDO)('%s: ofrece el botón', async (estado) => {
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={estado} />);
     expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeEnabled();
   });
 
-  it('fuera de tránsito conserva los casos y las notas de un caso existente', async () => {
+  it('fuera del recorrido conserva los casos y las notas de un caso existente', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO]));
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={EstadoViaje.EnDestino} />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={EstadoViaje.EnEmbarque} />);
     await screen.findByRole('listitem');
     expect(screen.getByLabelText('Nota de emergencia')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Activar emergencia' })).not.toBeInTheDocument();
   });
 
-  it('un 409 del bff al activar muestra el aviso de que ya no está en tránsito', async () => {
+  it('un 409 del bff al activar muestra el aviso de que ya no admite emergencias', async () => {
     activarEmergencia.mockRejectedValue(
       new ApiError('conflicto', 'POST /viajes/viaje-1/emergencias respondió 409', 409, null),
     );
@@ -165,7 +172,7 @@ describe('EmergenciaPanel — solo se activa EN_TRANSITO', () => {
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={EstadoViaje.EnTransito} />);
     await user.click(await screen.findByRole('button', { name: 'Activar emergencia' }));
     await user.click(screen.getByRole('button', { name: 'Activar ahora' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('El viaje ya no está en tránsito');
+    expect(await screen.findByRole('alert')).toHaveTextContent('El viaje ya no admite emergencias');
   });
 });
 
