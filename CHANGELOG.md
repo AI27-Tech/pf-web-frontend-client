@@ -1,5 +1,34 @@
 # CHANGELOG
 
+## 2026:11:13 18:10
+
+**Resumen:** Corrección de la regla de activación: el botón "Activar emergencia" se ofrece durante todo el recorrido del viaje (`EN_TRANSITO`, `EN_DESTINO` y `EN_DESCARGA`), no solo en tránsito. `EN_EMBARQUE` queda fuera porque es previo al recorrido. Misma regla que aplica el `bff`.
+**Cambios:**
+
+- `EmergenciaPanel.tsx`: la lista de estados permitidos (`ESTADOS_CON_EMERGENCIA`) vive en el propio panel y compara contra el enum generado del contrato. Textos nuevos: fuera del recorrido, "La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga."; ante un 409, "El viaje ya no admite emergencias en su estado actual, por eso no se pudo activar."
+- `mocks/handlers.ts`: se retira el 409 simulado de la activación; el mock queda igual que en `pf-wfc-d`.
+- `EmergenciaPanel.test.tsx` y `ViajeDetailSection.test.tsx`: se ajustan a los tres estados permitidos y a `EN_EMBARQUE` fuera.
+  **Verificación:** `typecheck`, `lint`, `format:check` y `vitest` (299 pruebas) en verde; `e2e/emergencia.spec.ts` con 3 pruebas en verde.
+  **Archivos modificados:**
+- `src/features/viajes/EmergenciaPanel.tsx` · `src/mocks/handlers.ts`
+- `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx`
+- `CHANGELOG.md`
+
+## 2026:11:13 17:31
+
+**Resumen:** El portal solo ofrece "Activar emergencia" cuando el viaje está en tránsito y todos los casos del viaje están resueltos. Antes el botón aparecía en cualquier estado y aunque ya hubiera una emergencia en curso. Si el `bff` responde 409 al activar, el portal avisa que el viaje ya no está en tránsito.
+**Cambios:**
+
+- `EmergenciaPanel.tsx`: recibe el estado del viaje (`estadoViaje`). El botón solo se muestra si el viaje es `EN_TRANSITO` y no hay casos `abierta` ni `en_atencion`. Fuera de tránsito explica el motivo; con un caso sin resolver dice "Podrás activar otra cuando la emergencia actual esté resuelta." Los casos y las notas de los casos existentes se siguen viendo. Un 409 al activar muestra "El viaje ya no está en tránsito, por eso no se pudo activar la emergencia."
+- `ViajeDetailSection.tsx`: pasa el estado del hito al panel.
+- `EmergenciaPanel.test.tsx` y `ViajeDetailSection.test.tsx`: pruebas por cada estado distinto de `EN_TRANSITO`, bloqueo con casos `abierta` y `en_atencion`, botón con todos los casos resueltos, reaparición del botón al refrescar, aviso del 409 y integración con el hito.
+- Pendiente: la regla de un caso a la vez solo vive en el portal; el `bff` no la aplica y requiere un DEC. El código `viaje_no_admite_emergencia` aún no está en el contrato.
+  **Verificación:** `typecheck`, `lint`, `format:check` y `vitest` (296 pruebas) en verde; `e2e/emergencia.spec.ts` con 3 pruebas en verde.
+  **Archivos modificados:**
+- `src/features/viajes/EmergenciaPanel.tsx` · `src/features/viajes/ViajeDetailSection.tsx`
+- `tests/viajes/EmergenciaPanel.test.tsx` · `tests/viajes/ViajeDetailSection.test.tsx`
+- `CHANGELOG.md`
+
 ## 2026:11:11 21:00
 
 **Resumen:** Se quitó el botón "Actualizar" de la tarjeta "ETA estimado" del seguimiento de un viaje. El seguimiento sigue actualizándose solo con el polling (ADR 27), que no cambió. Sin el botón, la fecha del ETA ocupa todo el ancho de la tarjeta y deja de partirse en dos líneas.
