@@ -84,9 +84,12 @@ Lo único que el portal cliente puede consumir hoy:
   `conversacion_id`. Se reconectó contra `tracer.27`:
   - Wrapper `src/lib/api/conversacion.ts` y hook `src/features/conversacion/useConversacion.ts`.
   - **Actualización (2026-11-18):** ya no hay página `/viajes/$viajeId/conversacion` ni botón
-    "Conversación" en el detalle. La conversación es un panel de mensajería de `@ai27-tech/ui`
-    (`ConversacionViaje` y `ConversacionPanel`, en `src/features/conversacion/`) que vive SOLO en
-    el detalle del viaje, carga solo los mensajes de ese viaje y arranca abierto.
+    "Conversación" en el detalle. La conversación es el panel lateral del shell
+    (columna fija a la derecha, de todo el alto de la pantalla, como el Sidebar de la izquierda;
+    `src/app/shell/PanelLateral.tsx`) que abre el detalle del viaje
+    (`ConversacionPanel`, en `src/features/conversacion/`, hecho con piezas de mensajería de
+    `@ai27-tech/ui`): vive SOLO ahí, carga solo los mensajes de ese viaje, arranca abierto y se
+    contrae a una franja con el icono de mensaje, que lo vuelve a expandir.
   - Tipos del contrato generado en el barrel (`ConversacionCliente`, `MensajeCliente`,
     `PaginaMensajesCliente`, `EnviarMensajeClienteEntrada`).
 - `src/_desconectado/conversacion/` se **retiró** (su `api.ts` asumía una forma inventada:

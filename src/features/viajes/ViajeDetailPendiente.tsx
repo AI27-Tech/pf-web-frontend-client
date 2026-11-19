@@ -6,6 +6,7 @@
  * datos. El título y la ruta de navegación sí se conocen: salen del `viajeId` de la URL.
  */
 
+import { MessageSquare } from 'lucide-react';
 import {
   Breadcrumb,
   Card,
@@ -17,6 +18,8 @@ import {
 } from '@ai27-tech/ui';
 import { useBreadcrumbLinks } from '@/app/shell/useBreadcrumbLinks';
 import type { EstadoViaje } from '@/lib/contracts';
+import { PanelLateral } from '@/app/shell/PanelLateral';
+import { CLASE_CONTENEDOR_DETALLE, CLASE_REJILLA_DETALLE } from './detalleLayout';
 
 export function ViajeDetailPendiente({
   viajeId,
@@ -28,14 +31,14 @@ export function ViajeDetailPendiente({
   const { historial } = useBreadcrumbLinks();
 
   return (
-    <Stack gap={4}>
+    <Stack gap={4} className={CLASE_CONTENEDOR_DETALLE}>
       <PageHeader
         breadcrumb={
           <Breadcrumb items={[historial(estadoHistorial), { label: `Viaje ${viajeId}` }]} />
         }
         title={`Viaje ${viajeId}`}
       />
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className={CLASE_REJILLA_DETALLE}>
         <Stack gap={4}>
           <Card variant="outlined" padding="lg">
             <CardBody>
@@ -56,6 +59,10 @@ export function ViajeDetailPendiente({
           <SkeletonCard lines={4} />
         </Stack>
       </div>
+
+      <PanelLateral title="Conversación" icon={MessageSquare}>
+        <SkeletonCard lines={8} />
+      </PanelLateral>
     </Stack>
   );
 }

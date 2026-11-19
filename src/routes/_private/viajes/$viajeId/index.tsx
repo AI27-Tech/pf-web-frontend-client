@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { getViaje } from '@/lib/api/viajes';
-import { ConversacionViaje } from '@/features/conversacion/ConversacionViaje';
+import { ConversacionPanel } from '@/features/conversacion/ConversacionPanel';
 import { ViajeDetailPendiente } from '@/features/viajes/ViajeDetailPendiente';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
 import { useViajeSeguimiento } from '@/features/viajes/useViajeSeguimiento';
@@ -28,10 +28,11 @@ function ViajeDetailPage() {
   const { data: viaje } = useViajeSeguimiento(viajeId, Route.useLoaderData());
 
   return (
-    <>
-      <ViajeDetailSection viaje={viaje} estadoHistorial={estado} />
-      <ConversacionViaje viajeId={viajeId} />
-    </>
+    <ViajeDetailSection
+      viaje={viaje}
+      estadoHistorial={estado}
+      conversacion={<ConversacionPanel key={viajeId} viajeId={viajeId} />}
+    />
   );
 }
 

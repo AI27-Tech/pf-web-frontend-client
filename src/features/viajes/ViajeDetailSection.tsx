@@ -8,10 +8,14 @@
  * tipo interno de incidencia.
  *
  * Estructura: `PageHeader` con la ruta de navegación (`Breadcrumb`), el título, el estado
- * y el acceso a la conversación; y el aviso de emergencia activa (si la hay). Debajo, dos
- * columnas desde `lg`: a la izquierda el seguimiento (recorrido en cuatro pasos, hito y
- * ETA, incidencias) y a la derecha las acciones del cliente (cancelar o rechazar,
- * emergencia). En pantallas angostas se apilan.
+ * y el aviso de emergencia activa (si la hay). Debajo, dos columnas: el seguimiento
+ * (recorrido en cuatro pasos, hito y ETA, incidencias) y las acciones del cliente (cancelar
+ * o rechazar, emergencia); se apilan si el contenido no es lo bastante ancho. La conversación
+ * del viaje va en el PANEL LATERAL del shell (columna fija a la derecha, todo el alto de la
+ * pantalla), que arranca expandido y se contrae a una franja con el icono de mensaje (que lo
+ * vuelve a expandir); contraído, la página recupera casi todo su ancho. La conversación llega como
+ * ranura (`conversacion`) desde la ruta: esta sección no sabe cómo se pinta ni de dónde
+ * carga. Ver `detalleLayout.ts` y `app/shell/PanelLateral.tsx`.
  *
  * Lo que el contrato NO expone aquí y por eso no se pinta: origen, destino, tipo de
  * servicio, fecha programada, unidad y operador (el resumen de ruta que traen otros
@@ -19,7 +23,8 @@
  * contrato los publica. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
  */
 
-import { CircleCheck } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { CircleCheck, MessageSquare } from 'lucide-react';
 import {
   Alert,
   Badge,
@@ -36,14 +41,19 @@ import {
   Timeline,
   type DescriptionListItem,
 } from '@ai27-tech/ui';
+import { PanelLateral } from '@/app/shell/PanelLateral';
 import { useBreadcrumbLinks } from '@/app/shell/useBreadcrumbLinks';
 import type { EstadoViaje, IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
 import { CancelarRechazarPanel } from './CancelarRechazarPanel';
+import { CLASE_CONTENEDOR_DETALLE, CLASE_REJILLA_DETALLE } from './detalleLayout';
 import { EmergenciaPanel } from './EmergenciaPanel';
 import { EstadoViajeChip } from './EstadoViajeChip';
 import { recorridoDelViaje } from './pasosViaje';
 import { useEmergencias } from './useEmergencias';
+
+/** Id del panel de la conversación: lo referencian sus botones de contraer y expandir. */
+const ID_PANEL_CONVERSACION = 'conversacion-panel';
 
 /** Una incidencia curada: en atención se resalta como advertencia; resuelta, en calma. */
 function IncidenciaItem({ incidencia }: { readonly incidencia: IncidenciaCurada }) {
@@ -68,12 +78,15 @@ function IncidenciaItem({ incidencia }: { readonly incidencia: IncidenciaCurada 
 export function ViajeDetailSection({
   viaje,
   estadoHistorial,
+  conversacion,
 }: {
   readonly viaje: ViajeSeguimiento;
   readonly estadoHistorial?: EstadoViaje | undefined;
+  readonly conversacion?: ReactNode;
 }) {
   const { hito, eta, incidencias } = viaje;
   const { historial } = useBreadcrumbLinks();
+  const [conversacionExpandida, setConversacionExpandida] = useState(true);
   // Misma clave de caché que usa `EmergenciaPanel`: no es una segunda petición.
   const { consulta: emergencias } = useEmergencias(viaje.id);
   const emergenciaActiva = emergencias.data?.emergencia_activa ?? false;
@@ -100,7 +113,7 @@ export function ViajeDetailSection({
   ];
 
   return (
-    <Stack gap={4}>
+    <Stack gap={4} className={CLASE_CONTENEDOR_DETALLE}>
       <PageHeader
         breadcrumb={
           <Breadcrumb items={[historial(estadoHistorial), { label: `Viaje ${viaje.id}` }]} />
@@ -114,13 +127,7 @@ export function ViajeDetailSection({
         <Alert variant="danger" title="Hay una emergencia activa en este viaje." />
       )}
 
-      {/*
-        Dos columnas desde `lg`: a la izquierda el seguimiento (recorrido, hito, ETA e
-        incidencias) y a la derecha las acciones del cliente. En pantallas angostas se
-        apilan en ese mismo orden. `minmax(0, …)` deja que el contenido se encoja en vez
-        de ensanchar la columna.
-      */}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+      <div className={CLASE_REJILLA_DETALLE}>
         <Section title="Seguimiento">
           <Stack gap={4}>
             {recorrido !== null && (
@@ -179,6 +186,20 @@ export function ViajeDetailSection({
           </Stack>
         </Section>
       </div>
+
+      {conversacion !== undefined && (
+        <PanelLateral
+          id={ID_PANEL_CONVERSACION}
+          title="Conversación"
+          icon={MessageSquare}
+          collapsed={!conversacionExpandida}
+          onToggle={() => setConversacionExpandida((expandida) => !expandida)}
+          collapseLabel="Contraer conversación"
+          expandLabel="Expandir conversación"
+        >
+          {conversacion}
+        </PanelLateral>
+      )}
 
       {/*
         El enlace a "Bitacora" se desconectó con el recorte al contrato: la ruta

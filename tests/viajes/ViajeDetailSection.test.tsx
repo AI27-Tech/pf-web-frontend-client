@@ -17,10 +17,12 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
 import { listEmergencias } from '@/lib/api/emergencias';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
 import { renderConRouter } from '../support/router';
+import { ConRanuraPanelLateral } from '../support/panelLateral';
 
 async function render(ui: React.ReactElement): Promise<void> {
   renderConRouter(ui);
@@ -422,5 +424,92 @@ describe('ViajeDetailSection — ruta de navegación', () => {
       '/viajes?estado=CERRADO',
     );
     expect(within(ruta).getByText('Viaje viaje-1').closest('[aria-current="page"]')).not.toBeNull();
+  });
+});
+
+describe('ViajeDetailSection — panel lateral de la conversación (expandido y contraído)', () => {
+  const panel = (): HTMLElement => screen.getByRole('complementary', { name: 'Conversación' });
+  const rejilla = (): HTMLElement | null =>
+    screen.getByRole('region', { name: 'Seguimiento' }).parentElement;
+
+  async function renderConPanel(conversacion?: React.ReactNode): Promise<void> {
+    await render(
+      <ConRanuraPanelLateral>
+        <ViajeDetailSection
+          viaje={seguimientoEnEstado('EN_TRANSITO')}
+          {...(conversacion !== undefined ? { conversacion } : {})}
+        />
+      </ConRanuraPanelLateral>,
+    );
+  }
+
+  it('sin conversación no hay panel ni botones', async () => {
+    await renderConPanel();
+
+    expect(screen.getByRole('region', { name: 'Seguimiento' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Acciones' })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Conversación' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /conversación/i })).not.toBeInTheDocument();
+  });
+
+  it('con conversación, el panel arranca EXPANDIDO y vive fuera de la rejilla del detalle', async () => {
+    await renderConPanel(<p>contenido de la conversación</p>);
+
+    expect(within(panel()).getByText('contenido de la conversación')).toBeInTheDocument();
+    expect(panel()).not.toHaveAttribute('data-collapsed');
+    expect(within(panel()).getByRole('heading', { name: 'Conversación' })).toBeInTheDocument();
+    // No es una columna de la rejilla: se pinta en la ranura del shell, a un lado de <main>.
+    expect(rejilla()).not.toContainElement(panel());
+    expect(screen.getByRole('main')).not.toContainElement(panel());
+  });
+
+  it('el encabezado de la página ya no trae botón de ocultar o mostrar la conversación', async () => {
+    await renderConPanel(<p>conversación</p>);
+
+    expect(screen.queryByRole('button', { name: /ocultar|mostrar/i })).not.toBeInTheDocument();
+    // El único control está en el propio panel.
+    expect(within(panel()).getByRole('button', { name: 'Contraer conversación' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('contraer deja una franja con el icono de mensaje y quita el contenido', async () => {
+    const user = userEvent.setup();
+    await renderConPanel(<p>contenido de la conversación</p>);
+
+    await user.click(screen.getByRole('button', { name: 'Contraer conversación' }));
+
+    // La franja sigue ahí (columna fija), pero sin título ni contenido.
+    expect(panel()).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.queryByText('contenido de la conversación')).not.toBeInTheDocument();
+    expect(within(panel()).queryByRole('heading')).not.toBeInTheDocument();
+    const expandir = within(panel()).getByRole('button', { name: 'Expandir conversación' });
+    expect(expandir).toHaveAttribute('aria-expanded', 'false');
+    expect(expandir).toHaveAttribute('aria-controls', panel().id);
+    expect(expandir.querySelector('svg')).not.toBeNull();
+  });
+
+  it('expandir desde la franja regresa el contenido', async () => {
+    const user = userEvent.setup();
+    await renderConPanel(<p>contenido de la conversación</p>);
+
+    await user.click(screen.getByRole('button', { name: 'Contraer conversación' }));
+    await user.click(screen.getByRole('button', { name: 'Expandir conversación' }));
+
+    expect(panel()).not.toHaveAttribute('data-collapsed');
+    expect(within(panel()).getByText('contenido de la conversación')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Contraer conversación' })).toBeInTheDocument();
+  });
+
+  it('contraer el panel no toca Seguimiento ni Acciones', async () => {
+    const user = userEvent.setup();
+    await renderConPanel(<p>conversación</p>);
+
+    await user.click(screen.getByRole('button', { name: 'Contraer conversación' }));
+
+    expect(screen.getByRole('region', { name: 'Seguimiento' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Acciones' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeInTheDocument();
   });
 });

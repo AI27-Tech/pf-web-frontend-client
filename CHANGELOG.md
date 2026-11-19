@@ -1,20 +1,34 @@
 # CHANGELOG
 
-## 2026:11:18 18:00
+## 2026:11:19 12:00
 
-**Resumen:** La conversación del viaje es un panel de mensajería de `@ai27-tech/ui` que vive solo en el detalle de un viaje, carga solo los mensajes de ese viaje y arranca abierto. Se eliminan el botón "Conversación" del detalle y la página `/viajes/$viajeId/conversacion`.
+**Resumen:** La conversación del viaje pasa de aside dentro de la rejilla del detalle a un panel lateral del shell: una columna fija a la derecha que ocupa todo el alto de la pantalla, como el `Sidebar` de la izquierda. Sigue abierta al entrar y se oculta o muestra igual que antes.
 
 **Cambios:**
 
-- Nuevo `ConversacionViaje` (montado en la ruta del detalle): `MessageDock` con un solo `MessagePanel`. Se puede minimizar y expandir; no se cierra. No hay barra ni lista de conversaciones, y fuera del detalle no existe.
-- Nuevo `ConversacionPanel`: `MessagePanel` con `ConversationStatus`, `MessageThread` y `MessageComposer`. Envío optimista con "Enviando…", "No se envió" y "Reintentar" (reusa el mismo `client_message_id`); 409 `conversacion_solo_lectura` explicado en el aviso del panel; viaje sin conversación (404) y error de carga con aviso.
+- Nuevo `src/app/shell/PanelLateral.tsx`: `RanuraPanelLateral` (contenedor vacío que pinta `AppShell` a la derecha de `<main>`; se oculta solo cuando está vacío) y `PanelLateral` (portal que pinta el panel dentro de la ranura, con título, botón de cierre opcional y los mismos tokens del `Sidebar`: fondo `surface`, borde `border`, alto de encabezado `--ui-navbar-height`). Desde `lg` es `sticky` de todo el alto (`h-dvh`) y la página se angosta; debajo de `lg` se superpone por la derecha.
+- `ViajeDetailSection` ya no pinta un `<aside>` en la rejilla: monta `PanelLateral` con la conversación. Además del botón del encabezado, el panel trae su propio botón "Cerrar conversación".
+- `ConversacionPanel` deja de ser una `Card` con alto fijo: llena el alto del panel (estado y avisos arriba, hilo con scroll, compositor abajo).
+- `detalleLayout.ts`: una sola rejilla de dos columnas basada en container query (`@3xl`): Seguimiento y Acciones van lado a lado si el contenido mide 48 rem o más, con el panel abierto o cerrado. Se eliminan `claseRejillaDetalle` y `CLASE_ASIDE_CONVERSACION`.
+- `ViajeDetailPendiente`: el esqueleto de carga también pinta el panel (con esqueleto), para que la página no se corra al llegar los datos.
+- Pruebas: `tests/support/panelLateral.tsx` (shell mínimo con ranura); el detalle prueba el panel (abierto, ocultar, mostrar, cierre propio, fuera de la rejilla); `e2e/conversacion.spec.ts` afirma columna pegada al borde derecho de todo el alto (también tras desplazar), Seguimiento y Acciones lado a lado, el cierre del panel y la superposición en pantallas angostas.
+
+**Verificación:** `typecheck`, `lint`, `vitest` (319 pruebas) y `pnpm test:e2e` (55 pruebas) en verde. Revisado a 1440, 1100 y 760 px, y en carga.
+
+## 2026:11:18 18:00
+
+**Resumen:** La conversación del viaje es un aside a la derecha del detalle: arranca abierto y se oculta o muestra con un botón del encabezado. Vive solo en el detalle de un viaje y carga solo los mensajes de ese viaje. Se eliminan el botón "Conversación" que llevaba a otra pantalla, la página `/viajes/$viajeId/conversacion` y el panel flotante.
+
+**Cambios:**
+
+- Nuevo `ConversacionPanel`: `Card` con `CardHeader`, `ConversationStatus`, `MessageThread` y `MessageComposer` de `@ai27-tech/ui`, sin `MessagePanel` ni `MessageDock`. Envío optimista con "Enviando…", "No se envió" y "Reintentar" (reusa el mismo `client_message_id`); 409 `conversacion_solo_lectura` explicado en un aviso; viaje sin conversación (404) y error de carga con aviso.
+- `ViajeDetailSection` recibe la conversación como ranura opcional (`conversacion`) y la pinta en un `<aside aria-label="Conversación">`. Un botón del encabezado ("Ocultar conversación" / "Mostrar conversación", con `aria-expanded` y `aria-controls`) lo oculta y lo muestra. Arranca visible. Al ocultarlo se desmonta (deja de consultar) y al mostrarlo retoma la historia de la caché. Sin ranura no hay aside ni botón.
+- Rejilla en `detalleLayout.ts`, compartida con el esqueleto de carga. Con el aside visible: una columna en pantallas angostas, dos desde `lg` (el aside ocupa la fila de abajo) y tres desde `xl` (el aside mide 22 rem y se queda pegado arriba). Oculto, Seguimiento y Acciones recuperan el ancho.
 - `useConversacion`: la mutación de envío recibe el `clientMessageId` que genera el compositor, en vez de crearlo por su cuenta.
-- Se eliminan `ConversacionSection.tsx`, la ruta de la conversación y `useBreadcrumbLinks.viaje`.
-- Pruebas: `ConversacionPanel.test.tsx` y `ConversacionViaje.test.tsx` reemplazan a `ConversacionSection.test.tsx`; `e2e/conversacion.spec.ts` se reescribe sobre el detalle y afirma que el panel solo existe ahí, que solo se piden los mensajes del viaje visto, y que el botón y la ruta ya no existen.
+- Se eliminan `ConversacionSection.tsx`, `ConversacionViaje.tsx`, la ruta de la conversación y `useBreadcrumbLinks.viaje`.
+- Pruebas: `ConversacionPanel.test.tsx` reemplaza a `ConversacionSection.test.tsx`; el detalle prueba el aside (arranca abierto, ocultar, mostrar, rejilla); `e2e/conversacion.spec.ts` afirma tres columnas lado a lado, el apilado en pantallas angostas, ocultar y mostrar, que Seguimiento recupera el ancho, que nada tapa los botones y que solo se piden los mensajes del viaje visto.
 
-**Pendiente de decisión:** abierto por defecto, el panel flotante cubre la parte baja de la columna de acciones del detalle, incluido el botón "Activar emergencia", hasta que se minimiza. Por eso fallan dos pruebas de `e2e/emergencia.spec.ts` (el clic es interceptado por el panel). No se ajustaron las pruebas para esquivarlo.
-
-**Verificación:** `typecheck`, `lint` y `vitest` en verde; `pnpm test:e2e`: 45 pruebas en verde y 3 fallas (emergencia y cancelar) por el panel flotante de mensajería.
+**Verificación:** `typecheck`, `lint`, `vitest` (318 pruebas) y `pnpm test:e2e` (53 pruebas) en verde. Las tres fallas e2e que causaba el panel flotante (emergencia y cancelar) desaparecen.
 
 ## 2026:11:18 12:00
 
