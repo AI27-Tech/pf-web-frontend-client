@@ -19,7 +19,7 @@ test.describe('cancelar · carril cliente', () => {
     // viaje-3 arranca en SOLICITADO en el mock: dentro de la ventana de cancelación.
     await page.goto('/viajes/viaje-3');
 
-    const seccion = page.getByRole('heading', { name: 'Cancelar o rechazar', level: 2 });
+    const seccion = page.getByRole('heading', { name: 'Cancelar o rechazar' });
     await expect(seccion).toBeVisible();
 
     // En SOLICITADO se ofrece cancelar; rechazar (solo asignado) NO se ofrece.

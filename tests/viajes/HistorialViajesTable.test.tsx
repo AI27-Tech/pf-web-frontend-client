@@ -27,15 +27,15 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   return { ...actual, useNavigate: () => navigateMock };
 });
 
-function grupoDeFiltro(nombre: string): HTMLElement {
-  return screen.getByRole('group', { name: nombre });
+const TODOS = 'Todos los estados';
+function disparadorDeFiltro(actual: string = TODOS): HTMLElement {
+  return screen.getByRole('button', { name: actual });
 }
 
-/** Abre el filtro y pulsa la opción con ese nombre. */
-async function elegirEnFiltro(nombre: string, opcion: string): Promise<void> {
-  const grupo = grupoDeFiltro(nombre);
-  await userEvent.click(within(grupo).getByRole('button'));
-  await userEvent.click(within(grupo).getByRole('button', { name: opcion }));
+/** Abre el filtro (desde el valor `actual`) y pulsa la opción con ese nombre. */
+async function elegirEnFiltro(opcion: string, actual: string = TODOS): Promise<void> {
+  await userEvent.click(disparadorDeFiltro(actual));
+  await userEvent.click(screen.getByRole('button', { name: opcion }));
 }
 
 function muchosViajes(total: number): readonly ViajeResumen[] {
@@ -75,6 +75,26 @@ describe('HistorialViajesTable', () => {
 
     const enlace = await screen.findByRole('link', { name: 'viaje-1' });
     expect(enlace).toHaveAttribute('href', '/viajes/viaje-1');
+  });
+
+  it('toda la fila es clicable: navega al detalle conservando el filtro', async () => {
+    navigateMock.mockReset();
+    renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.Cerrado} />);
+    const fila = (await screen.findByText('Origen 3')).closest('tr');
+    expect(fila).not.toBeNull();
+    await userEvent.click(fila!);
+    expect(navigateMock).toHaveBeenCalledWith({
+      to: '/viajes/$viajeId',
+      params: { viajeId: 'viaje-3' },
+      search: { estado: 'CERRADO' },
+    });
+  });
+
+  it('con `cargando` pinta filas esqueleto y no el vacío', async () => {
+    renderConRouter(<HistorialViajesTable viajes={[]} cargando />);
+    const tabla = await screen.findByRole('table');
+    expect(tabla).toHaveAttribute('aria-busy', 'true');
+    expect(screen.queryByText('No hay viajes en el historial')).not.toBeInTheDocument();
   });
 
   it('un viaje cancelado se distingue por su senal de estado "alert"', async () => {
@@ -168,7 +188,7 @@ describe('HistorialViajesTable · crece hasta 10 y despues pagina', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Next page' }));
     expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('11–20 of 21');
 
-    await elegirEnFiltro('Estado', 'Cerrado');
+    await elegirEnFiltro('Cerrado');
 
     expect(screen.getByRole('navigation', { name: 'Pagination' })).toHaveTextContent('1–10 of 21');
   });
@@ -200,7 +220,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    await elegirEnFiltro('Estado', 'Cerrado');
+    await elegirEnFiltro('Cerrado');
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/viajes', search: { estado: 'CERRADO' } });
   });
@@ -210,7 +230,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     const { unmount } = renderConRouter(<HistorialViajesTable viajes={viajes} />);
     await screen.findByRole('table');
 
-    await elegirEnFiltro('Estado', 'En tránsito');
+    await elegirEnFiltro('En tránsito');
     expect(navigateMock).toHaveBeenLastCalledWith({
       to: '/viajes',
       search: { estado: 'EN_TRANSITO' },
@@ -221,15 +241,15 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.EnTransito} />);
     await screen.findByRole('table');
 
-    await elegirEnFiltro('Estado', 'Cerrado');
+    await elegirEnFiltro('Cerrado', 'En tránsito');
     expect(navigateMock).toHaveBeenLastCalledWith({ to: '/viajes', search: { estado: 'CERRADO' } });
   });
 
-  it('volver a "Todos los estados" limpia el search param (navega sin estado)', async () => {
+  it('"Limpiar" quita el search param (navega sin estado)', async () => {
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.Cerrado} />);
     await screen.findByRole('table');
 
-    await elegirEnFiltro('Estado', 'Todos los estados');
+    await userEvent.click(screen.getByRole('button', { name: 'Limpiar' }));
 
     expect(navigateMock).toHaveBeenCalledWith({ to: '/viajes', search: {} });
   });
@@ -238,7 +258,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
     renderConRouter(<HistorialViajesTable viajes={viajes} estado={EstadoViaje.Cerrado} />);
     await screen.findByRole('table');
 
-    expect(within(grupoDeFiltro('Estado')).getByRole('button')).toHaveTextContent('Cerrado');
+    expect(disparadorDeFiltro('Cerrado')).toBeInTheDocument();
   });
 
   it('un filtro sin coincidencias conserva la toolbar para poder volver a "todos"', async () => {
@@ -247,7 +267,7 @@ describe('HistorialViajesTable · filtro por estado (cableado al servidor)', () 
 
     expect(await screen.findByText('Sin resultados')).toBeInTheDocument();
     // La toolbar sigue ahi: el usuario puede cambiar el filtro.
-    expect(grupoDeFiltro('Estado')).toBeInTheDocument();
+    expect(disparadorDeFiltro('Cancelado')).toBeInTheDocument();
   });
 });
 

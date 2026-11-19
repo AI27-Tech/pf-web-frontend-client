@@ -27,7 +27,18 @@
 
 import { useState } from 'react';
 import { Lock } from 'lucide-react';
-import { Button, Card, CardBody, FormField, Modal, Textarea } from '@ai27-tech/ui';
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Form,
+  FormField,
+  Inline,
+  Modal,
+  Textarea,
+} from '@ai27-tech/ui';
 import { EstadoViaje, esTerminal, type ViajeSeguimiento } from '@/lib/contracts';
 import { isApiError } from '@/lib/api/errors';
 import { useTransicionViaje } from './useTransicionViaje';
@@ -42,6 +53,9 @@ const ESTADOS_CANCELABLES: readonly string[] = [
 
 /** Estados en los que el cliente puede RECHAZAR el servicio asignado. */
 const ESTADOS_RECHAZABLES: readonly string[] = [EstadoViaje.Asignado, EstadoViaje.AptoParaSalida];
+
+/** El botón de confirmar vive en el pie del diálogo, fuera del <form>: se asocia por este id. */
+const ID_FORMULARIO_MOTIVO = 'form-motivo-transicion';
 
 /** La acción que el cliente está confirmando en el diálogo abierto. */
 type AccionCliente = 'cancelar' | 'rechazar';
@@ -103,13 +117,11 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
   if (!puedeCancelar && !puedeRechazar) {
     return (
       <Card variant="outlined" padding="lg">
-        <CardBody>
-          <h2 className="text-on-surface flex items-center gap-2 text-base font-semibold">
-            <Lock aria-hidden="true" className="text-on-surface-variant size-4" />
-            Cancelar o rechazar
-          </h2>
-          <p className="text-on-surface-variant mt-1 text-sm">{explicacionNoDisponible(estado)}</p>
-        </CardBody>
+        <CardHeader
+          media={<Lock aria-hidden="true" />}
+          title="Cancelar o rechazar"
+          subtitle={explicacionNoDisponible(estado)}
+        />
       </Card>
     );
   }
@@ -161,20 +173,14 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
   return (
     <>
       <Card variant="outlined" padding="lg">
-        <CardBody className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-on-surface text-base font-semibold">Cancelar o rechazar</h2>
-            <p className="text-on-surface-variant text-sm">
-              Puedes cancelar el viaje o rechazar el servicio mientras no haya salido.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
+        <CardHeader
+          title="Cancelar o rechazar"
+          subtitle="Puedes cancelar el viaje o rechazar el servicio mientras no haya salido."
+        />
+        <CardBody>
+          <Inline gap={3} wrap>
             {puedeCancelar && (
-              <Button
-                variant="outline"
-                className="border-error/40! text-error!"
-                onClick={() => abrir('cancelar')}
-              >
+              <Button variant="danger" onClick={() => abrir('cancelar')}>
                 {META.cancelar.tituloBoton}
               </Button>
             )}
@@ -183,7 +189,7 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
                 {META.rechazar.tituloBoton}
               </Button>
             )}
-          </div>
+          </Inline>
         </CardBody>
       </Card>
 
@@ -192,13 +198,14 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
         onClose={cerrar}
         title={meta?.tituloDialogo ?? ''}
         footer={
-          <div className="flex justify-end gap-3">
+          <Inline gap={3} justify="end">
             <Button variant="ghost" onClick={cerrar}>
               No, conservar
             </Button>
             <Button
+              type="submit"
+              form={ID_FORMULARIO_MOTIVO}
               variant={accion === 'cancelar' ? 'danger' : 'secondary'}
-              onClick={confirmar}
               loading={mutacion.isPending}
               // Refleja la regla `causa` obligatoria del servidor: sin motivo, no se
               // habilita (no dependemos solo del 400).
@@ -206,27 +213,29 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
             >
               {meta?.confirmar ?? 'Confirmar'}
             </Button>
-          </div>
+          </Inline>
         }
       >
         {meta !== null && (
-          <div className="flex flex-col gap-3">
-            <p className="text-on-surface text-sm">{meta.descripcion}</p>
+          <Form
+            id={ID_FORMULARIO_MOTIVO}
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmar();
+            }}
+            noValidate
+          >
+            <p>{meta.descripcion}</p>
             <FormField label={meta.etiquetaMotivo}>
               <Textarea
                 value={motivo}
                 onChange={(event) => setMotivo(event.target.value)}
                 rows={3}
                 placeholder="Escribe el motivo"
-                aria-label={meta.etiquetaMotivo}
               />
             </FormField>
-            {error !== null && (
-              <p role="alert" className="text-error text-sm">
-                {error}
-              </p>
-            )}
-          </div>
+            {error !== null && <Alert variant="danger">{error}</Alert>}
+          </Form>
         )}
       </Modal>
     </>

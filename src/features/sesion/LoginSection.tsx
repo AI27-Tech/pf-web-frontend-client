@@ -9,9 +9,9 @@
 
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowRight, Eye, EyeOff, KeyRound, Lock, Mail, ShieldCheck } from 'lucide-react';
+import { ArrowRight, KeyRound, Lock, Mail, ShieldCheck } from 'lucide-react';
 import { useSession } from '@/context/SessionContext';
-import { Button, Checkbox, FormField, Input } from '@ai27-tech/ui';
+import { Alert, Button, Checkbox, Form, FormField, Input } from '@ai27-tech/ui';
 import { isApiError } from '@/lib/api/errors';
 
 interface LoginSectionProps {
@@ -30,7 +30,6 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
   const [pending, setPending] = useState(false);
 
   // Estado puramente de UI: no viaja a `login()` ni afecta la autenticacion.
-  const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -87,7 +86,7 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
   }
 
   return (
-    <form onSubmit={(event) => void onSubmit(event)} className="flex flex-col gap-4" noValidate>
+    <Form onSubmit={(event) => void onSubmit(event)} noValidate>
       <FormField label="Correo electrónico empresarial">
         <Input
           type="text"
@@ -102,24 +101,10 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
 
       <FormField label="Contraseña">
         <Input
-          type={showPassword ? 'text' : 'password'}
+          type="password"
+          passwordToggle
           autoComplete="current-password"
           startAdornment={<Lock aria-hidden="true" className="size-4" />}
-          endAdornment={
-            <button
-              type="button"
-              onClick={() => setShowPassword((value) => !value)}
-              aria-pressed={showPassword}
-              aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-              className="text-on-surface-variant hover:text-on-surface"
-            >
-              {showPassword ? (
-                <EyeOff aria-hidden="true" className="size-4" />
-              ) : (
-                <Eye aria-hidden="true" className="size-4" />
-              )}
-            </button>
-          }
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           required
@@ -160,11 +145,7 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
         </a>
       </div>
 
-      {error !== null && (
-        <p role="alert" className="text-error text-sm">
-          {error}
-        </p>
-      )}
+      {error !== null && <Alert variant="danger">{error}</Alert>}
 
       <Button
         type="submit"
@@ -180,6 +161,6 @@ export function LoginSection({ redirectTo }: LoginSectionProps) {
         <ShieldCheck aria-hidden="true" className="size-3.5" />
         Tu conexión es segura y está protegida por los protocolos de seguridad de AI27.
       </p>
-    </form>
+    </Form>
   );
 }

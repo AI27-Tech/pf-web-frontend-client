@@ -1,8 +1,15 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
-import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
+import {
+  LogOut,
+  RotateCcwClock,
+  Settings,
+  ShieldHalf,
+  SquarePlus,
+  type LucideIcon,
+} from 'lucide-react';
+import { Button, Inline, Modal, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
 import { useSession } from '@/context/SessionContext';
 
 type NavItem = {
@@ -47,6 +54,18 @@ const nav: readonly NavItem[] = [
   // conversacion), que es donde el contrato la ancla. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 ];
 
+function MarcaAI27() {
+  return (
+    <>
+      <ShieldHalf aria-hidden="true" className="text-primary size-6 shrink-0" />
+      <div className="flex flex-col leading-tight">
+        <span className="text-base font-bold">AI27</span>
+        <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
+      </div>
+    </>
+  );
+}
+
 /**
  * Decide si un item esta activo para el pathname actual.
  * - exact: coincide solo la ruta identica (evita que un prefijo active a un hijo).
@@ -67,6 +86,7 @@ export function AppShell() {
   const { logout } = useSession();
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [colapsado, setColapsado] = useState(false);
+  const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
 
   async function cerrarSesion(): Promise<void> {
     if (cerrandoSesion) return;
@@ -80,6 +100,7 @@ export function AppShell() {
       await navigate({ to: '/login' });
       queryClient.clear();
       setCerrandoSesion(false);
+      setAjustesAbiertos(false);
     }
   }
 
@@ -111,29 +132,18 @@ export function AppShell() {
           className="h-full"
           collapsed={colapsado}
           onToggleCollapse={() => setColapsado((actual) => !actual)}
-          header={
-            <div className="flex items-center gap-3">
-              <ShieldHalf className="size-6 shrink-0" />
-              {!colapsado && (
-                <div className="flex flex-col leading-tight">
-                  <span className="text-base font-bold">AI27</span>
-                  <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
-                </div>
-              )}
-            </div>
-          }
+          aria-label="Principal"
+          header={<MarcaAI27 />}
+          headerCollapsed={<ShieldHalf aria-label="AI27" />}
           footer={
-            <Button
-              variant="secondary"
-              fullWidth
-              startIcon={<LogOut aria-hidden="true" />}
-              loading={cerrandoSesion}
-              onClick={() => void cerrarSesion()}
-              aria-label="Cerrar sesión"
-              title="Cerrar sesión"
+            <SidebarItem
+              label="Configuración"
+              icon={<Settings className="size-full" />}
+              aria-haspopup="dialog"
+              onClick={() => setAjustesAbiertos(true)}
             >
-              {!colapsado && 'Cerrar sesión'}
-            </Button>
+              Configuración
+            </SidebarItem>
           }
         >
           <SidebarGroup>
@@ -161,6 +171,27 @@ export function AppShell() {
       {/* `min-w-0` deja que <main> se encoja dentro del flex-row (por defecto un item
           flex no baja de su ancho de contenido). No lleva scroll propio: el scroll es el
           del documento, y el sidebar lo acompaña como sticky. */}
+      <Modal
+        open={ajustesAbiertos}
+        onClose={() => setAjustesAbiertos(false)}
+        title="Configuración"
+        footer={
+          <Inline justify="between" align="center" gap={4} wrap className="w-full">
+            <Inline gap={3} align="center">
+              <MarcaAI27 />
+            </Inline>
+            <Button
+              variant="outline"
+              startIcon={<LogOut aria-hidden="true" />}
+              loading={cerrandoSesion}
+              onClick={() => void cerrarSesion()}
+            >
+              Cerrar sesión
+            </Button>
+          </Inline>
+        }
+      />
+
       <main id="contenido" className="flex w-full min-w-0 flex-1 flex-col px-4 py-6">
         <Outlet />
       </main>

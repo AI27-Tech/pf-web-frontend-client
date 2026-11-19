@@ -3,15 +3,19 @@
  *
  * Presentacional y sin estado: pinta lo que el cliente va capturando en
  * `NuevaSolicitudForm` para que confirme todo antes de enviarlo. No valida ni decide
- * nada; un dato vacío se muestra como "—". La ruta se lee de arriba abajo: Origen,
- * Destino 1..N (los únicos numerados) y Destino final, que siempre es el último.
- *
- * Es un `<aside>` con clases de utilidad y no un `Card` de `@ai27-tech/ui`: el borde
- * punteado distingue la vista previa del formulario, y el `Card` de la librería fija su
- * propio borde sólido (la librería no se modifica).
+ * nada.
  */
 
-import { Info } from 'lucide-react';
+import {
+  Card,
+  CardBody,
+  CardHeader,
+  DescriptionList,
+  Stack,
+  Timeline,
+  type DescriptionListItem,
+  type TimelineItemData,
+} from '@ai27-tech/ui';
 import { formatDateTime } from '@/lib/utils';
 
 interface SolicitudVistaPreviaProps {
@@ -31,18 +35,13 @@ interface SolicitudVistaPreviaProps {
   readonly fechaHora: string;
 }
 
-/** Valor o guion. El guion se anuncia como "Sin definir" para lectores de pantalla. */
-function Valor({ texto }: { readonly texto: string }) {
-  if (texto.trim() === '') {
-    return (
-      <>
-        <span aria-hidden="true">—</span>
-        <span className="sr-only">Sin definir</span>
-      </>
-    );
-  }
-  return <>{texto}</>;
-}
+/** Marca de dato vacío: guion visible y "Sin definir" para lectores de pantalla. */
+const SIN_DEFINIR = (
+  <>
+    <span aria-hidden="true">—</span>
+    <span className="ui-sr-only">Sin definir</span>
+  </>
+);
 
 function formatearFechaHora(valor: string): string {
   if (valor === '') return '';
@@ -71,68 +70,47 @@ export function SolicitudVistaPrevia({
     { etiqueta: 'Destino final', nombre: destino },
   ];
 
-  const filas = [
-    { etiqueta: 'Tipo de servicio', valor: tipoServicio },
-    { etiqueta: 'Destinos intermedios', valor: textoDestinos(paradas.length) },
-    { etiqueta: 'Tipo de escolta', valor: tipoEscolta },
-    { etiqueta: 'Sobreescolta', valor: sobreescolta },
-    { etiqueta: 'Fecha y hora', valor: formatearFechaHora(fechaHora) },
+  const ruta: TimelineItemData[] = puntos.map((punto, indice) => {
+    const capturado = punto.nombre.trim() !== '';
+    return {
+      id: indice,
+      title: punto.etiqueta,
+      description: capturado ? punto.nombre : SIN_DEFINIR,
+      status: capturado ? 'completed' : 'upcoming',
+    };
+  });
+
+  const datos: DescriptionListItem[] = [
+    { label: 'Tipo de servicio', value: tipoServicio },
+    { label: 'Destinos intermedios', value: textoDestinos(paradas.length) },
+    { label: 'Tipo de escolta', value: tipoEscolta },
+    { label: 'Sobreescolta', value: sobreescolta },
+    { label: 'Fecha y hora', value: formatearFechaHora(fechaHora), span: 2 },
   ];
 
   return (
-    <aside
-      aria-label="Vista previa de la solicitud"
-      className="border-outline-variant bg-surface-container-lowest flex flex-col gap-4 rounded-lg border border-dashed p-5"
-    >
-      <header className="flex flex-col gap-1">
-        <p className="text-primary text-xs font-semibold tracking-wider uppercase">Vista previa</p>
-        <h2 className="text-on-surface text-base font-semibold">Resumen de tu solicitud</h2>
-      </header>
-
-      <ol className="flex flex-col gap-4">
-        {puntos.map((punto, indice) => {
-          const esUltimo = indice === puntos.length - 1;
-          return (
-            <li
-              key={indice}
-              className={
-                'relative pl-6 ' +
-                (esUltimo
-                  ? ''
-                  : 'before:border-outline before:absolute before:top-4 before:-bottom-4 before:left-[0.28rem] before:border-l before:border-dashed before:content-[""]')
-              }
-            >
-              <span
-                aria-hidden="true"
-                className={
-                  'absolute top-1 left-0 size-2.5 rounded-full border ' +
-                  (esUltimo ? 'bg-primary border-primary' : 'border-outline bg-surface')
-                }
-              />
-              <p className="text-on-surface-variant text-xs">{punto.etiqueta}</p>
-              <p className="text-on-surface text-sm break-words">
-                <Valor texto={punto.nombre} />
-              </p>
-            </li>
-          );
-        })}
-      </ol>
-
-      <dl className="border-outline-variant flex flex-col gap-2 border-t pt-4 text-sm">
-        {filas.map((fila) => (
-          <div key={fila.etiqueta} className="flex items-baseline justify-between gap-4">
-            <dt className="text-on-surface-variant">{fila.etiqueta}</dt>
-            <dd className="text-on-surface text-right break-words">
-              <Valor texto={fila.valor} />
-            </dd>
-          </div>
-        ))}
-      </dl>
-
-      <p className="border-outline-variant text-on-surface-variant flex items-start gap-2 border-t pt-4 text-xs">
-        <Info aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-        Se actualiza conforme completas el formulario, para que confirmes todo antes de enviarlo.
-      </p>
+    <aside aria-label="Vista previa de la solicitud">
+      <Card variant="outlined" padding="lg">
+        <CardHeader
+          title="Resumen de tu solicitud"
+          subtitle="Se actualiza conforme completas el formulario, para que confirmes todo antes de enviarlo."
+        />
+        <CardBody>
+          <Stack gap={4}>
+            <Timeline
+              aria-label="Ruta de la solicitud"
+              items={ruta}
+              labels={{ completed: 'Capturado', upcoming: 'Pendiente' }}
+            />
+            <DescriptionList
+              items={datos}
+              columns={2}
+              orientation="vertical"
+              emptyValue={SIN_DEFINIR}
+            />
+          </Stack>
+        </CardBody>
+      </Card>
     </aside>
   );
 }

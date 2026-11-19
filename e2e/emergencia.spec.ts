@@ -22,7 +22,7 @@ test.describe('emergencia · activación y notas', () => {
     // viaje-1 arranca SIN emergencias en el mock.
     await page.goto('/viajes/viaje-1');
 
-    const panel = page.getByRole('heading', { name: 'Emergencia', level: 2 });
+    const panel = page.getByRole('heading', { name: 'Emergencia' });
     await expect(panel).toBeVisible();
     await expect(page.getByText('Sin emergencias en este viaje.')).toBeVisible();
 
@@ -32,12 +32,12 @@ test.describe('emergencia · activación y notas', () => {
 
     // El caso aparece y el agregado pasa a "activa". Identificado por fecha/hora + estado.
     await expect(
-      page.getByRole('status').filter({ hasText: 'Hay una emergencia activa en este viaje.' }),
+      page.getByRole('alert').filter({ hasText: 'Hay una emergencia activa en este viaje.' }),
     ).toBeVisible();
     await expect(
       page.getByText('Hay una emergencia activa en este viaje.', { exact: true }).last(),
     ).toBeVisible();
-    await expect(page.getByRole('listitem').filter({ hasText: 'En atención' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Casos' })).toContainText('En atención');
     await expect(page.getByText('Sin emergencias en este viaje.')).toBeHidden();
   });
 
@@ -69,7 +69,7 @@ test.describe('emergencia · activación y notas', () => {
     await login(page);
     await page.goto('/viajes/viaje-2');
 
-    await expect(page.getByRole('listitem').first()).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Casos' })).toBeVisible();
 
     // El cliente nunca ve vocabulario interno: responsable, Reacción, recursos, ni el
     // id técnico del caso. Solo fecha/hora + estado curado.

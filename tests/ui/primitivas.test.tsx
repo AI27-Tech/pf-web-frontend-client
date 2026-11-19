@@ -75,7 +75,7 @@ describe('disciplina de color · primitivas propias del portal', () => {
     [
       '../../src/components/ui/RadioCard.tsx',
       '../../src/components/ui/FileDropzone.tsx',
-      '../../src/components/ui/Feedback.tsx',
+      '../../src/components/ui/ErrorState.tsx',
       '../../src/components/ui/FreshnessMark.tsx',
     ],
     { query: '?raw', import: 'default', eager: true },

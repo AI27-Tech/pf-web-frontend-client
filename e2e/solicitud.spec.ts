@@ -23,15 +23,17 @@
 import { expect, test, type Page } from '@playwright/test';
 import { login } from './support/login';
 
-/** Elige una opción del select de un grupo ("Tipo de escolta", "Tipo de sobreescolta"). */
+/**
+ * Elige una opción de un select por su etiqueta ("Tipo de escolta", "Tipo de sobreescolta").
+ * El `Select` de la librería es un botón nombrado por su `<label>`.
+ */
 async function elegirTipoEscolta(
   page: Page,
-  grupo: 'Tipo de escolta' | 'Tipo de sobreescolta',
+  etiqueta: 'Tipo de escolta' | 'Tipo de sobreescolta',
   opcion: 'Patrulla' | 'Moto',
 ): Promise<void> {
-  const select = page.getByRole('group', { name: grupo });
-  await select.getByRole('button').click();
-  await select.getByRole('button', { name: opcion }).click();
+  await page.getByRole('button', { name: etiqueta }).click();
+  await page.getByRole('button', { name: opcion, exact: true }).click();
 }
 
 /**
@@ -40,8 +42,11 @@ async function elegirTipoEscolta(
  */
 async function completarObligatorios(page: Page): Promise<void> {
   await elegirTipoEscolta(page, 'Tipo de escolta', 'Patrulla');
-  await page.getByLabel('Fecha del servicio').fill('2026-11-20');
-  await page.getByLabel('Hora del servicio').fill('09:30');
+  await page.getByLabel('Fecha del servicio').fill('20/11/2026');
+  await page.getByLabel('Fecha del servicio').press('Tab');
+  await page.getByRole('textbox', { name: 'Horas' }).click();
+  await page.keyboard.type('0930');
+  await page.keyboard.press('a');
 }
 
 test.describe('solicitud · formulario mínimo', () => {
@@ -166,13 +171,10 @@ test.describe('solicitud · formulario mínimo', () => {
     await expect(vista.getByText('Moto')).toBeVisible();
   });
 
-  test('el botón de envío está bajo la vista previa y Enter en un campo también envía', async ({
-    page,
-  }) => {
+  test('el botón de envío está bajo la vista previa', async ({ page }) => {
     await login(page);
     await page.goto('/viajes/new');
-
-    // El botón es hermano posterior de la vista previa, no parte del formulario.
+    // El botón es posterior a la vista previa y no forma parte del formulario.
     const vista = page.getByRole('complementary', { name: 'Vista previa de la solicitud' });
     const enviar = page.getByRole('button', { name: /Solicitar servicio/ });
     const cajaVista = await vista.boundingBox();
@@ -180,13 +182,26 @@ test.describe('solicitud · formulario mínimo', () => {
     expect(cajaVista).not.toBeNull();
     expect(cajaBoton).not.toBeNull();
     expect(cajaBoton!.y).toBeGreaterThanOrEqual(cajaVista!.y + cajaVista!.height);
+  });
 
+  test('Enter en un campo también envía', async ({ page }) => {
+    await login(page);
+    await page.goto('/viajes/new');
     await page.getByRole('textbox', { name: 'Origen' }).fill('CDMX Vallejo');
     await page.getByRole('textbox', { name: 'Destino final', exact: true }).fill('Laredo, US');
     await completarObligatorios(page);
     await page.getByRole('textbox', { name: 'Destino final', exact: true }).press('Enter');
-
     await expect(page.getByRole('heading', { name: 'Solicitud enviada' })).toBeVisible();
+  });
+
+  test('la fecha se ve como AAAA Mmm DD y la hora en 12 horas', async ({ page }) => {
+    await login(page);
+    await page.goto('/viajes/new');
+    await completarObligatorios(page);
+    await page.getByLabel('Fecha del servicio').focus();
+    await page.getByLabel('Fecha del servicio').blur();
+    await expect(page.getByLabel('Fecha del servicio')).toHaveValue('2026 Nov 20');
+    await expect(page.getByRole('textbox', { name: 'AM/PM' })).toHaveValue('AM');
   });
 
   test('crea un viaje con origen, varias paradas y tipo de servicio hasta Solicitado', async ({
@@ -202,10 +217,9 @@ test.describe('solicitud · formulario mínimo', () => {
     await page.getByRole('button', { name: 'Agregar otro destino' }).click();
     await page.getByRole('textbox', { name: 'Destino 2', exact: true }).fill('Nuevo Laredo');
     // Tipo de servicio: solo hay dos opciones fijas, Local y Foráneo.
-    const tipoServicio = page.getByRole('group', { name: 'Tipo de servicio' });
-    await tipoServicio.getByRole('button').click();
-    await expect(tipoServicio.getByRole('button', { name: 'Local' })).toBeVisible();
-    await tipoServicio.getByRole('button', { name: 'Foráneo' }).click();
+    await page.getByRole('button', { name: 'Tipo de servicio' }).click();
+    await expect(page.getByRole('button', { name: 'Local', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Foráneo', exact: true }).click();
     await completarObligatorios(page);
 
     await page.getByRole('button', { name: /Solicitar servicio/ }).click();

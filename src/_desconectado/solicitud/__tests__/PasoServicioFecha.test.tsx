@@ -77,7 +77,7 @@ describe('PasoServicioFecha', () => {
 
   it('elegir prioridad despacha el id del catalogo', () => {
     const dispatch = renderPaso();
-    fireEvent.click(screen.getByRole('button', { name: 'Seleccione una prioridad' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Prioridad del servicio' }));
     fireEvent.click(screen.getByRole('button', { name: 'Alta' }));
     expect(dispatch).toHaveBeenCalledWith({ tipo: 'servicio', campo: 'prioridad', valor: 'alta' });
   });

@@ -66,8 +66,26 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { Button, Card, CardBody, FormField, Input, Select, Switch } from '@ai27-tech/ui';
-import { CalendarDays, Clock, MapPin } from 'lucide-react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  DateInput,
+  EmptyState,
+  Form,
+  FormField,
+  FormRow,
+  FormSection,
+  Inline,
+  Input,
+  Select,
+  Stack,
+  Switch,
+  TimePicker,
+} from '@ai27-tech/ui';
+import { CircleCheck, MapPin } from 'lucide-react';
 import { crearViaje } from '@/lib/api/viajes';
 import type { CrearViajeEntrada } from '@/lib/contracts';
 import { isApiError } from '@/lib/api/errors';
@@ -113,6 +131,9 @@ const ICONO_UBICACION = <MapPin aria-hidden="true" className="size-4" />;
 /** El botón de envío vive fuera del <form> (bajo la vista previa) y se asocia por este id. */
 const ID_FORMULARIO = 'form-nueva-solicitud';
 
+/** Marcador del `Select` sin elección. Lo pinta la librería como opción deshabilitada. */
+const SIN_ELEGIR = 'Selecciona un tipo';
+
 export function NuevaSolicitudForm() {
   const navigate = useNavigate();
 
@@ -126,7 +147,6 @@ export function NuevaSolicitudForm() {
   const [tipoEscolta, setTipoEscolta] = useState<TipoEscolta | ''>('');
   const [conSobreescolta, setConSobreescolta] = useState(false);
   const [tipoSobreescolta, setTipoSobreescolta] = useState<TipoEscolta | ''>('');
-  // Fecha (`YYYY-MM-DD`) y hora (`HH:mm`) son dos campos; se combinan al enviar.
   const [fecha, setFecha] = useState('');
   const [hora, setHora] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -172,7 +192,7 @@ export function NuevaSolicitudForm() {
   const fechaHora = resolverFechaHora(fecha, hora);
   const errorFecha =
     fechaHora.estado === 'invalido'
-      ? 'Escribe una fecha válida: el año debe tener 4 dígitos.'
+      ? 'Escribe una fecha válida.'
       : fechaHora.estado === 'incompleto' && fechaHora.falta === 'fecha'
         ? 'Indica también la fecha.'
         : undefined;
@@ -248,26 +268,27 @@ export function NuevaSolicitudForm() {
   if (creado !== null) {
     return (
       <Card variant="outlined" padding="lg" className="mx-auto w-full max-w-xl">
-        <CardBody className="flex flex-col items-center gap-4 text-center">
-          <h2 className="text-on-surface text-2xl font-bold">Solicitud enviada</h2>
-          <p className="text-on-surface-variant text-sm">
-            ID del viaje:{' '}
-            <span className="text-primary bg-surface-container rounded px-2 py-0.5 font-semibold">
-              {creado.id}
-            </span>
-          </p>
-          <p className="text-on-surface-variant max-w-md text-sm">
-            El viaje entra en estado Solicitado. AI27 revisará los detalles para asignar los
-            recursos necesarios.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <Button variant="primary" onClick={() => void navigate({ to: '/viajes' })}>
-              Ver mis viajes
-            </Button>
-            <Button variant="secondary" onClick={reiniciar}>
-              Nueva solicitud
-            </Button>
-          </div>
+        <CardBody>
+          <EmptyState
+            icon={<CircleCheck />}
+            title="Solicitud enviada"
+            description={
+              <>
+                ID del viaje: <Badge variant="info">{creado.id}</Badge>. El viaje entra en estado
+                Solicitado. AI27 revisará los detalles para asignar los recursos necesarios.
+              </>
+            }
+            action={
+              <Inline gap={3} justify="center" wrap>
+                <Button variant="primary" onClick={() => void navigate({ to: '/viajes' })}>
+                  Ver mis viajes
+                </Button>
+                <Button variant="secondary" onClick={reiniciar}>
+                  Nueva solicitud
+                </Button>
+              </Inline>
+            }
+          />
         </CardBody>
       </Card>
     );
@@ -281,85 +302,84 @@ export function NuevaSolicitudForm() {
     <div className="grid w-full items-start gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
       <Card variant="outlined" padding="lg" className="w-full">
         <CardBody>
-          {avisoSesionFinalizada && (
-            <p role="alert" className="text-error mb-4 text-sm">
-              Tu sesión finalizó. La información capturada no se envió.
-            </p>
-          )}
-          <form
-            id={ID_FORMULARIO}
-            onSubmit={(event) => void onSubmit(event)}
-            className="flex flex-col gap-5"
-            noValidate
-          >
-            <FormField label="Origen" required>
-              <Input
-                value={origen}
-                onChange={(event) => setOrigen(event.target.value)}
-                placeholder="Ciudad o sitio de origen"
-                startAdornment={ICONO_UBICACION}
-                required
-              />
-            </FormField>
-
-            {conParadas && (
-              <div className="border-outline-variant flex flex-col gap-4 rounded-lg border p-4">
-                <p className="text-on-surface-variant text-xs">
-                  Agrega destinos intermedios entre el origen y el destino final.
-                </p>
-
-                <DestinosIntermedios
-                  destinos={paradas}
-                  onActualizar={actualizarParada}
-                  onQuitar={quitarParada}
-                  onMover={moverParada}
-                />
-
-                <Button type="button" variant="outline" onClick={agregarParada}>
-                  Agregar otro destino
-                </Button>
-              </div>
+          <Form id={ID_FORMULARIO} onSubmit={(event) => void onSubmit(event)} noValidate>
+            {avisoSesionFinalizada && (
+              <Alert variant="warning">
+                Tu sesión finalizó. La información capturada no se envió.
+              </Alert>
             )}
-            <div className="relative flex flex-col">
-              <FormField label="Destino final" required>
+
+            <FormSection title="Ruta">
+              <FormField label="Origen" required>
                 <Input
-                  value={destino}
-                  onChange={(event) => setDestino(event.target.value)}
-                  placeholder="Ciudad o sitio del destino final"
+                  value={origen}
+                  onChange={(event) => setOrigen(event.target.value)}
+                  placeholder="Ciudad o sitio de origen"
                   startAdornment={ICONO_UBICACION}
                   required
                 />
               </FormField>
-              <div className="pt-2 sm:absolute sm:-top-1 sm:right-0 sm:pt-0">
-                <Switch
-                  label="Seguimiento con múltiples destinos"
-                  checked={conParadas}
-                  onChange={(event) => alternarParadas(event.target.checked)}
-                />
-              </div>
-            </div>
 
-            <FormField label="Tipo de servicio">
-              <div role="group" aria-label="Tipo de servicio">
+              {conParadas && (
+                <Card variant="outlined" padding="md">
+                  <CardBody className="flex flex-col gap-4">
+                    <p className="text-on-surface-variant text-xs">
+                      Agrega destinos intermedios entre el origen y el destino final.
+                    </p>
+
+                    <DestinosIntermedios
+                      destinos={paradas}
+                      onActualizar={actualizarParada}
+                      onQuitar={quitarParada}
+                      onMover={moverParada}
+                    />
+
+                    <Button type="button" variant="outline" onClick={agregarParada}>
+                      Agregar otro destino
+                    </Button>
+                  </CardBody>
+                </Card>
+              )}
+
+              <div className="relative flex flex-col">
+                <FormField label="Destino final" required>
+                  <Input
+                    value={destino}
+                    onChange={(event) => setDestino(event.target.value)}
+                    placeholder="Ciudad o sitio del destino final"
+                    startAdornment={ICONO_UBICACION}
+                    required
+                  />
+                </FormField>
+                <div className="pt-2 sm:absolute sm:-top-1 sm:right-0 sm:pt-0">
+                  <Switch
+                    label="Seguimiento con múltiples destinos"
+                    checked={conParadas}
+                    onChange={(event) => alternarParadas(event.target.checked)}
+                  />
+                </div>
+              </div>
+            </FormSection>
+
+            <FormSection title="Servicio">
+              <FormField label="Tipo de servicio">
                 <Select
                   value={tipoServicio}
+                  placeholder={SIN_ELEGIR}
                   onChange={(valor) => setTipoServicio(aTipoServicio(valor))}
-                  options={[{ value: '', label: 'Selecciona un tipo' }, ...OPCIONES_TIPO_SERVICIO]}
+                  options={[...OPCIONES_TIPO_SERVICIO]}
                 />
-              </div>
-            </FormField>
+              </FormField>
 
-            <FormField label="Tipo de escolta" required>
-              <div role="group" aria-label="Tipo de escolta">
+              <FormField label="Tipo de escolta" required>
                 <Select
                   value={tipoEscolta}
+                  placeholder={SIN_ELEGIR}
                   onChange={(valor) => setTipoEscolta(aTipoEscolta(valor))}
-                  options={[{ value: '', label: 'Selecciona un tipo' }, ...OPCIONES_ESCOLTA]}
+                  options={[...OPCIONES_ESCOLTA]}
                 />
-              </div>
-            </FormField>
+              </FormField>
 
-            <div className="flex flex-col gap-4">
               <Switch
                 label="Agregar sobreescolta"
                 checked={conSobreescolta}
@@ -367,41 +387,27 @@ export function NuevaSolicitudForm() {
               />
               {conSobreescolta && (
                 <FormField label="Tipo de sobreescolta" required>
-                  <div role="group" aria-label="Tipo de sobreescolta">
-                    <Select
-                      value={tipoSobreescolta}
-                      onChange={(valor) => setTipoSobreescolta(aTipoEscolta(valor))}
-                      options={[{ value: '', label: 'Selecciona un tipo' }, ...OPCIONES_ESCOLTA]}
-                    />
-                  </div>
+                  <Select
+                    value={tipoSobreescolta}
+                    placeholder={SIN_ELEGIR}
+                    onChange={(valor) => setTipoSobreescolta(aTipoEscolta(valor))}
+                    options={[...OPCIONES_ESCOLTA]}
+                  />
                 </FormField>
               )}
-            </div>
+            </FormSection>
 
-            <div className="flex flex-col gap-2">
-              <div className="grid items-start gap-4 sm:grid-cols-2">
+            <FormSection>
+              <FormRow columns={2}>
                 <FormField label="Fecha del servicio" error={errorFecha} required>
-                  <Input
-                    type="date"
-                    value={fecha}
-                    onChange={(event) => setFecha(event.target.value)}
-                    max="9999-12-31"
-                    required
-                    startAdornment={<CalendarDays aria-hidden="true" className="size-4" />}
-                  />
+                  <DateInput value={fecha} onChange={setFecha} displayFormat="AAAA Mmm DD" />
                 </FormField>
                 <FormField label="Hora del servicio" error={errorHora} required>
-                  <Input
-                    type="time"
-                    value={hora}
-                    onChange={(event) => setHora(event.target.value)}
-                    required
-                    startAdornment={<Clock aria-hidden="true" className="size-4" />}
-                  />
+                  <TimePicker value={hora} onChange={setHora} format="12h" />
                 </FormField>
-              </div>
-            </div>
-          </form>
+              </FormRow>
+            </FormSection>
+          </Form>
         </CardBody>
       </Card>
 
@@ -410,7 +416,7 @@ export function NuevaSolicitudForm() {
         está fuera del <form> y lo envía por el atributo `form`; la tecla Enter en un campo
         también lo dispara porque es el botón de envío asociado al formulario.
       */}
-      <div className="flex flex-col gap-4 lg:sticky lg:top-6">
+      <Stack gap={4} className="lg:sticky lg:top-6">
         <SolicitudVistaPrevia
           origen={origen}
           paradas={paradas.map((p) => p.nombre)}
@@ -421,11 +427,7 @@ export function NuevaSolicitudForm() {
           fechaHora={fechaHora.estado === 'valido' ? fechaHora.iso : ''}
         />
 
-        {error !== null && (
-          <p role="alert" className="text-error text-sm">
-            {error}
-          </p>
-        )}
+        {error !== null && <Alert variant="danger">{error}</Alert>}
 
         <Button
           type="submit"
@@ -436,7 +438,7 @@ export function NuevaSolicitudForm() {
         >
           {pending ? 'Enviando' : 'Solicitar servicio'}
         </Button>
-      </div>
+      </Stack>
     </div>
   );
 }
