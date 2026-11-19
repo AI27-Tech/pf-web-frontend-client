@@ -164,17 +164,18 @@ export function EmergenciaPanel({
       </CardHeader>
       <CardBody>
         <Stack gap={4}>
-          {puedeActivar && (
-            <div>
-              <Button
-                variant="danger"
-                onClick={() => setConfirmando(true)}
-                loading={activar.isPending}
-              >
-                Activar emergencia
-              </Button>
-            </div>
-          )}
+          {/* Siempre visible; deshabilitado fuera del recorrido o con un caso sin resolver. */}
+          <div>
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={!puedeActivar}
+              onClick={() => setConfirmando(true)}
+              loading={activar.isPending}
+            >
+              Activar emergencia
+            </Button>
+          </div>
           {activar.isError && (
             <Alert variant="danger">{mensajeErrorActivacion(activar.error)}</Alert>
           )}

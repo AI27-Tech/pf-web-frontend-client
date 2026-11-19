@@ -145,18 +145,21 @@ describe('EmergenciaPanel — solo se activa durante el recorrido', () => {
   ];
   const FUERA_DEL_RECORRIDO = ESTADOS_VIAJE.filter((estado) => !RECORRIDO.includes(estado));
 
-  it.each(FUERA_DEL_RECORRIDO)('%s: no ofrece el botón y explica por qué', async (estado) => {
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={estado} />);
-    expect(await screen.findByText('Sin emergencias en este viaje.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Activar emergencia' })).not.toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.',
-      ),
-    ).toBeInTheDocument();
-  });
+  it.each(FUERA_DEL_RECORRIDO)(
+    '%s: el botón se ve, deshabilitado, y se explica por qué',
+    async (estado) => {
+      renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={estado} />);
+      expect(await screen.findByText('Sin emergencias en este viaje.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Activar emergencia' })).toBeDisabled();
+      expect(
+        screen.getByText(
+          'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.',
+        ),
+      ).toBeInTheDocument();
+    },
+  );
 
-  it.each(RECORRIDO)('%s: ofrece el botón', async (estado) => {
+  it.each(RECORRIDO)('%s: el botón está habilitado', async (estado) => {
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={estado} />);
     expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeEnabled();
   });
@@ -166,7 +169,7 @@ describe('EmergenciaPanel — solo se activa durante el recorrido', () => {
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={EstadoViaje.EnEmbarque} />);
     await screen.findByRole('region', { name: 'Casos' });
     expect(screen.getByLabelText(/Nota de emergencia/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Activar emergencia' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activar emergencia' })).toBeDisabled();
   });
 
   it('un 409 del bff al activar muestra el aviso de que ya no admite emergencias', async () => {
@@ -186,17 +189,17 @@ describe('EmergenciaPanel — otra emergencia solo cuando la anterior está resu
   const AVISO = 'Podrás activar otra cuando la emergencia actual esté resuelta.';
 
   it.each(['abierta', 'en_atencion'] as const)(
-    'con un caso %s no ofrece activar otra y lo explica',
+    'con un caso %s el botón queda deshabilitado y se explica',
     async (estado) => {
       listEmergencias.mockResolvedValue(vista([{ ...CASO_ACTIVO, estado }]));
       renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
       await screen.findByRole('region', { name: 'Casos' });
-      expect(screen.queryByRole('button', BOTON)).not.toBeInTheDocument();
+      expect(screen.getByRole('button', BOTON)).toBeDisabled();
       expect(screen.getByText(AVISO)).toBeInTheDocument();
     },
   );
 
-  it('con todos los casos resueltos vuelve a ofrecer activar', async () => {
+  it('con todos los casos resueltos vuelve a habilitar activar', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_RESUELTO]));
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
     await screen.findByRole('region', { name: 'Casos' });
@@ -204,23 +207,23 @@ describe('EmergenciaPanel — otra emergencia solo cuando la anterior está resu
     expect(screen.queryByText(AVISO)).not.toBeInTheDocument();
   });
 
-  it('con un caso resuelto y otro en atención sigue sin ofrecerlo', async () => {
+  it('con un caso resuelto y otro en atención sigue deshabilitado', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO, CASO_RESUELTO]));
     renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
     await screen.findByRole('region', { name: 'Casos' });
-    expect(screen.queryByRole('button', BOTON)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', BOTON)).toBeDisabled();
   });
 
-  it('al resolverse el caso activo, el botón reaparece al refrescar la lista', async () => {
+  it('al resolverse el caso activo, el botón se habilita al refrescar la lista', async () => {
     listEmergencias.mockResolvedValueOnce(vista([CASO_ACTIVO]));
     const { client } = renderConQuery(
       <EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />,
     );
     await screen.findByRole('region', { name: 'Casos' });
-    expect(screen.queryByRole('button', BOTON)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', BOTON)).toBeDisabled();
     listEmergencias.mockResolvedValue(vista([{ ...CASO_ACTIVO, estado: 'resuelta' }]));
     await client.invalidateQueries({ queryKey: ['emergencias', 'viaje-1'] });
-    expect(await screen.findByRole('button', BOTON)).toBeEnabled();
+    await waitFor(() => expect(screen.getByRole('button', BOTON)).toBeEnabled());
   });
 });
 

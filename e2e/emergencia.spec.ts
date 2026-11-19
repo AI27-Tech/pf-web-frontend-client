@@ -41,6 +41,44 @@ test.describe('emergencia · activación y notas', () => {
     await expect(page.getByText('Sin emergencias en este viaje.')).toBeHidden();
   });
 
+  test('"Activar emergencia" ocupa todo el ancho de la tarjeta, entre el divisor y el registro', async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto('/viajes/viaje-1');
+    const boton = page.getByRole('button', { name: 'Activar emergencia' });
+    await expect(boton).toBeVisible();
+    // La tarjeta de Emergencia es la que contiene el botón; su cuerpo mide su ancho menos el relleno.
+    const medidas = await boton.evaluate((el) => {
+      const cuerpo = el.parentElement!.parentElement!;
+      const estilo = getComputedStyle(cuerpo);
+      const util =
+        cuerpo.getBoundingClientRect().width -
+        parseFloat(estilo.paddingLeft) -
+        parseFloat(estilo.paddingRight);
+      return { boton: el.getBoundingClientRect().width, util };
+    });
+    expect(Math.abs(medidas.boton - medidas.util)).toBeLessThan(2);
+  });
+
+  test('fuera del recorrido el botón se ve deshabilitado, y con un caso activo también', async ({
+    page,
+  }) => {
+    await login(page);
+    // viaje-3 está SOLICITADO: no se puede activar, pero el botón sigue ahí.
+    await page.goto('/viajes/viaje-3');
+    await expect(page.getByRole('button', { name: 'Activar emergencia' })).toBeDisabled();
+
+    // viaje-1 está en tránsito: se habilita; al activarla, queda deshabilitado hasta que se resuelva.
+    await page.goto('/viajes/viaje-1');
+    const boton = page.getByRole('button', { name: 'Activar emergencia' });
+    await expect(boton).toBeEnabled();
+    await boton.click();
+    await page.getByRole('button', { name: 'Activar ahora' }).click();
+    await expect(page.getByRole('region', { name: 'Casos' })).toBeVisible();
+    await expect(boton).toBeDisabled();
+  });
+
   test('agrega una nota a un caso existente; una nota vacía no se puede enviar', async ({
     page,
   }) => {

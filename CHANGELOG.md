@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 2026:11:19 17:00
+
+**Resumen:** La tarjeta "Cancelar o rechazar" solo se pinta cuando la acción está permitida, y el botón "Activar emergencia" ocupa todo el ancho de su tarjeta.
+
+**Cambios:**
+
+- `CancelarRechazarPanel`: si ni cancelar ni rechazar aplican (el viaje ya salió o ya terminó), no pinta la tarjeta. Se elimina la tarjeta con candado que explicaba por qué (`explicacionNoDisponible`, icono `Lock`). Si el estado cambia con el diálogo de confirmación abierto, el diálogo se sigue pintando para que se lea su aviso, y la tarjeta desaparece al cerrarlo.
+- `EmergenciaPanel`: "Activar emergencia" usa `fullWidth` de la librería, así llena el ancho entre el divisor y el registro de casos.
+- Pruebas: el unit y el e2e de cancelar afirman que la tarjeta ya no existe en ventana cerrada y en estado terminal (también tras cancelar). Nuevo e2e que mide que el botón de emergencia mide el ancho útil de la tarjeta.
+
+**Verificación:** `typecheck`, `lint`, `vitest` (319 pruebas) y `pnpm test:e2e` (56 pruebas) en verde. Revisado en pantalla con un viaje en tránsito (solo Emergencia) y uno solicitado (ambas tarjetas).
+
 ## 2026:11:19 12:00
 
 **Resumen:** La conversación del viaje pasa de aside dentro de la rejilla del detalle a un panel lateral del shell: una columna fija a la derecha que ocupa todo el alto de la pantalla, como el `Sidebar` de la izquierda. Sigue abierta al entrar y se oculta o muestra igual que antes.

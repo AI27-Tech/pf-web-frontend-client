@@ -11,9 +11,9 @@
  * distingue con título, texto y etiqueta propios para que el cliente sepa cuál ejecutó.
  *
  * La disponibilidad se DERIVA del estado que ya trae `ViajeSeguimiento` (`hito.estado`,
- * token del enum del contrato, ADR 19). Si una acción no aplica en el estado actual, NO
- * se ofrece el botón y se explica por qué (p. ej. "el viaje ya salió" o "ya finalizó"),
- * en vez de dejar que falle al pulsar. La máquina de estados real vive en `operacion`:
+ * token del enum del contrato, ADR 19). Si ninguna de las dos acciones aplica en el estado
+ * actual (el viaje ya salió o ya finalizó), la tarjeta NO se pinta: no se ofrece nada que
+ * falle al pulsar. La máquina de estados real vive en `operacion`:
  * esta guarda de UI es la primera línea, no la única (el servidor puede ganar una
  * carrera y responder 409; se maneja abajo).
  *
@@ -26,7 +26,6 @@
  */
 
 import { useState } from 'react';
-import { Lock } from 'lucide-react';
 import {
   Alert,
   Button,
@@ -39,7 +38,7 @@ import {
   Modal,
   Textarea,
 } from '@ai27-tech/ui';
-import { EstadoViaje, esTerminal, type ViajeSeguimiento } from '@/lib/contracts';
+import { EstadoViaje, type ViajeSeguimiento } from '@/lib/contracts';
 import { isApiError } from '@/lib/api/errors';
 import { useTransicionViaje } from './useTransicionViaje';
 
@@ -93,16 +92,6 @@ const META: Record<
   },
 };
 
-/** Mensaje de por qué ya no se puede cancelar/rechazar, según el estado. */
-function explicacionNoDisponible(estado: string): string {
-  if (esTerminal(estado as EstadoViaje)) {
-    return 'Este viaje ya finalizó, así que ya no puede cancelarse ni rechazarse.';
-  }
-  // Único caso no-terminal fuera de la ventana: el viaje ya salió (EN_EMBARQUE,
-  // PATRULLA_EN_CAMINO, EN_TRANSITO, EN_DESTINO, EN_DESCARGA).
-  return 'El viaje ya salió, así que ya no puede cancelarse ni rechazarse. Si necesitas ayuda, contacta a AI27.';
-}
-
 export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimiento }) {
   const estado = viaje.hito.estado;
   const puedeCancelar = ESTADOS_CANCELABLES.includes(estado);
@@ -113,18 +102,9 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
   const [accion, setAccion] = useState<AccionCliente | null>(null);
   const [motivo, setMotivo] = useState('');
 
-  // Ni cancelar ni rechazar aplican: no se ofrece nada, se explica por qué.
-  if (!puedeCancelar && !puedeRechazar) {
-    return (
-      <Card variant="outlined" padding="lg">
-        <CardHeader
-          media={<Lock aria-hidden="true" />}
-          title="Cancelar o rechazar"
-          subtitle={explicacionNoDisponible(estado)}
-        />
-      </Card>
-    );
-  }
+  // Ni cancelar ni rechazar aplican
+  const hayAcciones = puedeCancelar || puedeRechazar;
+  if (!hayAcciones && accion === null) return null;
 
   function abrir(cual: AccionCliente): void {
     setAccion(cual);
@@ -172,26 +152,28 @@ export function CancelarRechazarPanel({ viaje }: { readonly viaje: ViajeSeguimie
 
   return (
     <>
-      <Card variant="outlined" padding="lg">
-        <CardHeader
-          title="Cancelar o rechazar"
-          subtitle="Puedes cancelar el viaje o rechazar el servicio mientras no haya salido."
-        />
-        <CardBody>
-          <Inline gap={3} wrap>
-            {puedeCancelar && (
-              <Button variant="danger" onClick={() => abrir('cancelar')}>
-                {META.cancelar.tituloBoton}
-              </Button>
-            )}
-            {puedeRechazar && (
-              <Button variant="secondary" onClick={() => abrir('rechazar')}>
-                {META.rechazar.tituloBoton}
-              </Button>
-            )}
-          </Inline>
-        </CardBody>
-      </Card>
+      {hayAcciones && (
+        <Card variant="outlined" padding="lg">
+          <CardHeader
+            title="Cancelar o rechazar"
+            subtitle="Puedes cancelar el viaje o rechazar el servicio mientras no haya salido."
+          />
+          <CardBody>
+            <Inline gap={3} wrap>
+              {puedeCancelar && (
+                <Button variant="danger" onClick={() => abrir('cancelar')}>
+                  {META.cancelar.tituloBoton}
+                </Button>
+              )}
+              {puedeRechazar && (
+                <Button variant="secondary" onClick={() => abrir('rechazar')}>
+                  {META.rechazar.tituloBoton}
+                </Button>
+              )}
+            </Inline>
+          </CardBody>
+        </Card>
+      )}
 
       <Modal
         open={meta !== null}

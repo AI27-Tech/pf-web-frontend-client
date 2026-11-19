@@ -399,17 +399,17 @@ describe('ViajeDetailSection — aviso de emergencia activa', () => {
 
 describe('ViajeDetailSection — activación de emergencia según el hito', () => {
   it.each(['EN_TRANSITO', 'EN_DESTINO', 'EN_DESCARGA'])(
-    '%s ofrece "Activar emergencia"',
+    '%s habilita "Activar emergencia"',
     async (estado) => {
       await render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
-      expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeEnabled();
     },
   );
 
-  it.each(['ASIGNADO', 'EN_EMBARQUE'])('%s no la ofrece', async (estado) => {
+  it.each(['ASIGNADO', 'EN_EMBARQUE'])('%s la muestra deshabilitada', async (estado) => {
     await render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
     await screen.findByText('Sin emergencias en este viaje.');
-    expect(screen.queryByRole('button', { name: 'Activar emergencia' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activar emergencia' })).toBeDisabled();
   });
 });
 
