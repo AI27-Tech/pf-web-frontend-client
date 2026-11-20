@@ -7,6 +7,7 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
+import { PageHeader, Stack } from '@ai27-tech/ui';
 import { NuevaSolicitudForm } from '@/features/viajes/NuevaSolicitudForm';
 
 export const Route = createFileRoute('/_private/viajes/new')({
@@ -20,15 +21,12 @@ export const Route = createFileRoute('/_private/viajes/new')({
 
 function NuevoViajePage() {
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <p className="text-on-surface-variant text-xs">Solicitar Servicio</p>
-        <h1 className="text-on-surface text-2xl font-bold sm:text-3xl">Solicitar nuevo servicio</h1>
-        <p className="text-on-surface-variant text-sm">
-          Indica el origen, el destino y el tipo de servicio para crear una solicitud.
-        </p>
-      </header>
+    <Stack gap={6} className="mx-auto w-full max-w-6xl">
+      <PageHeader
+        title="Solicitar nuevo servicio"
+        description="Indica el origen, el destino y el tipo de servicio para crear una solicitud."
+      />
       <NuevaSolicitudForm />
-    </div>
+    </Stack>
   );
 }

@@ -17,7 +17,7 @@
 
 import { useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from 'react';
 import { GripVertical, MapPin } from 'lucide-react';
-import { Button, FormField, Input } from '@ai27-tech/ui';
+import { Button, Card, FormField, Input } from '@ai27-tech/ui';
 import type { DestinoIntermedio } from './ordenDestinos';
 
 interface DestinosIntermediosProps {
@@ -90,8 +90,10 @@ export function DestinosIntermedios({
         const arrastrado = arrastrandoId === destino.id;
         const objetivo = sobreId === destino.id && arrastrandoId !== null && !arrastrado;
         return (
-          <div
+          <Card
             key={destino.id}
+            variant="outlined"
+            padding="md"
             data-destino={destino.id}
             onDragOver={(evento) => {
               if (arrastrandoId === null) return;
@@ -100,61 +102,59 @@ export function DestinosIntermedios({
               if (sobreId !== destino.id) setSobreId(destino.id);
             }}
             onDrop={(evento) => alSoltar(evento, indice)}
-            className={
-              'border-outline-variant relative flex gap-3 rounded border p-4 transition-opacity ' +
-              (arrastrado ? 'opacity-50 ' : '') +
-              (objetivo ? 'ring-primary ring-2' : '')
-            }
+            className={(arrastrado ? 'opacity-50 ' : '') + (objetivo ? 'ring-primary ring-2' : '')}
           >
-            {reordenable && (
-              <span
-                role="button"
-                tabIndex={0}
-                draggable
-                data-control-orden={destino.id}
-                aria-label={`Reordenar destino ${numero}`}
-                aria-describedby={ID_AYUDA_ORDEN}
-                onDragStart={(evento) => {
-                  evento.dataTransfer.effectAllowed = 'move';
-                  // Firefox no inicia el arrastre si no se escribe algún dato.
-                  evento.dataTransfer.setData('text/plain', destino.id);
-                  const tarjeta = evento.currentTarget.closest<HTMLElement>('[data-destino]');
-                  if (tarjeta !== null) evento.dataTransfer.setDragImage(tarjeta, 16, 16);
-                  setArrastrandoId(destino.id);
-                }}
-                onDragEnd={terminarArrastre}
-                onKeyDown={(evento) => alPresionarTecla(evento, indice)}
-                className="text-on-surface-variant hover:text-on-surface focus-visible:outline-primary mt-8 flex h-9 shrink-0 cursor-grab items-center rounded focus-visible:outline-2 active:cursor-grabbing"
-              >
-                <GripVertical aria-hidden="true" className="size-5" />
-              </span>
-            )}
+            <div className="relative flex gap-3">
+              {reordenable && (
+                <span
+                  role="button"
+                  tabIndex={0}
+                  draggable
+                  data-control-orden={destino.id}
+                  aria-label={`Reordenar destino ${numero}`}
+                  aria-describedby={ID_AYUDA_ORDEN}
+                  onDragStart={(evento) => {
+                    evento.dataTransfer.effectAllowed = 'move';
+                    // Firefox no inicia el arrastre si no se escribe algún dato.
+                    evento.dataTransfer.setData('text/plain', destino.id);
+                    const tarjeta = evento.currentTarget.closest<HTMLElement>('[data-destino]');
+                    if (tarjeta !== null) evento.dataTransfer.setDragImage(tarjeta, 16, 16);
+                    setArrastrandoId(destino.id);
+                  }}
+                  onDragEnd={terminarArrastre}
+                  onKeyDown={(evento) => alPresionarTecla(evento, indice)}
+                  className="text-on-surface-variant hover:text-on-surface focus-visible:outline-primary mt-8 flex h-9 shrink-0 cursor-grab items-center rounded focus-visible:outline-2 active:cursor-grabbing"
+                >
+                  <GripVertical aria-hidden="true" className="size-5" />
+                </span>
+              )}
 
-            {/* El botón se superpone a la fila de la etiqueta, a la derecha. */}
-            <div className="absolute top-2 right-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onQuitar(indice)}
-                aria-label={`Quitar destino ${numero}`}
-              >
-                Quitar
-              </Button>
-            </div>
+              {/* El botón se superpone a la fila de la etiqueta, a la derecha. */}
+              <div className="absolute top-2 right-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onQuitar(indice)}
+                  aria-label={`Quitar destino ${numero}`}
+                >
+                  Quitar
+                </Button>
+              </div>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-3">
-              <FormField label={`Destino ${numero}`} required>
-                <Input
-                  value={destino.nombre}
-                  onChange={(evento) => onActualizar(indice, evento.target.value)}
-                  placeholder="Ciudad o sitio del destino"
-                  startAdornment={ICONO_UBICACION}
-                  required
-                />
-              </FormField>
+              <div className="flex min-w-0 flex-1 flex-col gap-3">
+                <FormField label={`Destino ${numero}`} required>
+                  <Input
+                    value={destino.nombre}
+                    onChange={(evento) => onActualizar(indice, evento.target.value)}
+                    placeholder="Ciudad o sitio del destino"
+                    startAdornment={ICONO_UBICACION}
+                    required
+                  />
+                </FormField>
+              </div>
             </div>
-          </div>
+          </Card>
         );
       })}
     </div>

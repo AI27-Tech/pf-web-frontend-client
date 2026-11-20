@@ -11,15 +11,18 @@
  * más alta que ya tenemos, de modo que cada vuelta trae SOLO lo nuevo y la lista crece
  * sin recargar toda la historia ni perder el orden.
  *
- * Envío idempotente: el `client_message_id` se genera POR INTENTO (al enviar), no por
- * render. Un reintento técnico de la MISMA mutación reusa ese id → el servidor devuelve
- * el mensaje original y no se duplica; un envío nuevo genera otro id → otro mensaje. El
+ * Envío idempotente: el `client_message_id` lo genera el compositor de la librería POR
+ * INTENTO (al enviar), no por render, y llega aquí en las variables de la mutación. Un
+ * reintento de la MISMA mutación (o "Reintentar" de un envío fallido) reusa ese id → el
+ * servidor devuelve el mensaje original y no se duplica; un envío nuevo trae otro id →
+ * otro mensaje. El
  * mensaje confirmado se fusiona en la caché por secuencia de dominio (dedup incluido), y
  * el polling lo confirmará de todos modos en la siguiente vuelta.
  */
 
 import { useCallback, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { EnviarMensajeEntrada } from '@ai27-tech/ui';
 import {
   enviarMensajeViaje,
   listarMensajesViaje,
@@ -99,12 +102,13 @@ export function useConversacion(viajeId: string) {
 
   const enviar = useMutation({
     /*
-     * `client_message_id` POR INTENTO: lo genera la mutación, no el componente. Un
-     * reintento de ESTA misma mutación (p. ej. la red falló y Query reintenta) reusa el
-     * mismo id → no duplica; un envío nuevo entra aquí otra vez y genera otro.
+     * `client_message_id` POR INTENTO: lo trae la variable de la mutación (lo genera el
+     * compositor al enviar). Un reintento de ESTA misma mutación (p. ej. la red falló y
+     * Query reintenta, o el usuario pulsa "Reintentar") reusa el mismo id → no duplica;
+     * un envío nuevo trae otro.
      */
-    mutationFn: (cuerpo: string) =>
-      enviarMensajeViaje(viajeId, { cuerpo, clientMessageId: crypto.randomUUID() }),
+    mutationFn: ({ cuerpo, clientMessageId }: EnviarMensajeEntrada) =>
+      enviarMensajeViaje(viajeId, { cuerpo, clientMessageId }),
     onSuccess: (mensaje) => {
       // El mensaje confirmado se fusiona en la caché por secuencia (dedup incluido): si
       // el polling ya lo trajo, `orderByDomainSequence` no lo duplica.

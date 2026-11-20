@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { listViajes } from '@/lib/api/viajes';
 import { HistorialViajesSection } from '@/features/viajes/historial/HistorialViajesSection';
-import { ErrorState, Spinner } from '@/components/ui/Feedback';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { validarFiltroEstado } from '@/features/viajes/filtroEstado';
 
 /*
@@ -19,7 +19,7 @@ export const Route = createFileRoute('/_private/viajes/')({
   loaderDeps: ({ search }) => ({ estado: search.estado }),
   loader: ({ deps }) => listViajes(deps.estado !== undefined ? { estado: deps.estado } : {}),
   component: ViajesPage,
-  pendingComponent: () => <Spinner label="Cargando viajes" />,
+  pendingComponent: ViajesPendiente,
   errorComponent: ({ error }) => <ErrorState error={error} />,
 });
 
@@ -27,9 +27,10 @@ function ViajesPage() {
   const viajes = Route.useLoaderData();
   const { estado } = Route.useSearch();
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <HistorialViajesSection viajes={viajes} estado={estado} />
-    </div>
-  );
+  return <HistorialViajesSection viajes={viajes} estado={estado} />;
+}
+
+function ViajesPendiente() {
+  const { estado } = Route.useSearch();
+  return <HistorialViajesSection viajes={[]} estado={estado} cargando />;
 }

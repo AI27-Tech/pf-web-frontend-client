@@ -31,7 +31,26 @@
 
 import { useMemo, useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
-import { Badge, Button, Card, CardBody, FormField, Modal, Select, Textarea } from '@ai27-tech/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  DescriptionList,
+  EmptyState,
+  Form,
+  FormActions,
+  FormField,
+  Inline,
+  Modal,
+  Section,
+  Select,
+  SkeletonText,
+  Stack,
+  Textarea,
+} from '@ai27-tech/ui';
 import { NOTA_EMERGENCIA_MAX_CHARS } from '@/lib/constants';
 import { isApiError } from '@/lib/api/errors';
 import { EstadoViaje, type EmergenciaCliente } from '@/lib/contracts';
@@ -129,129 +148,109 @@ export function EmergenciaPanel({
     cuerpoRecortado.length >= 1 && cuerpoRecortado.length <= NOTA_EMERGENCIA_MAX_CHARS;
 
   return (
-    <Card variant="outlined" padding="lg" className="border-error/40 bg-error/5">
-      <CardBody className="flex flex-col gap-4">
-        <header className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-on-surface flex items-center gap-2 text-base font-semibold">
-              <TriangleAlert aria-hidden="true" className="text-error size-4" />
-              Emergencia
-            </h2>
-            {puedeActivar && (
-              <Button
-                variant="danger"
-                onClick={() => setConfirmando(true)}
-                loading={activar.isPending}
-              >
-                Activar emergencia
-              </Button>
-            )}
+    <Card variant="outlined" padding="lg">
+      <CardHeader
+        media={<TriangleAlert aria-hidden="true" className="text-error" />}
+        title="Emergencia"
+        subtitle={
+          emergenciaActiva
+            ? 'Hay una emergencia activa en este viaje.'
+            : enRecorrido
+              ? 'Si tu unidad está en riesgo, actívala solo en caso real: notifica de inmediato a la central.'
+              : 'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.'
+        }
+      >
+        {emergenciaActiva && <p>Podrás activar otra cuando la emergencia actual esté resuelta.</p>}
+      </CardHeader>
+      <CardBody>
+        <Stack gap={4}>
+          {/* Siempre visible; deshabilitado fuera del recorrido o con un caso sin resolver. */}
+          <div>
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={!puedeActivar}
+              onClick={() => setConfirmando(true)}
+              loading={activar.isPending}
+            >
+              Activar emergencia
+            </Button>
           </div>
-          <p className="text-on-surface-variant text-sm">
-            {emergenciaActiva
-              ? 'Hay una emergencia activa en este viaje.'
-              : enRecorrido
-                ? 'Si tu unidad está en riesgo, actívala solo en caso real: notifica de inmediato a la central.'
-                : 'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.'}
-          </p>
-          {emergenciaActiva && (
-            <p className="text-on-surface-variant text-sm">
-              Podrás activar otra cuando la emergencia actual esté resuelta.
-            </p>
+          {activar.isError && (
+            <Alert variant="danger">{mensajeErrorActivacion(activar.error)}</Alert>
           )}
-        </header>
-        {activar.isError && (
-          <p role="alert" className="text-error text-sm">
-            {mensajeErrorActivacion(activar.error)}
-          </p>
-        )}
 
-        {casos.length === 0 ? (
-          <p className="text-on-surface-variant text-sm">Sin emergencias en este viaje.</p>
-        ) : (
-          <section aria-labelledby="emergencia-casos" className="flex flex-col gap-3">
-            <h3
-              id="emergencia-casos"
-              className="text-on-surface-variant text-xs font-semibold tracking-wider uppercase"
-            >
-              Casos
-            </h3>
-            <ul className="flex flex-col gap-2">
-              {casos.map((caso) => (
-                <li
-                  key={caso.id}
-                  className="border-error/20 bg-error/5 flex items-center justify-between gap-3 rounded-md border px-3 py-2.5 text-sm"
-                >
-                  {/* Identificado SOLO por fecha/hora + estado: nada interno. */}
-                  <span className="text-on-surface">{formatDateTime(caso.activada_en)}</span>
-                  <Badge variant={caso.estado === 'resuelta' ? 'secure' : 'warning'} pill>
-                    {etiquetaEstado(caso.estado)}
-                  </Badge>
-                </li>
-              ))}
-            </ul>
-
-            <form
-              className="flex flex-col gap-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                enviarNota();
-              }}
-            >
-              {/* Selector SOLO cuando coexisten varios casos. Identifica por fecha/hora. */}
-              {casos.length > 1 && (
-                <FormField label="Caso">
-                  <div role="group" aria-label="Caso de emergencia">
-                    <Select
-                      value={casoDestino?.id ?? ''}
-                      onChange={(valor) => setCasoSeleccionado(String(valor))}
-                      options={casos.map((caso) => ({
-                        value: caso.id,
-                        label: formatDateTime(caso.activada_en),
-                      }))}
-                    />
-                  </div>
-                </FormField>
-              )}
-
-              <FormField label="Nota (opcional)">
-                <Textarea
-                  value={nota}
-                  onChange={(event) => setNota(event.target.value)}
-                  rows={3}
-                  maxLength={NOTA_EMERGENCIA_MAX_CHARS}
-                  placeholder="Describe la situación (opcional)"
-                  aria-label="Nota de emergencia"
+          {consulta.isPending ? (
+            <SkeletonText lines={2} />
+          ) : casos.length === 0 ? (
+            <EmptyState size="sm" title="Sin emergencias en este viaje." />
+          ) : (
+            <Section title="Casos">
+              <Stack gap={3}>
+                {/* Identificado SOLO por fecha/hora + estado: nada interno. */}
+                <DescriptionList
+                  columns={1}
+                  orientation="horizontal"
+                  items={casos.map((caso) => ({
+                    label: formatDateTime(caso.activada_en),
+                    value: (
+                      <Badge variant={caso.estado === 'resuelta' ? 'secure' : 'warning'} pill>
+                        {etiquetaEstado(caso.estado)}
+                      </Badge>
+                    ),
+                  }))}
                 />
-              </FormField>
 
-              {avisoNota !== null && (
-                <p role="alert" className="text-error text-sm">
-                  {avisoNota}
-                </p>
-              )}
-              {agregarNota.isError && (
-                <p role="alert" className="text-error text-sm">
-                  No pudimos guardar la nota. Intenta de nuevo.
-                </p>
-              )}
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-on-surface-variant text-xs">
-                  {cuerpoRecortado.length}/{NOTA_EMERGENCIA_MAX_CHARS}
-                </span>
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  loading={agregarNota.isPending}
-                  disabled={!notaEnviable}
+                <Form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    enviarNota();
+                  }}
                 >
-                  Agregar nota
-                </Button>
-              </div>
-            </form>
-          </section>
-        )}
+                  {/* Selector SOLO cuando coexisten varios casos. Identifica por fecha/hora. */}
+                  {casos.length > 1 && (
+                    <FormField label="Caso de emergencia">
+                      <Select
+                        value={casoDestino?.id ?? ''}
+                        onChange={(valor) => setCasoSeleccionado(String(valor))}
+                        options={casos.map((caso) => ({
+                          value: caso.id,
+                          label: formatDateTime(caso.activada_en),
+                        }))}
+                      />
+                    </FormField>
+                  )}
+
+                  <FormField label="Nota de emergencia" showOptional error={avisoNota ?? undefined}>
+                    <Textarea
+                      value={nota}
+                      onChange={(event) => setNota(event.target.value)}
+                      rows={3}
+                      maxLength={NOTA_EMERGENCIA_MAX_CHARS}
+                      showCount
+                      placeholder="Describe la situación (opcional)"
+                    />
+                  </FormField>
+
+                  {agregarNota.isError && (
+                    <Alert variant="danger">No pudimos guardar la nota. Intenta de nuevo.</Alert>
+                  )}
+
+                  <FormActions>
+                    <Button
+                      type="submit"
+                      variant="secondary"
+                      loading={agregarNota.isPending}
+                      disabled={!notaEnviable}
+                    >
+                      Agregar nota
+                    </Button>
+                  </FormActions>
+                </Form>
+              </Stack>
+            </Section>
+          )}
+        </Stack>
       </CardBody>
 
       <Modal
@@ -259,17 +258,17 @@ export function EmergenciaPanel({
         onClose={() => setConfirmando(false)}
         title="Activar emergencia"
         footer={
-          <div className="flex justify-end gap-3">
+          <Inline gap={3} justify="end">
             <Button variant="ghost" onClick={() => setConfirmando(false)}>
               Cancelar
             </Button>
             <Button variant="danger" onClick={confirmarActivacion} loading={activar.isPending}>
               Activar ahora
             </Button>
-          </div>
+          </Inline>
         }
       >
-        <p className="text-on-surface text-sm">
+        <p>
           Se activará una emergencia para este viaje y el equipo de AI27 será notificado de
           inmediato. ¿Quieres continuar?
         </p>

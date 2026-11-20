@@ -19,7 +19,7 @@ test.describe('cancelar · carril cliente', () => {
     // viaje-3 arranca en SOLICITADO en el mock: dentro de la ventana de cancelación.
     await page.goto('/viajes/viaje-3');
 
-    const seccion = page.getByRole('heading', { name: 'Cancelar o rechazar', level: 2 });
+    const seccion = page.getByRole('heading', { name: 'Cancelar o rechazar' });
     await expect(seccion).toBeVisible();
 
     // En SOLICITADO se ofrece cancelar; rechazar (solo asignado) NO se ofrece.
@@ -36,10 +36,10 @@ test.describe('cancelar · carril cliente', () => {
     await expect(confirmar).toBeEnabled();
     await confirmar.click();
 
-    // Tras el 200, la vista refresca con el estado nuevo (sin un segundo GET): la
-    // sección de cancelar deja de ofrecer botones y explica que el viaje ya finalizó.
+    // Tras el 200, la vista refresca con el estado nuevo (sin un segundo GET): la tarjeta
+    // de cancelar deja de pintarse porque la acción ya no está permitida.
     // (El estado «Cancelado» aparece tanto en el chip del encabezado como en el hito.)
-    await expect(page.getByText(/ya finalizó/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cancelar o rechazar' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Cancelar viaje' })).toBeHidden();
     await expect(page.getByText('Cancelado').first()).toBeVisible();
   });

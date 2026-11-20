@@ -16,6 +16,8 @@
  * pantalla no pinta el progreso; el estado ya lo dice la etiqueta junto al título.
  */
 
+import type { TimelineItemData, TimelineStatus } from '@ai27-tech/ui';
+
 export const PASOS_VIAJE = ['Solicitado', 'Confirmado', 'En tránsito', 'Entregado'] as const;
 
 /** Índice (en `PASOS_VIAJE`) del paso actual del viaje, o `null` si no está en el recorrido. */
@@ -53,4 +55,21 @@ export function situacionDePasos(paso: number): readonly SituacionPaso[] {
     if (indice === paso) return paso === ultimo ? 'hecho' : 'actual';
     return 'pendiente';
   });
+}
+
+const ESTADO_EN_TIMELINE: Readonly<Record<SituacionPaso, TimelineStatus>> = {
+  hecho: 'completed',
+  actual: 'current',
+  pendiente: 'upcoming',
+};
+
+export function recorridoDelViaje(estado: string): TimelineItemData[] | null {
+  const paso = pasoDelViaje(estado);
+  if (paso === null) return null;
+  const situaciones = situacionDePasos(paso);
+  return PASOS_VIAJE.map((nombre, indice) => ({
+    id: nombre,
+    title: nombre,
+    status: ESTADO_EN_TIMELINE[situaciones[indice] ?? 'pendiente'],
+  }));
 }

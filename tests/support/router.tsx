@@ -13,6 +13,8 @@
 
 import type { ReactNode } from 'react';
 import { render } from '@testing-library/react';
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
+import { makeTestQueryClient } from './query';
 import {
   Outlet,
   RouterProvider,
@@ -25,7 +27,7 @@ import {
 /** Destinos que los componentes del panel enlazan. Ampliar cuando aparezcan mas. */
 const RUTAS_DE_PRUEBA = ['/viajes', '/viajes/new', '/viajes/$viajeId'] as const;
 
-export function renderConRouter(ui: ReactNode) {
+export function renderConRouter(ui: ReactNode, client: QueryClient = makeTestQueryClient()) {
   const rootRoute = createRootRoute({ component: () => <Outlet /> });
 
   const indexRoute = createRoute({
@@ -47,5 +49,9 @@ export function renderConRouter(ui: ReactNode) {
     history: createMemoryHistory({ initialEntries: ['/'] }),
   });
 
-  return render(<RouterProvider router={router} />);
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  );
 }

@@ -79,7 +79,7 @@ test.describe('viajes', () => {
     await expect(page.getByRole('heading', { name: 'Incidencias' })).toBeVisible();
     await expect(page.getByText(/Incidencia de seguridad/i)).toBeVisible();
     // El ETA de viaje-2 está marcado obsoleto.
-    await expect(page.getByText('(obsoleto)')).toBeVisible();
+    await expect(page.getByText('Obsoleto')).toBeVisible();
   });
 
   test('solicitar un servicio abre el formulario mínimo de alta', async ({ page }) => {

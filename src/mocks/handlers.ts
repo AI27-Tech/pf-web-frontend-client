@@ -33,8 +33,12 @@ import {
   type MensajeClienteWireMock,
 } from './data';
 
-/** Latencia artificial: sin ella los estados de carga nunca se ven. */
-const LATENCY_MS = 250;
+/**
+ * Latencia artificial: sin ella los estados de carga nunca se ven. Debe superar el
+ * `defaultPendingMs` del router (150 ms, ver `app/router.tsx`) para que los esqueletos y la
+ * barra de carga alcancen a pintarse; con menos, la pantalla llega antes de que aparezcan.
+ */
+const LATENCY_MS = 900;
 
 export const handlers = [
   // --- Sesion -------------------------------------------------------------------

@@ -44,7 +44,7 @@ function renderPaso(carga: DatosCarga = CARGA_VACIA) {
 describe('PasoDetalles', () => {
   it('elegir categoria despacha a la seccion carga', () => {
     const dispatch = renderPaso();
-    fireEvent.click(screen.getByRole('button', { name: 'Seleccione una categoría' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Categoría de la carga' }));
     fireEvent.click(screen.getByRole('button', { name: 'Electrónicos' }));
     expect(dispatch).toHaveBeenCalledWith({
       tipo: 'carga',

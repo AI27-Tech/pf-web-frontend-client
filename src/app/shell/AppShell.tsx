@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, RotateCcwClock, ShieldHalf, SquarePlus, type LucideIcon } from 'lucide-react';
-import { Button, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
+import {
+  LogOut,
+  RotateCcwClock,
+  Settings,
+  ShieldHalf,
+  SquarePlus,
+  type LucideIcon,
+} from 'lucide-react';
+import { Button, Inline, Modal, Sidebar, SidebarGroup, SidebarItem } from '@ai27-tech/ui';
 import { useSession } from '@/context/SessionContext';
+import { ProveedorRanuraPanelLateral, RanuraPanelLateral } from './PanelLateral';
 
 type NavItem = {
   readonly to: string;
@@ -47,6 +55,18 @@ const nav: readonly NavItem[] = [
   // conversacion), que es donde el contrato la ancla. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
 ];
 
+function MarcaAI27() {
+  return (
+    <>
+      <ShieldHalf aria-hidden="true" className="text-primary size-6 shrink-0" />
+      <div className="flex flex-col leading-tight">
+        <span className="text-base font-bold">AI27</span>
+        <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
+      </div>
+    </>
+  );
+}
+
 /**
  * Decide si un item esta activo para el pathname actual.
  * - exact: coincide solo la ruta identica (evita que un prefijo active a un hijo).
@@ -67,6 +87,8 @@ export function AppShell() {
   const { logout } = useSession();
   const [cerrandoSesion, setCerrandoSesion] = useState(false);
   const [colapsado, setColapsado] = useState(false);
+  const [ajustesAbiertos, setAjustesAbiertos] = useState(false);
+  const [ranuraPanel, setRanuraPanel] = useState<HTMLElement | null>(null);
 
   async function cerrarSesion(): Promise<void> {
     if (cerrandoSesion) return;
@@ -80,6 +102,7 @@ export function AppShell() {
       await navigate({ to: '/login' });
       queryClient.clear();
       setCerrandoSesion(false);
+      setAjustesAbiertos(false);
     }
   }
 
@@ -94,76 +117,90 @@ export function AppShell() {
     // El documento scrollea de forma normal (`min-h-dvh`, sin recortar el overflow): el
     // Sidebar se queda a la vista porque es `sticky`, no porque el shell fije la altura.
     // Nada de overflow en el contenedor, o el `position: sticky` del sidebar no pegaria.
-    <div className="flex min-h-dvh">
-      {/*
-       * El STICKY y el alto viven en este wrapper, NO en el Sidebar. El Sidebar de la
-       * libreria trae `height:100%` en su CSS; si le pusieramos `h-dvh` competiria con
-       * esa regla (carrera de especificidad entre la utilidad y el CSS Module) y el alto
-       * quedaba indeterminado -> a veces media pantalla. En su lugar, el wrapper es quien
-       * define alto de viewport y pegado, y el Sidebar toma `h-full` (su `height:100%`
-       * resuelve contra el wrapper, que ya tiene alto real).
-       *
-       * `shrink-0`: el Sidebar fija `width:15rem` pero no trae `flex-shrink:0`; sin esto
-       * el <main> lo comprimiria dentro del flex-row.
-       */}
-      <div className="sticky top-0 h-dvh shrink-0 self-start">
-        <Sidebar
-          className="h-full"
-          collapsed={colapsado}
-          onToggleCollapse={() => setColapsado((actual) => !actual)}
-          header={
-            <div className="flex items-center gap-3">
-              <ShieldHalf className="size-6 shrink-0" />
-              {!colapsado && (
-                <div className="flex flex-col leading-tight">
-                  <span className="text-base font-bold">AI27</span>
-                  <span className="text-xs font-semibold opacity-70">Seguridad Logística</span>
-                </div>
-              )}
-            </div>
-          }
-          footer={
-            <Button
-              variant="secondary"
-              fullWidth
-              startIcon={<LogOut aria-hidden="true" />}
-              loading={cerrandoSesion}
-              onClick={() => void cerrarSesion()}
-              aria-label="Cerrar sesión"
-              title="Cerrar sesión"
-            >
-              {!colapsado && 'Cerrar sesión'}
-            </Button>
-          }
-        >
-          <SidebarGroup>
-            {nav.map(({ to, label, icon: Icon, exact = false }) => {
-              const active = isItemActive(pathname, to, exact) && (exact || !claimedByExact);
-              return (
-                <SidebarItem
-                  key={to}
-                  as={Link}
-                  label={label}
-                  active={active}
-                  icon={<Icon className="size-full" />}
-                  // `to` es una prop del Link de TanStack; SidebarItem la reenvia via `...props`
-                  // pero su tipo no la declara, de ahi el cast puntual.
-                  {...({ to } as { to: string })}
-                >
-                  {label}
-                </SidebarItem>
-              );
-            })}
-          </SidebarGroup>
-        </Sidebar>
-      </div>
+    <ProveedorRanuraPanelLateral ranura={ranuraPanel}>
+      <div className="flex min-h-dvh">
+        {/*
+         * El STICKY y el alto viven en este wrapper, NO en el Sidebar. El Sidebar de la
+         * libreria trae `height:100%` en su CSS; si le pusieramos `h-dvh` competiria con
+         * esa regla (carrera de especificidad entre la utilidad y el CSS Module) y el alto
+         * quedaba indeterminado -> a veces media pantalla. En su lugar, el wrapper es quien
+         * define alto de viewport y pegado, y el Sidebar toma `h-full` (su `height:100%`
+         * resuelve contra el wrapper, que ya tiene alto real).
+         *
+         * `shrink-0`: el Sidebar fija `width:15rem` pero no trae `flex-shrink:0`; sin esto
+         * el <main> lo comprimiria dentro del flex-row.
+         */}
+        <div className="sticky top-0 h-dvh shrink-0 self-start">
+          <Sidebar
+            className="h-full"
+            collapsed={colapsado}
+            onToggleCollapse={() => setColapsado((actual) => !actual)}
+            aria-label="Principal"
+            header={<MarcaAI27 />}
+            headerCollapsed={<ShieldHalf aria-label="AI27" />}
+            footer={
+              <SidebarItem
+                label="Configuración"
+                icon={<Settings className="size-full" />}
+                aria-haspopup="dialog"
+                onClick={() => setAjustesAbiertos(true)}
+              >
+                Configuración
+              </SidebarItem>
+            }
+          >
+            <SidebarGroup>
+              {nav.map(({ to, label, icon: Icon, exact = false }) => {
+                const active = isItemActive(pathname, to, exact) && (exact || !claimedByExact);
+                return (
+                  <SidebarItem
+                    key={to}
+                    as={Link}
+                    label={label}
+                    active={active}
+                    icon={<Icon className="size-full" />}
+                    // `to` es una prop del Link de TanStack; SidebarItem la reenvia via `...props`
+                    // pero su tipo no la declara, de ahi el cast puntual.
+                    {...({ to } as { to: string })}
+                  >
+                    {label}
+                  </SidebarItem>
+                );
+              })}
+            </SidebarGroup>
+          </Sidebar>
+        </div>
 
-      {/* `min-w-0` deja que <main> se encoja dentro del flex-row (por defecto un item
+        {/* `min-w-0` deja que <main> se encoja dentro del flex-row (por defecto un item
           flex no baja de su ancho de contenido). No lleva scroll propio: el scroll es el
           del documento, y el sidebar lo acompaña como sticky. */}
-      <main id="contenido" className="flex w-full min-w-0 flex-1 flex-col px-4 py-6">
-        <Outlet />
-      </main>
-    </div>
+        <Modal
+          open={ajustesAbiertos}
+          onClose={() => setAjustesAbiertos(false)}
+          title="Configuración"
+          footer={
+            <Inline justify="between" align="center" gap={4} wrap className="w-full">
+              <Inline gap={3} align="center">
+                <MarcaAI27 />
+              </Inline>
+              <Button
+                variant="outline"
+                startIcon={<LogOut aria-hidden="true" />}
+                loading={cerrandoSesion}
+                onClick={() => void cerrarSesion()}
+              >
+                Cerrar sesión
+              </Button>
+            </Inline>
+          }
+        />
+
+        <main id="contenido" className="flex w-full min-w-0 flex-1 flex-col px-4 py-6">
+          <Outlet />
+        </main>
+
+        <RanuraPanelLateral refRanura={setRanuraPanel} />
+      </div>
+    </ProveedorRanuraPanelLateral>
   );
 }

@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { getViaje } from '@/lib/api/viajes';
+import { ConversacionPanel } from '@/features/conversacion/ConversacionPanel';
+import { ViajeDetailPendiente } from '@/features/viajes/ViajeDetailPendiente';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
 import { useViajeSeguimiento } from '@/features/viajes/useViajeSeguimiento';
-import { ErrorState, Spinner } from '@/components/ui/Feedback';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { validarFiltroEstado } from '@/features/viajes/filtroEstado';
 
 /*
@@ -16,7 +18,7 @@ export const Route = createFileRoute('/_private/viajes/$viajeId/')({
   validateSearch: validarFiltroEstado,
   loader: ({ params }) => getViaje(params.viajeId),
   component: ViajeDetailPage,
-  pendingComponent: () => <Spinner label="Cargando viaje" />,
+  pendingComponent: ViajeDetailCargando,
   errorComponent: ({ error }) => <ErrorState error={error} />,
 });
 
@@ -25,5 +27,17 @@ function ViajeDetailPage() {
   const { estado } = Route.useSearch();
   const { data: viaje } = useViajeSeguimiento(viajeId, Route.useLoaderData());
 
-  return <ViajeDetailSection viaje={viaje} estadoHistorial={estado} />;
+  return (
+    <ViajeDetailSection
+      viaje={viaje}
+      estadoHistorial={estado}
+      conversacion={<ConversacionPanel key={viajeId} viajeId={viajeId} />}
+    />
+  );
+}
+
+function ViajeDetailCargando() {
+  const { viajeId } = Route.useParams();
+  const { estado } = Route.useSearch();
+  return <ViajeDetailPendiente viajeId={viajeId} estadoHistorial={estado} />;
 }

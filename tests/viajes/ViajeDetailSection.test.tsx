@@ -15,33 +15,26 @@
  * fabrica una forma propia del portal.
  */
 
-import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { IncidenciaCurada, ViajeSeguimiento } from '@/lib/contracts';
 import { listEmergencias } from '@/lib/api/emergencias';
 import { ViajeDetailSection } from '@/features/viajes/ViajeDetailSection';
-import { renderConQuery as render } from '../support/query';
+import { renderConRouter } from '../support/router';
+import { ConRanuraPanelLateral } from '../support/panelLateral';
 
-/*
- * El detalle enlaza a la conversación del viaje (E9-T8) con un `Link` de TanStack. Aquí
- * no se prueba la navegación (eso lo cubre el e2e), así que se sustituye el `Link` por un
- * `<a>` simple para que la sección siga renderizando SIN un router en contexto —igual
- * que HistorialViajesTable.test.tsx—. El resto del módulo del router se conserva.
- */
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@tanstack/react-router')>();
-  return {
-    ...actual,
-    Link: ({
-      children,
-      className,
-    }: {
-      readonly children: ReactNode;
-      readonly className?: string;
-    }) => <a className={className}>{children}</a>,
-  };
-});
+async function render(ui: React.ReactElement): Promise<void> {
+  renderConRouter(ui);
+  await screen.findByRole('heading', { level: 1 });
+}
+
+/** La tarjeta de incidencias: el recorrido también es una lista, así que se acota. */
+function tarjetaIncidencias(): HTMLElement {
+  return screen
+    .getByRole('heading', { name: 'Incidencias' })
+    .closest('[data-variant]') as HTMLElement;
+}
 
 /*
  * El detalle ahora monta `EmergenciaPanel` (E9-T9), que pide sus casos al `bff`. Estas
@@ -106,15 +99,15 @@ function seguimientoConEta(eta: NonNullable<ViajeSeguimiento['eta']> | null): Vi
 }
 
 describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
-  it('sin incidencias: muestra el estado vacío y ninguna entrada', () => {
-    render(<ViajeDetailSection viaje={seguimiento([])} />);
+  it('sin incidencias: muestra el estado vacío y ninguna entrada', async () => {
+    await render(<ViajeDetailSection viaje={seguimiento([])} />);
 
     expect(screen.getByText('Sin incidencias reportadas.')).toBeInTheDocument();
-    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(within(tarjetaIncidencias()).queryByRole('list')).not.toBeInTheDocument();
   });
 
-  it('una incidencia en atención: muestra categoría, estado "En atención" y fecha', () => {
-    render(
+  it('una incidencia en atención: muestra categoría, estado "En atención" y fecha', async () => {
+    await render(
       <ViajeDetailSection
         viaje={seguimiento([
           {
@@ -126,15 +119,15 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
       />,
     );
 
-    const items = screen.getAllByRole('listitem');
+    const items = within(tarjetaIncidencias()).getAllByRole('listitem');
     expect(items).toHaveLength(1);
     expect(items[0]).toHaveTextContent(CATEGORIAS_CURADAS.seguridad);
     expect(items[0]).toHaveTextContent('En atención');
     expect(items[0]).not.toHaveTextContent('Resuelta');
   });
 
-  it('una incidencia resuelta: traduce el estado a "Resuelta"', () => {
-    render(
+  it('una incidencia resuelta: traduce el estado a "Resuelta"', async () => {
+    await render(
       <ViajeDetailSection
         viaje={seguimiento([
           {
@@ -146,14 +139,14 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
       />,
     );
 
-    const item = screen.getByRole('listitem');
+    const item = within(tarjetaIncidencias()).getByRole('listitem');
     expect(item).toHaveTextContent(CATEGORIAS_CURADAS.falla);
     expect(item).toHaveTextContent('Resuelta');
     expect(item).not.toHaveTextContent('En atención');
   });
 
-  it('varias incidencias: renderiza una entrada por cada una, en orden', () => {
-    render(
+  it('varias incidencias: renderiza una entrada por cada una, en orden', async () => {
+    await render(
       <ViajeDetailSection
         viaje={seguimiento([
           {
@@ -175,15 +168,15 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
       />,
     );
 
-    const items = screen.getAllByRole('listitem');
+    const items = within(tarjetaIncidencias()).getAllByRole('listitem');
     expect(items).toHaveLength(3);
     expect(items[0]).toHaveTextContent(CATEGORIAS_CURADAS.seguridad);
     expect(items[1]).toHaveTextContent(CATEGORIAS_CURADAS.retraso);
     expect(items[2]).toHaveTextContent(CATEGORIAS_CURADAS.perdidaContacto);
   });
 
-  it('incidencia con impacto en el ETA: muestra el impacto cuando el contrato lo trae', () => {
-    render(
+  it('incidencia con impacto en el ETA: muestra el impacto cuando el contrato lo trae', async () => {
+    await render(
       <ViajeDetailSection
         viaje={seguimiento([
           {
@@ -196,12 +189,12 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
       />,
     );
 
-    const item = screen.getByRole('listitem');
+    const item = within(tarjetaIncidencias()).getByRole('listitem');
     expect(item).toHaveTextContent('Impacto en el ETA: +45 min');
   });
 
-  it('impacto_eta null o ausente: no pinta la línea de impacto ni texto de relleno', () => {
-    render(
+  it('impacto_eta null o ausente: no pinta la línea de impacto ni texto de relleno', async () => {
+    await render(
       <ViajeDetailSection
         viaje={seguimiento([
           {
@@ -222,10 +215,10 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
     expect(screen.queryByText(/Impacto en el ETA/i)).not.toBeInTheDocument();
   });
 
-  it('invariante de seguridad (DEC-006): nunca filtra el tipo técnico interno', () => {
+  it('invariante de seguridad (DEC-006): nunca filtra el tipo técnico interno', async () => {
     // Un seguimiento con incidencias de las cinco categorías curadas. Pase lo que pase,
     // el DOM no debe contener ningún nombre técnico del catálogo interno.
-    render(
+    await render(
       <ViajeDetailSection
         viaje={seguimiento([
           {
@@ -258,7 +251,7 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
       />,
     );
 
-    const lista = screen.getByRole('list');
+    const lista = within(tarjetaIncidencias()).getByRole('list');
     const textoVisible = lista.textContent ?? '';
 
     for (const tecnico of NOMBRES_TECNICOS_INTERNOS) {
@@ -284,20 +277,20 @@ describe('ViajeDetailSection — incidencias curadas (E9-T6)', () => {
  * cuánto llega este dato; la forma de pintarlo es la que se fija aquí.
  */
 describe('ViajeDetailSection — frescura del ETA (E9-T5)', () => {
-  it('ETA presente y al día: muestra la fecha sin la marca de obsolescencia', () => {
-    render(
+  it('ETA presente y al día: muestra la fecha sin la marca de obsolescencia', async () => {
+    await render(
       <ViajeDetailSection
         viaje={seguimientoConEta({ valor: '2026-10-23T18:00:00Z', obsoleto: false })}
       />,
     );
 
     const grupo = screen.getByText('ETA estimado').closest('div') as HTMLElement;
-    expect(within(grupo).queryByText('(obsoleto)')).not.toBeInTheDocument();
+    expect(within(grupo).queryByText('Obsoleto')).not.toBeInTheDocument();
     expect(within(grupo).queryByText('Sin ETA')).not.toBeInTheDocument();
   });
 
-  it('ETA presente pero obsoleto: conserva la fecha y añade la marca "(obsoleto)"', () => {
-    render(
+  it('ETA presente pero obsoleto: conserva la fecha y añade la marca "Obsoleto"', async () => {
+    await render(
       <ViajeDetailSection
         viaje={seguimientoConEta({ valor: '2026-10-23T18:00:00Z', obsoleto: true })}
       />,
@@ -305,16 +298,16 @@ describe('ViajeDetailSection — frescura del ETA (E9-T5)', () => {
 
     const grupo = screen.getByText('ETA estimado').closest('div') as HTMLElement;
     // No se oculta el dato viejo: se etiqueta. Esa es la invariante de ADR 20/27.
-    expect(within(grupo).getByText('(obsoleto)')).toBeInTheDocument();
+    expect(within(grupo).getByText('Obsoleto')).toBeInTheDocument();
     expect(within(grupo).queryByText('Sin ETA')).not.toBeInTheDocument();
   });
 
-  it('ETA ausente (null): muestra "Sin ETA" y no inventa marca ni posición', () => {
-    render(<ViajeDetailSection viaje={seguimientoConEta(null)} />);
+  it('ETA ausente (null): muestra "Sin ETA" y no inventa marca ni posición', async () => {
+    await render(<ViajeDetailSection viaje={seguimientoConEta(null)} />);
 
     const grupo = screen.getByText('ETA estimado').closest('div') as HTMLElement;
     expect(within(grupo).getByText('Sin ETA')).toBeInTheDocument();
-    expect(within(grupo).queryByText('(obsoleto)')).not.toBeInTheDocument();
+    expect(within(grupo).queryByText('Obsoleto')).not.toBeInTheDocument();
   });
 });
 
@@ -332,54 +325,50 @@ function seguimientoEnEstado(estado: string): ViajeSeguimiento {
 }
 
 describe('ViajeDetailSection — recorrido del viaje', () => {
-  it('pinta los cuatro pasos y marca el actual con aria-current', () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
+  const recorrido = (): HTMLElement => screen.getByRole('list', { name: 'Progreso del viaje' });
 
-    const recorrido = screen.getByRole('group', { name: 'Progreso del viaje' });
-    for (const paso of ['Solicitado', 'Confirmado', 'En tránsito', 'Entregado']) {
-      expect(within(recorrido).getByText(new RegExp(paso))).toBeInTheDocument();
-    }
-    const actual = recorrido.querySelector('[aria-current="step"]');
+  it('pinta los cuatro pasos y marca el actual con aria-current', async () => {
+    await render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
+    const pasos = within(recorrido()).getAllByRole('listitem');
+    expect(pasos).toHaveLength(4);
+    ['Solicitado', 'Confirmado', 'En tránsito', 'Entregado'].forEach((nombre, i) =>
+      expect(pasos[i]).toHaveTextContent(nombre),
+    );
+    const actual = recorrido().querySelector('[aria-current="step"]');
     expect(actual).toHaveTextContent('En tránsito');
-    expect(actual).toHaveTextContent('paso actual');
-    expect(
-      within(recorrido)
-        .getByText(/Solicitado/)
-        .closest('div'),
-    ).toHaveTextContent('completado');
+    expect(actual).toHaveTextContent('En curso');
+    expect(pasos[0]).toHaveTextContent('Completado');
+    expect(pasos[3]).toHaveTextContent('Pendiente');
   });
 
-  it('un viaje cancelado no pinta el recorrido', () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('CANCELADO')} />);
-
-    expect(screen.queryByRole('group', { name: 'Progreso del viaje' })).not.toBeInTheDocument();
+  it('un viaje cancelado no pinta el recorrido', async () => {
+    await render(<ViajeDetailSection viaje={seguimientoEnEstado('CANCELADO')} />);
+    expect(screen.queryByRole('list', { name: 'Progreso del viaje' })).not.toBeInTheDocument();
   });
 
-  it('un viaje cerrado muestra todos los pasos completados y ninguno en curso', () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('CERRADO')} />);
-
-    const recorrido = screen.getByRole('group', { name: 'Progreso del viaje' });
-    expect(recorrido.querySelector('[aria-current="step"]')).toBeNull();
-    expect(within(recorrido).getAllByText(/completado/)).toHaveLength(4);
+  it('un viaje cerrado muestra todos los pasos completados y ninguno en curso', async () => {
+    await render(<ViajeDetailSection viaje={seguimientoEnEstado('CERRADO')} />);
+    expect(recorrido().querySelector('[aria-current="step"]')).toBeNull();
+    expect(within(recorrido()).getAllByText('Completado')).toHaveLength(4);
   });
 });
 
 describe('ViajeDetailSection — hito y ETA', () => {
-  it('muestra el hito actual con su etiqueta', () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('SOLICITADO')} />);
+  it('muestra el hito actual con su etiqueta', async () => {
+    await render(<ViajeDetailSection viaje={seguimientoEnEstado('SOLICITADO')} />);
 
     expect(screen.getByText('Hito actual')).toBeInTheDocument();
     expect(screen.getByText('Hito de prueba')).toBeInTheDocument();
   });
 
-  it('sin etiqueta de hito no inventa la tarjeta', () => {
+  it('sin etiqueta de hito no inventa la tarjeta', async () => {
     const viaje: ViajeSeguimiento = {
       id: 'viaje-1',
       hito: { estado: 'SOLICITADO' },
       eta: null,
       incidencias: [],
     };
-    render(<ViajeDetailSection viaje={viaje} />);
+    await render(<ViajeDetailSection viaje={viaje} />);
 
     expect(screen.queryByText('Hito actual')).not.toBeInTheDocument();
   });
@@ -387,38 +376,140 @@ describe('ViajeDetailSection — hito y ETA', () => {
 
 describe('ViajeDetailSection — aviso de emergencia activa', () => {
   it('sin emergencia activa no hay aviso', async () => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
+    await render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
 
     // Espera a que la consulta de emergencias resuelva antes de afirmar la ausencia.
     await screen.findByText('Sin emergencias en este viaje.');
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('con emergencia activa muestra el aviso con "Ver casos"', async () => {
+  it('con emergencia activa muestra el aviso, sin botón "Ver casos"', async () => {
     vi.mocked(listEmergencias).mockResolvedValueOnce({
       emergencia_activa: true,
       casos: [{ id: 'e-1', activada_en: '2026-10-23T14:05:00Z', estado: 'en_atencion' }],
     });
-    render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
+    await render(<ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} />);
 
-    const aviso = await screen.findByRole('status');
+    const aviso = await screen.findByRole('alert');
     expect(aviso).toHaveTextContent('Hay una emergencia activa en este viaje.');
-    expect(within(aviso).getByRole('button', { name: /Ver casos/ })).toBeInTheDocument();
+    // El aviso es solo informativo: ya no ofrece un botón que lleve a los casos.
+    expect(within(aviso).queryByRole('button')).not.toBeInTheDocument();
   });
 });
 
 describe('ViajeDetailSection — activación de emergencia según el hito', () => {
   it.each(['EN_TRANSITO', 'EN_DESTINO', 'EN_DESCARGA'])(
-    '%s ofrece "Activar emergencia"',
+    '%s habilita "Activar emergencia"',
     async (estado) => {
-      render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
-      expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeInTheDocument();
+      await render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
+      expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeEnabled();
     },
   );
 
-  it.each(['ASIGNADO', 'EN_EMBARQUE'])('%s no la ofrece', async (estado) => {
-    render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
+  it.each(['ASIGNADO', 'EN_EMBARQUE'])('%s la muestra deshabilitada', async (estado) => {
+    await render(<ViajeDetailSection viaje={seguimientoEnEstado(estado)} />);
     await screen.findByText('Sin emergencias en este viaje.');
-    expect(screen.queryByRole('button', { name: 'Activar emergencia' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activar emergencia' })).toBeDisabled();
+  });
+});
+
+describe('ViajeDetailSection — ruta de navegación', () => {
+  it('el breadcrumb vuelve al historial conservando el filtro y marca el viaje actual', async () => {
+    await render(
+      <ViajeDetailSection viaje={seguimientoEnEstado('EN_TRANSITO')} estadoHistorial="CERRADO" />,
+    );
+    const ruta = screen.getByRole('navigation', { name: 'Ruta de navegación' });
+    expect(within(ruta).getByRole('link', { name: 'Historial de Viajes' })).toHaveAttribute(
+      'href',
+      '/viajes?estado=CERRADO',
+    );
+    expect(within(ruta).getByText('Viaje viaje-1').closest('[aria-current="page"]')).not.toBeNull();
+  });
+});
+
+describe('ViajeDetailSection — panel lateral de la conversación (expandido y contraído)', () => {
+  const panel = (): HTMLElement => screen.getByRole('complementary', { name: 'Conversación' });
+  const rejilla = (): HTMLElement | null =>
+    screen.getByRole('region', { name: 'Seguimiento' }).parentElement;
+
+  async function renderConPanel(conversacion?: React.ReactNode): Promise<void> {
+    await render(
+      <ConRanuraPanelLateral>
+        <ViajeDetailSection
+          viaje={seguimientoEnEstado('EN_TRANSITO')}
+          {...(conversacion !== undefined ? { conversacion } : {})}
+        />
+      </ConRanuraPanelLateral>,
+    );
+  }
+
+  it('sin conversación no hay panel ni botones', async () => {
+    await renderConPanel();
+
+    expect(screen.getByRole('region', { name: 'Seguimiento' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Acciones' })).toBeInTheDocument();
+    expect(screen.queryByRole('complementary', { name: 'Conversación' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /conversación/i })).not.toBeInTheDocument();
+  });
+
+  it('con conversación, el panel arranca EXPANDIDO y vive fuera de la rejilla del detalle', async () => {
+    await renderConPanel(<p>contenido de la conversación</p>);
+
+    expect(within(panel()).getByText('contenido de la conversación')).toBeInTheDocument();
+    expect(panel()).not.toHaveAttribute('data-collapsed');
+    expect(within(panel()).getByRole('heading', { name: 'Conversación' })).toBeInTheDocument();
+    // No es una columna de la rejilla: se pinta en la ranura del shell, a un lado de <main>.
+    expect(rejilla()).not.toContainElement(panel());
+    expect(screen.getByRole('main')).not.toContainElement(panel());
+  });
+
+  it('el encabezado de la página ya no trae botón de ocultar o mostrar la conversación', async () => {
+    await renderConPanel(<p>conversación</p>);
+
+    expect(screen.queryByRole('button', { name: /ocultar|mostrar/i })).not.toBeInTheDocument();
+    // El único control está en el propio panel.
+    expect(within(panel()).getByRole('button', { name: 'Contraer conversación' })).toHaveAttribute(
+      'aria-expanded',
+      'true',
+    );
+  });
+
+  it('contraer deja una franja con el icono de mensaje y quita el contenido', async () => {
+    const user = userEvent.setup();
+    await renderConPanel(<p>contenido de la conversación</p>);
+
+    await user.click(screen.getByRole('button', { name: 'Contraer conversación' }));
+
+    // La franja sigue ahí (columna fija), pero sin título ni contenido.
+    expect(panel()).toHaveAttribute('data-collapsed', 'true');
+    expect(screen.queryByText('contenido de la conversación')).not.toBeInTheDocument();
+    expect(within(panel()).queryByRole('heading')).not.toBeInTheDocument();
+    const expandir = within(panel()).getByRole('button', { name: 'Expandir conversación' });
+    expect(expandir).toHaveAttribute('aria-expanded', 'false');
+    expect(expandir).toHaveAttribute('aria-controls', panel().id);
+    expect(expandir.querySelector('svg')).not.toBeNull();
+  });
+
+  it('expandir desde la franja regresa el contenido', async () => {
+    const user = userEvent.setup();
+    await renderConPanel(<p>contenido de la conversación</p>);
+
+    await user.click(screen.getByRole('button', { name: 'Contraer conversación' }));
+    await user.click(screen.getByRole('button', { name: 'Expandir conversación' }));
+
+    expect(panel()).not.toHaveAttribute('data-collapsed');
+    expect(within(panel()).getByText('contenido de la conversación')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Contraer conversación' })).toBeInTheDocument();
+  });
+
+  it('contraer el panel no toca Seguimiento ni Acciones', async () => {
+    const user = userEvent.setup();
+    await renderConPanel(<p>conversación</p>);
+
+    await user.click(screen.getByRole('button', { name: 'Contraer conversación' }));
+
+    expect(screen.getByRole('region', { name: 'Seguimiento' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Acciones' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeInTheDocument();
   });
 });

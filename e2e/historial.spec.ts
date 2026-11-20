@@ -7,12 +7,11 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { login } from './support/login';
 
 /**
- * Columna de un filtro de la barra (etiqueta + selector). El `Select` de la librería es
- * un botón que abre una lista, sin `<label for>`, así que se localiza por su etiqueta
- * visible y no por `getByLabel`.
+ * El `Select` del filtro de estado es un botón que abre una lista: su nombre es el valor
+ * vigente o el marcador "Todos los estados".
  */
-function filtro(page: Page, nombre: string): Locator {
-  return page.getByRole('group', { name: nombre });
+function filtroEstado(page: Page, actual = 'Todos los estados'): Locator {
+  return page.getByRole('button', { name: actual, exact: true });
 }
 
 test.describe('historial · contenido', () => {
@@ -27,8 +26,9 @@ test.describe('historial · contenido', () => {
 
     // La barra de filtros. Solo el filtro por estado esta cableado. El rango de fechas
     // y la busqueda de texto NO se renderizan: el contrato no los soporta.
-    await expect(filtro(page, 'Estado')).toBeVisible();
-    await expect(filtro(page, 'Rango de fechas')).toHaveCount(0);
+    await expect(page.getByText('Filtros', { exact: true })).toBeVisible();
+    await expect(filtroEstado(page)).toBeVisible();
+    await expect(page.getByText('Rango de fechas')).toHaveCount(0);
     await expect(page.getByPlaceholder(/Buscar por ID/i)).toHaveCount(0);
 
     await expect(page.getByRole('table')).toBeVisible();
@@ -103,9 +103,8 @@ test.describe('historial · filtro por estado (servidor)', () => {
     await expect(tabla.getByText('En tránsito').first()).toBeVisible();
 
     // Elegir "Cerrado" navega con el search param: el filtrado es del servidor.
-    await filtro(page, 'Estado').getByRole('button').click();
-    await filtro(page, 'Estado').getByRole('button', { name: 'Cerrado', exact: true }).click();
-
+    await filtroEstado(page).click();
+    await page.getByRole('button', { name: 'Cerrado', exact: true }).click();
     await expect(page).toHaveURL(/[?&]estado=CERRADO/);
     // El mock de bff devuelve solo los CERRADO (viaje-6, viaje-8): dos filas, todas
     // con el chip "Cerrado" y ninguna "En tránsito".

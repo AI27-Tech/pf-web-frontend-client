@@ -1,5 +1,67 @@
 # CHANGELOG
 
+## 2026:11:19 17:00
+
+**Resumen:** La tarjeta "Cancelar o rechazar" solo se pinta cuando la acción está permitida, y el botón "Activar emergencia" ocupa todo el ancho de su tarjeta.
+
+**Cambios:**
+
+- `CancelarRechazarPanel`: si ni cancelar ni rechazar aplican (el viaje ya salió o ya terminó), no pinta la tarjeta. Se elimina la tarjeta con candado que explicaba por qué (`explicacionNoDisponible`, icono `Lock`). Si el estado cambia con el diálogo de confirmación abierto, el diálogo se sigue pintando para que se lea su aviso, y la tarjeta desaparece al cerrarlo.
+- `EmergenciaPanel`: "Activar emergencia" usa `fullWidth` de la librería, así llena el ancho entre el divisor y el registro de casos.
+- Pruebas: el unit y el e2e de cancelar afirman que la tarjeta ya no existe en ventana cerrada y en estado terminal (también tras cancelar). Nuevo e2e que mide que el botón de emergencia mide el ancho útil de la tarjeta.
+
+**Verificación:** `typecheck`, `lint`, `vitest` (319 pruebas) y `pnpm test:e2e` (56 pruebas) en verde. Revisado en pantalla con un viaje en tránsito (solo Emergencia) y uno solicitado (ambas tarjetas).
+
+## 2026:11:19 12:00
+
+**Resumen:** La conversación del viaje pasa de aside dentro de la rejilla del detalle a un panel lateral del shell: una columna fija a la derecha que ocupa todo el alto de la pantalla, como el `Sidebar` de la izquierda. Sigue abierta al entrar y se oculta o muestra igual que antes.
+
+**Cambios:**
+
+- Nuevo `src/app/shell/PanelLateral.tsx`: `RanuraPanelLateral` (contenedor vacío que pinta `AppShell` a la derecha de `<main>`; se oculta solo cuando está vacío) y `PanelLateral` (portal que pinta el panel dentro de la ranura, con título, botón de cierre opcional y los mismos tokens del `Sidebar`: fondo `surface`, borde `border`, alto de encabezado `--ui-navbar-height`). Desde `lg` es `sticky` de todo el alto (`h-dvh`) y la página se angosta; debajo de `lg` se superpone por la derecha.
+- `ViajeDetailSection` ya no pinta un `<aside>` en la rejilla: monta `PanelLateral` con la conversación. Además del botón del encabezado, el panel trae su propio botón "Cerrar conversación".
+- `ConversacionPanel` deja de ser una `Card` con alto fijo: llena el alto del panel (estado y avisos arriba, hilo con scroll, compositor abajo).
+- `detalleLayout.ts`: una sola rejilla de dos columnas basada en container query (`@3xl`): Seguimiento y Acciones van lado a lado si el contenido mide 48 rem o más, con el panel abierto o cerrado. Se eliminan `claseRejillaDetalle` y `CLASE_ASIDE_CONVERSACION`.
+- `ViajeDetailPendiente`: el esqueleto de carga también pinta el panel (con esqueleto), para que la página no se corra al llegar los datos.
+- Pruebas: `tests/support/panelLateral.tsx` (shell mínimo con ranura); el detalle prueba el panel (abierto, ocultar, mostrar, cierre propio, fuera de la rejilla); `e2e/conversacion.spec.ts` afirma columna pegada al borde derecho de todo el alto (también tras desplazar), Seguimiento y Acciones lado a lado, el cierre del panel y la superposición en pantallas angostas.
+
+**Verificación:** `typecheck`, `lint`, `vitest` (319 pruebas) y `pnpm test:e2e` (55 pruebas) en verde. Revisado a 1440, 1100 y 760 px, y en carga.
+
+## 2026:11:18 18:00
+
+**Resumen:** La conversación del viaje es un aside a la derecha del detalle: arranca abierto y se oculta o muestra con un botón del encabezado. Vive solo en el detalle de un viaje y carga solo los mensajes de ese viaje. Se eliminan el botón "Conversación" que llevaba a otra pantalla, la página `/viajes/$viajeId/conversacion` y el panel flotante.
+
+**Cambios:**
+
+- Nuevo `ConversacionPanel`: `Card` con `CardHeader`, `ConversationStatus`, `MessageThread` y `MessageComposer` de `@ai27-tech/ui`, sin `MessagePanel` ni `MessageDock`. Envío optimista con "Enviando…", "No se envió" y "Reintentar" (reusa el mismo `client_message_id`); 409 `conversacion_solo_lectura` explicado en un aviso; viaje sin conversación (404) y error de carga con aviso.
+- `ViajeDetailSection` recibe la conversación como ranura opcional (`conversacion`) y la pinta en un `<aside aria-label="Conversación">`. Un botón del encabezado ("Ocultar conversación" / "Mostrar conversación", con `aria-expanded` y `aria-controls`) lo oculta y lo muestra. Arranca visible. Al ocultarlo se desmonta (deja de consultar) y al mostrarlo retoma la historia de la caché. Sin ranura no hay aside ni botón.
+- Rejilla en `detalleLayout.ts`, compartida con el esqueleto de carga. Con el aside visible: una columna en pantallas angostas, dos desde `lg` (el aside ocupa la fila de abajo) y tres desde `xl` (el aside mide 22 rem y se queda pegado arriba). Oculto, Seguimiento y Acciones recuperan el ancho.
+- `useConversacion`: la mutación de envío recibe el `clientMessageId` que genera el compositor, en vez de crearlo por su cuenta.
+- Se eliminan `ConversacionSection.tsx`, `ConversacionViaje.tsx`, la ruta de la conversación y `useBreadcrumbLinks.viaje`.
+- Pruebas: `ConversacionPanel.test.tsx` reemplaza a `ConversacionSection.test.tsx`; el detalle prueba el aside (arranca abierto, ocultar, mostrar, rejilla); `e2e/conversacion.spec.ts` afirma tres columnas lado a lado, el apilado en pantallas angostas, ocultar y mostrar, que Seguimiento recupera el ancho, que nada tapa los botones y que solo se piden los mensajes del viaje visto.
+
+**Verificación:** `typecheck`, `lint`, `vitest` (318 pruebas) y `pnpm test:e2e` (53 pruebas) en verde. Las tres fallas e2e que causaba el panel flotante (emergencia y cancelar) desaparecen.
+
+## 2026:11:18 12:00
+
+**Resumen:** El portal usa los componentes de `@ai27-tech/ui` en lugar de piezas propias. La librería sube de `0.2.0-beta.6` a `0.3.0-beta.1`. No se agregó ni se personalizó ningún componente: lo que la librería no cubre queda como brecha en `docs/plan-integracion-libreria-ui.md`.
+
+**Cambios:**
+
+- Solicitud: `DateInput` con formato visual `AAAA Mmm DD`, `TimePicker` de 12 horas, `Form`/`FormSection`/`FormRow` y `Alert` para los errores. El botón "Solicitar servicio" sigue bajo el resumen. El valor enviado no cambia (`YYYY-MM-DD` y `HH:mm` en 24 h).
+- Resumen de la solicitud: `DescriptionList` vertical con valores vacíos y `Timeline` para la ruta.
+- Historial: `PageHeader`, `FilterTable` (barra de filtros con `Select` + `Table`), fila clicable y `Pagination`.
+- Detalle del viaje: `Timeline` horizontal para el seguimiento, `DescriptionList` para hito y ETA, `Alert` para incidencias y aviso de emergencia, `EmptyState` para los vacíos.
+- Carga: `ProgressBar` indeterminada fija arriba (`PageProgress`) y esqueletos (`Table`, `Timeline`, `SkeletonCard`, `SkeletonText`). El router muestra el esqueleto a partir de 150 ms y los mocks tardan 900 ms para poder verlos.
+- Navegación: `Breadcrumb` dentro de `PageHeader` en las pantallas con más de un nivel (detalle y conversación); reemplaza "Volver al historial" y "Volver al viaje". `Sidebar` con `headerCollapsed` y un elemento "Configuración" que abre un `Modal` con la marca de AI27 y "Cerrar sesión" (el botón fijo del pie se retira).
+- Login: `Form` y `Input passwordToggle`.
+- Se eliminan `Spinner` y `EmptyState` propios (`components/ui/Feedback.tsx` pasa a `ErrorState.tsx`, dibujado con `Alert`), `ProgresoViaje.tsx` y `HistorialHeader.tsx`.
+- Pruebas: se ajustan a los nombres accesibles nuevos (el `Select` se nombra por su etiqueta) y se agregan pruebas de fila clicable, carga, breadcrumb, `PageProgress`, formato de fecha y hora de 12 h.
+
+**Verificación:** `typecheck`, `lint`, `build`, `vitest` (308 pruebas) y `pnpm test:e2e` (34 pruebas) en verde.
+
+**Archivos modificados:** ver el commit; el plan y las brechas están en `docs/plan-integracion-libreria-ui.md`.
+
 ## 2026:11:13 18:10
 
 **Resumen:** Corrección de la regla de activación: el botón "Activar emergencia" se ofrece durante todo el recorrido del viaje (`EN_TRANSITO`, `EN_DESTINO` y `EN_DESCARGA`), no solo en tránsito. `EN_EMBARQUE` queda fuera porque es previo al recorrido. Misma regla que aplica el `bff`.

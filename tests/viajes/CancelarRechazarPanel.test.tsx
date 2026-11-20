@@ -4,9 +4,9 @@
  *
  * Estados obligatorios del ticket cubiertos aquí:
  *   - ventana de cancelación ABIERTA: el botón se ofrece en los estados esperados;
- *   - ventana CERRADA: en EN_EMBARQUE/EN_TRANSITO la acción NO se ofrece y se explica
- *     por qué (no un fallo al pulsar);
- *   - viaje ya TERMINAL: tampoco se ofrece, con su propia explicación;
+ *   - ventana CERRADA: en EN_EMBARQUE/EN_TRANSITO la tarjeta no se pinta (no hay un fallo
+ *     al pulsar);
+ *   - viaje ya TERMINAL: tampoco se pinta;
  *   - rechazar solo donde aplica (ASIGNADO/APTO_PARA_SALIDA), no en SOLICITADO;
  *   - el botón de confirmar EXIGE motivo (deshabilitado mientras esté vacío);
  *   - los dos desenlaces (CANCELADO vs RECHAZADO_POR_CLIENTE) son distinguibles;
@@ -70,23 +70,23 @@ describe('CancelarRechazarPanel — ventana de disponibilidad (E9-T7)', () => {
   });
 
   it.each(['EN_EMBARQUE', 'EN_TRANSITO'])(
-    'ventana CERRADA en %s: no ofrece botones y explica que el viaje ya salió',
+    'ventana CERRADA en %s: no pinta la tarjeta ni ofrece botones',
     (estado) => {
       renderConQuery(<CancelarRechazarPanel viaje={seguimiento(estado)} />);
+      // La tarjeta solo existe cuando la acción está permitida.
+      expect(screen.queryByText('Cancelar o rechazar')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Cancelar viaje' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Rechazar servicio' })).not.toBeInTheDocument();
-      // Se explica por qué ya no aplica, no se deja fallar al pulsar.
-      expect(screen.getByText(/ya salió/i)).toBeInTheDocument();
     },
   );
 
   it.each(['CERRADO', 'CANCELADO', 'RECHAZADO_POR_CLIENTE', 'RECHAZADO_POR_AI27'])(
-    'viaje TERMINAL en %s: no ofrece botones y explica que ya finalizó',
+    'viaje TERMINAL en %s: no pinta la tarjeta ni ofrece botones',
     (estado) => {
       renderConQuery(<CancelarRechazarPanel viaje={seguimiento(estado)} />);
+      expect(screen.queryByText('Cancelar o rechazar')).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Cancelar viaje' })).not.toBeInTheDocument();
       expect(screen.queryByRole('button', { name: 'Rechazar servicio' })).not.toBeInTheDocument();
-      expect(screen.getByText(/ya finalizó/i)).toBeInTheDocument();
     },
   );
 });

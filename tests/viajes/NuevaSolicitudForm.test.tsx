@@ -46,22 +46,36 @@ const botonEnviar = (): HTMLButtonElement =>
 type Usuario = ReturnType<typeof userEvent.setup>;
 
 /** Fecha y hora válidas que usan las pruebas, y el instante UTC que debe viajar. */
-const FECHA = '2026-11-20';
-const HORA = '09:30';
+/** Como se captura la fecha (`DD/MM/AAAA`) y la hora (`HHmm` + AM) en los campos de la librería. */
+const FECHA_TEXTO = '20/11/2026';
+const HORA_DIGITOS = '0930';
 const FECHA_HORA_UTC = new Date(2026, 10, 20, 9, 30, 0, 0).toISOString();
 
-/** Abre el select del grupo y elige la opción por su etiqueta. */
-async function elegirOpcion(user: Usuario, nombreGrupo: string, opcion: string): Promise<void> {
-  const dentro = within(screen.getByRole('group', { name: nombreGrupo }));
-  await user.click(dentro.getByRole('button'));
-  await user.click(dentro.getByRole('button', { name: opcion }));
+/** Abre el `Select` por su etiqueta y elige la opción por su texto. */
+async function elegirOpcion(user: Usuario, etiqueta: string, opcion: string): Promise<void> {
+  await user.click(screen.getByRole('button', { name: etiqueta }));
+  await user.click(screen.getByRole('button', { name: opcion }));
+}
+
+/** Escribe la fecha como `DD/MM/AAAA` (así se captura) y sale del campo para confirmarla. */
+async function escribirFecha(user: Usuario, texto: string): Promise<void> {
+  const campo = screen.getByLabelText(/Fecha del servicio/);
+  await user.click(campo);
+  await user.type(campo, texto);
+  await user.tab();
+}
+
+/** Escribe la hora por segmentos: `0930` y el período (`a` o `p`) del formato de 12 horas. */
+async function escribirHora(user: Usuario, digitos: string, periodo: 'a' | 'p'): Promise<void> {
+  await user.click(screen.getByRole('textbox', { name: 'Horas' }));
+  await user.keyboard(digitos + periodo);
 }
 
 /** Completa los obligatorios que no son la ruta: tipo de escolta, fecha y hora. */
 async function completarObligatorios(user: Usuario): Promise<void> {
   await elegirOpcion(user, 'Tipo de escolta', 'Patrulla');
-  fireEvent.change(screen.getByLabelText(/Fecha del servicio/), { target: { value: FECHA } });
-  fireEvent.change(screen.getByLabelText(/Hora del servicio/), { target: { value: HORA } });
+  await escribirFecha(user, FECHA_TEXTO);
+  await escribirHora(user, HORA_DIGITOS, 'a');
 }
 
 /** Monta el form y espera a que el router de memoria lo pinte (render asíncrono). */
@@ -91,10 +105,10 @@ describe('NuevaSolicitudForm · envío deshabilitado', () => {
     await elegirOpcion(user, 'Tipo de escolta', 'Patrulla');
     expect(botonEnviar()).toBeDisabled(); // faltan fecha y hora
 
-    fireEvent.change(screen.getByLabelText(/Fecha del servicio/), { target: { value: FECHA } });
+    await escribirFecha(user, FECHA_TEXTO);
     expect(botonEnviar()).toBeDisabled(); // falta la hora
 
-    fireEvent.change(screen.getByLabelText(/Hora del servicio/), { target: { value: HORA } });
+    await escribirHora(user, HORA_DIGITOS, 'a');
     expect(botonEnviar()).toBeEnabled();
   });
 
@@ -103,8 +117,8 @@ describe('NuevaSolicitudForm · envío deshabilitado', () => {
     await montar();
     await user.type(campo('Origen'), 'CDMX');
     await user.type(campo('Destino final'), 'Monterrey');
-    fireEvent.change(screen.getByLabelText(/Fecha del servicio/), { target: { value: FECHA } });
-    fireEvent.change(screen.getByLabelText(/Hora del servicio/), { target: { value: HORA } });
+    await escribirFecha(user, FECHA_TEXTO);
+    await escribirHora(user, HORA_DIGITOS, 'a');
 
     expect(botonEnviar()).toBeDisabled();
   });
@@ -337,12 +351,11 @@ describe('NuevaSolicitudForm · tipo de servicio', () => {
   it('ofrece solo Local y Foráneo', async () => {
     const user = userEvent.setup();
     await montar();
-
-    const grupo = within(screen.getByRole('group', { name: 'Tipo de servicio' }));
-    await user.click(grupo.getByRole('button'));
+    const disparador = screen.getByRole('button', { name: 'Tipo de servicio' });
+    await user.click(disparador);
 
     // Fuera del marcador "Selecciona un tipo", no hay más opciones que esas dos.
-    const nombres = grupo
+    const nombres = within(disparador.parentElement as HTMLElement)
       .getAllByRole('button')
       .map((boton) => boton.textContent?.trim())
       .filter((nombre) => nombre !== 'Selecciona un tipo');
@@ -396,8 +409,6 @@ describe('NuevaSolicitudForm · tipo de servicio', () => {
 });
 
 describe('NuevaSolicitudForm · escolta', () => {
-  const grupo = (nombre: string): HTMLElement => screen.getByRole('group', { name: nombre });
-
   const elegir = elegirOpcion;
 
   async function llenarRuta(user: Usuario): Promise<void> {
@@ -408,13 +419,9 @@ describe('NuevaSolicitudForm · escolta', () => {
   it('ofrece Patrulla y Moto como tipos de escolta', async () => {
     const user = userEvent.setup();
     await montar();
-
-    await user.click(within(grupo('Tipo de escolta')).getByRole('button'));
-
-    expect(
-      within(grupo('Tipo de escolta')).getByRole('button', { name: 'Patrulla' }),
-    ).toBeVisible();
-    expect(within(grupo('Tipo de escolta')).getByRole('button', { name: 'Moto' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Tipo de escolta' }));
+    expect(screen.getByRole('button', { name: 'Patrulla' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Moto' })).toBeVisible();
   });
 
   it('la sobreescolta está apagada: no muestra su tipo hasta encender el interruptor', async () => {
@@ -423,11 +430,11 @@ describe('NuevaSolicitudForm · escolta', () => {
 
     const interruptor = screen.getByRole('switch', { name: 'Agregar sobreescolta' });
     expect(interruptor).not.toBeChecked();
-    expect(screen.queryByRole('group', { name: 'Tipo de sobreescolta' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Tipo de sobreescolta' })).not.toBeInTheDocument();
 
     await user.click(interruptor);
     expect(interruptor).toBeChecked();
-    expect(grupo('Tipo de sobreescolta')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tipo de sobreescolta' })).toBeInTheDocument();
   });
 
   it('con sobreescolta encendida el envío espera su tipo; apagarla lo libera', async () => {
@@ -489,13 +496,8 @@ describe('NuevaSolicitudForm · escolta', () => {
 });
 
 describe('NuevaSolicitudForm · fecha y hora', () => {
-  // Los campos `date` y `time` no tienen rol ARIA propio: se buscan por su etiqueta.
-  const campoFecha = (): HTMLInputElement => screen.getByLabelText(/Fecha del servicio/);
-  const campoHora = (): HTMLInputElement => screen.getByLabelText(/Hora del servicio/);
-
   /** Ruta y tipo de escolta; la fecha y la hora las pone cada prueba. */
-  async function llenarRuta(): Promise<void> {
-    const user = userEvent.setup();
+  async function llenarRuta(user: Usuario): Promise<void> {
     await user.type(campo('Origen'), 'CDMX');
     await user.type(campo('Destino final'), 'Monterrey');
     await elegirOpcion(user, 'Tipo de escolta', 'Patrulla');
@@ -504,10 +506,9 @@ describe('NuevaSolicitudForm · fecha y hora', () => {
   it('envía Fecha y Hora como un solo `fecha_hora_servicio` en UTC', async () => {
     const user = userEvent.setup();
     await montar();
-    await llenarRuta();
-
-    fireEvent.change(campoFecha(), { target: { value: FECHA } });
-    fireEvent.change(campoHora(), { target: { value: HORA } });
+    await llenarRuta(user);
+    await escribirFecha(user, FECHA_TEXTO);
+    await escribirHora(user, HORA_DIGITOS, 'a');
     await user.click(botonEnviar());
 
     await waitFor(() => expect(crearViajeMock).toHaveBeenCalledTimes(1));
@@ -519,53 +520,71 @@ describe('NuevaSolicitudForm · fecha y hora', () => {
     });
   });
 
-  it('sin fecha ni hora el envío queda bloqueado y no llama al servicio', async () => {
+  it('la hora de 12 horas con PM se envía en 24 horas (09:30 PM = 21:30)', async () => {
+    const user = userEvent.setup();
     await montar();
-    await llenarRuta();
+    await llenarRuta(user);
+    await escribirFecha(user, FECHA_TEXTO);
+    await escribirHora(user, HORA_DIGITOS, 'p');
+    await user.click(botonEnviar());
 
+    await waitFor(() => expect(crearViajeMock).toHaveBeenCalledTimes(1));
+    expect(crearViajeMock.mock.calls[0]?.[0]).toMatchObject({
+      fecha_hora_servicio: new Date(2026, 10, 20, 21, 30, 0, 0).toISOString(),
+    });
+  });
+
+  it('la fecha confirmada se ve como `AAAA Mmm DD` y la hora con AM/PM', async () => {
+    const user = userEvent.setup();
+    await montar();
+    await escribirFecha(user, FECHA_TEXTO);
+    await escribirHora(user, HORA_DIGITOS, 'p');
+    await user.tab();
+
+    expect(screen.getByLabelText(/Fecha del servicio/)).toHaveValue('2026 Nov 20');
+    expect(screen.getByRole('textbox', { name: 'AM/PM' })).toHaveValue('PM');
+  });
+
+  it('sin fecha ni hora el envío queda bloqueado y no llama al servicio', async () => {
+    const user = userEvent.setup();
+    await montar();
+    await llenarRuta(user);
     expect(botonEnviar()).toBeDisabled();
     expect(crearViajeMock).not.toHaveBeenCalled();
   });
 
   it('con solo la fecha bloquea el envío y pide la hora; al completarla se habilita', async () => {
+    const user = userEvent.setup();
     await montar();
-    await llenarRuta();
+    await llenarRuta(user);
     expect(botonEnviar()).toBeDisabled();
 
-    fireEvent.change(campoFecha(), { target: { value: '2026-11-20' } });
+    await escribirFecha(user, FECHA_TEXTO);
     expect(botonEnviar()).toBeDisabled();
     expect(screen.getByText('Indica también la hora.')).toBeInTheDocument();
 
-    fireEvent.change(campoHora(), { target: { value: '09:30' } });
+    await escribirHora(user, HORA_DIGITOS, 'a');
     expect(botonEnviar()).toBeEnabled();
     expect(screen.queryByText('Indica también la hora.')).not.toBeInTheDocument();
   });
 
   it('con solo la hora bloquea el envío y pide la fecha', async () => {
+    const user = userEvent.setup();
     await montar();
-    await llenarRuta();
-
-    fireEvent.change(campoHora(), { target: { value: '09:30' } });
+    await llenarRuta(user);
+    await escribirHora(user, HORA_DIGITOS, 'a');
     expect(botonEnviar()).toBeDisabled();
     expect(screen.getByText('Indica también la fecha.')).toBeInTheDocument();
   });
 
-  it('un año de 5 dígitos bloquea el envío con un aviso y no llama al servicio', async () => {
+  it('una fecha que no existe (31/02/2026) no se acepta: el campo queda vacío', async () => {
+    const user = userEvent.setup();
     await montar();
-    await llenarRuta();
-
-    fireEvent.change(campoFecha(), { target: { value: '20266-11-20' } });
-    fireEvent.change(campoHora(), { target: { value: '09:30' } });
-
+    await llenarRuta(user);
+    await escribirFecha(user, '31/02/2026');
+    await escribirHora(user, HORA_DIGITOS, 'a');
+    expect(screen.getByLabelText(/Fecha del servicio/)).toHaveValue('');
     expect(botonEnviar()).toBeDisabled();
-    expect(
-      screen.getByText('Escribe una fecha válida: el año debe tener 4 dígitos.'),
-    ).toBeInTheDocument();
-    expect(crearViajeMock).not.toHaveBeenCalled();
-
-    // Corregir el año habilita el envío.
-    fireEvent.change(campoFecha(), { target: { value: '2026-11-20' } });
-    expect(botonEnviar()).toBeEnabled();
   });
 });
 
