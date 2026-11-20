@@ -23,6 +23,7 @@ import {
   Badge,
   Card,
   CardBody,
+  EmptyState,
   Table,
   Pagination,
   type BadgeVariant,
@@ -30,7 +31,6 @@ import {
 } from '@ai27-tech/ui';
 import type { EstadoViaje } from '@/lib/contracts';
 import type { ViajeEnCurso } from './tipos';
-import { EmptyState } from '@/components/ui/Feedback';
 import { EtaCell } from './EtaCell';
 
 /** Registros por pagina. El diseno del panel muestra tres filas por vista. */
@@ -162,9 +162,10 @@ export function ViajesEnCursoTable({ viajes, etaMaxChars }: ViajesEnCursoTablePr
         </div>
 
         {viajes.length === 0 ? (
-          <EmptyState title="No hay viajes en curso">
-            Cuando un servicio se ponga en marcha aparecera aqui.
-          </EmptyState>
+          <EmptyState
+            title="No hay viajes en curso"
+            description="Cuando un servicio se ponga en marcha aparecera aqui."
+          />
         ) : (
           <>
             <Table

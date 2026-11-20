@@ -82,17 +82,23 @@ Lo único que el portal cliente puede consumir hoy:
 - El `bff` **sí** expone la conversación al cliente desde `tracer.26` (`GET/POST
 /api/v1/viajes/{id}/conversacion[...]`), anclada al **viaje**, no a un
   `conversacion_id`. Se reconectó contra `tracer.27`:
-  - Wrapper `src/lib/api/conversacion.ts`, hook `src/features/conversacion/useConversacion.ts`
-    y componente `src/features/conversacion/ConversacionSection.tsx`.
-  - Ruta colgada del viaje: `src/routes/_private/viajes/$viajeId/conversacion/`.
+  - Wrapper `src/lib/api/conversacion.ts` y hook `src/features/conversacion/useConversacion.ts`.
+  - **Actualización (2026-11-18):** ya no hay página `/viajes/$viajeId/conversacion` ni botón
+    "Conversación" en el detalle. La conversación es el panel lateral del shell
+    (columna fija a la derecha, de todo el alto de la pantalla, como el Sidebar de la izquierda;
+    `src/app/shell/PanelLateral.tsx`) que abre el detalle del viaje
+    (`ConversacionPanel`, en `src/features/conversacion/`, hecho con piezas de mensajería de
+    `@ai27-tech/ui`): vive SOLO ahí, carga solo los mensajes de ese viaje, arranca abierto y se
+    contrae a una franja con el icono de mensaje, que lo vuelve a expandir.
   - Tipos del contrato generado en el barrel (`ConversacionCliente`, `MensajeCliente`,
     `PaginaMensajesCliente`, `EnviarMensajeClienteEntrada`).
 - `src/_desconectado/conversacion/` se **retiró** (su `api.ts` asumía una forma inventada:
   `idempotencyKey` como opción, rutas `/conversaciones/{id}`, paginación por cursor). El
   modelo real es una conversación POR VIAJE, paginada POR SECUENCIA (`antes_de`/`despues_de`),
   con el envío idempotente por `client_message_id` en el cuerpo.
-- La entrada "Mensajes" NO vuelve a la navegación global: la conversación cuelga del
-  detalle del viaje (`ViajeDetailSection`), que es donde el contrato la ancla.
+- La entrada "Mensajes" NO vuelve a la navegación global: la conversación es UNA POR VIAJE y el
+  contrato solo la ancla al viaje (no existe una operación "mis conversaciones"), así que vive en
+  el detalle del viaje.
 
 ### Panel de control — desconectado
 

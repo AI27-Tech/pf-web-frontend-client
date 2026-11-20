@@ -1,10 +1,12 @@
 import { createRouter } from '@tanstack/react-router';
+import { SkeletonCard } from '@ai27-tech/ui';
 import { routeTree } from '@/routeTree.gen';
-import { ErrorState, Spinner } from '@/components/ui/Feedback';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 export const router = createRouter({
   routeTree,
-  defaultPendingComponent: () => <Spinner />,
+  defaultPendingComponent: () => <SkeletonCard lines={4} />,
+  defaultPendingMs: 150,
   defaultErrorComponent: ({ error }) => <ErrorState error={error} />,
   // Sin datos precargados por hover: el usuario paga las peticiones que provoca.
   defaultPreload: false,

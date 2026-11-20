@@ -17,14 +17,43 @@
  *   - Cuando coexisten varios casos, un selector mínimo identificado SOLO por fecha/hora
  *     elige a cuál caso va la nota. Con un solo caso, no hay selector.
  *
+ * Regla de activación: SOLO con el viaje en recorrido (`EN_TRANSITO`, `EN_DESTINO` o
+ * `EN_DESCARGA`; no `EN_EMBARQUE`) y SIN un caso previo sin resolver
+ * (`abierta` o `en_atencion`); otra emergencia se activa hasta que la anterior esté `resuelta`.
+ * Fuera de esa regla el botón no se ofrece (se explica por qué) y la lista de casos y las notas
+ * siguen disponibles. El `bff`
+ * aplica la misma regla con un 409: si el estado cambió entre el último polling y el clic,
+ * la activación falla con un aviso claro en vez del error genérico.
+ *
  * Fuera de alcance V1: sin ubicación en el payload; la activación no crea incidencia ni
  * condición; las notas son unidireccionales (no hay conversación dentro del caso).
  */
 
 import { useMemo, useState } from 'react';
-import { Button, Card, CardBody, FormField, Modal, Select, Textarea } from '@ai27-tech/ui';
+import { TriangleAlert } from 'lucide-react';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  DescriptionList,
+  EmptyState,
+  Form,
+  FormActions,
+  FormField,
+  Inline,
+  Modal,
+  Section,
+  Select,
+  SkeletonText,
+  Stack,
+  Textarea,
+} from '@ai27-tech/ui';
 import { NOTA_EMERGENCIA_MAX_CHARS } from '@/lib/constants';
-import type { EmergenciaCliente } from '@/lib/contracts';
+import { isApiError } from '@/lib/api/errors';
+import { EstadoViaje, type EmergenciaCliente } from '@/lib/contracts';
 import { formatDateTime } from '@/lib/utils';
 import { useEmergencias } from './useEmergencias';
 
@@ -41,7 +70,36 @@ function etiquetaEstado(estado: EmergenciaCliente['estado']): string {
   }
 }
 
-export function EmergenciaPanel({ viajeId }: { readonly viajeId: string }) {
+/**
+ * Estados del viaje en los que se puede activar una emergencia: el recorrido, es decir
+ * EN_TRANSITO y el bucle de paradas EN_DESTINO y EN_DESCARGA (ADR 19, DEC-013).
+ */
+const ESTADOS_CON_EMERGENCIA: readonly string[] = [
+  EstadoViaje.EnTransito,
+  EstadoViaje.EnDestino,
+  EstadoViaje.EnDescarga,
+];
+
+/**
+ * Mensaje del fallo de activación. Un 409 del `bff` significa que el viaje ya no admite
+ * emergencia (salió del recorrido o terminó); no se ata al `codigo` exacto para no copiar
+ * un literal del contrato que aún no se publica.
+ */
+function mensajeErrorActivacion(error: unknown): string {
+  if (isApiError(error) && error.status === 409) {
+    return 'El viaje ya no admite emergencias en su estado actual, por eso no se pudo activar.';
+  }
+  return 'No pudimos activar la emergencia. Intenta de nuevo.';
+}
+
+export function EmergenciaPanel({
+  viajeId,
+  estadoViaje,
+}: {
+  readonly viajeId: string;
+  /** Estado actual del viaje (hito del seguimiento). Solo el recorrido admite activar. */
+  readonly estadoViaje: string;
+}) {
   const { consulta, activar, agregarNota } = useEmergencias(viajeId);
 
   const [confirmando, setConfirmando] = useState(false);
@@ -50,7 +108,12 @@ export function EmergenciaPanel({ viajeId }: { readonly viajeId: string }) {
   const [avisoNota, setAvisoNota] = useState<string | null>(null);
 
   const casos = useMemo(() => consulta.data?.casos ?? [], [consulta.data]);
+  // `emergencia_activa` = hay algún caso `abierta` o `en_atencion` (ADR 21 §6).
   const emergenciaActiva = consulta.data?.emergencia_activa ?? false;
+  // Se activa solo con el viaje en recorrido Y sin un caso previo sin resolver: otra
+  // emergencia hasta que la anterior esté `resuelta`.
+  const enRecorrido = ESTADOS_CON_EMERGENCIA.includes(estadoViaje);
+  const puedeActivar = enRecorrido && !emergenciaActiva;
 
   // El caso al que va la nota: el seleccionado si existe en la lista, o el único/primero.
   const casoDestino = useMemo(() => {
@@ -85,112 +148,109 @@ export function EmergenciaPanel({ viajeId }: { readonly viajeId: string }) {
     cuerpoRecortado.length >= 1 && cuerpoRecortado.length <= NOTA_EMERGENCIA_MAX_CHARS;
 
   return (
-    <Card variant="outlined" padding="lg" className="border-error/40">
-      <CardBody className="flex flex-col gap-4">
-        <header className="flex flex-wrap items-center justify-between gap-3">
+    <Card variant="outlined" padding="lg">
+      <CardHeader
+        media={<TriangleAlert aria-hidden="true" className="text-error" />}
+        title="Emergencia"
+        subtitle={
+          emergenciaActiva
+            ? 'Hay una emergencia activa en este viaje.'
+            : enRecorrido
+              ? 'Si tu unidad está en riesgo, actívala solo en caso real: notifica de inmediato a la central.'
+              : 'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.'
+        }
+      >
+        {emergenciaActiva && <p>Podrás activar otra cuando la emergencia actual esté resuelta.</p>}
+      </CardHeader>
+      <CardBody>
+        <Stack gap={4}>
+          {/* Siempre visible; deshabilitado fuera del recorrido o con un caso sin resolver. */}
           <div>
-            <h2 className="text-on-surface text-lg font-semibold">Emergencia</h2>
-            <p className="text-on-surface-variant text-sm">
-              {emergenciaActiva
-                ? 'Hay una emergencia activa en este viaje.'
-                : 'Si tu unidad está en riesgo, activa una emergencia.'}
-            </p>
-          </div>
-          <Button variant="danger" onClick={() => setConfirmando(true)} loading={activar.isPending}>
-            Activar emergencia
-          </Button>
-        </header>
-
-        {activar.isError && (
-          <p role="alert" className="text-error text-sm">
-            No pudimos activar la emergencia. Intenta de nuevo.
-          </p>
-        )}
-
-        {casos.length === 0 ? (
-          <p className="text-on-surface-variant text-sm">Sin emergencias en este viaje.</p>
-        ) : (
-          <section aria-labelledby="emergencia-casos" className="flex flex-col gap-3">
-            <h3 id="emergencia-casos" className="text-sm font-semibold">
-              Casos
-            </h3>
-            <ul className="flex flex-col gap-2">
-              {casos.map((caso) => (
-                <li
-                  key={caso.id}
-                  className="bg-error/5 flex items-center justify-between rounded-md px-3 py-2 text-sm"
-                >
-                  {/* Identificado SOLO por fecha/hora + estado: nada interno. */}
-                  <span className="text-on-surface">{formatDateTime(caso.activada_en)}</span>
-                  <span className="text-on-surface-variant text-xs">
-                    {etiquetaEstado(caso.estado)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-
-            <form
-              className="flex flex-col gap-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                enviarNota();
-              }}
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={!puedeActivar}
+              onClick={() => setConfirmando(true)}
+              loading={activar.isPending}
             >
-              {/* Selector SOLO cuando coexisten varios casos. Identifica por fecha/hora. */}
-              {casos.length > 1 && (
-                <FormField label="Caso">
-                  <Select
-                    value={casoDestino?.id ?? ''}
-                    onChange={(event) => setCasoSeleccionado(event.target.value)}
-                    aria-label="Caso de emergencia"
-                  >
-                    {casos.map((caso) => (
-                      <option key={caso.id} value={caso.id}>
-                        {formatDateTime(caso.activada_en)}
-                      </option>
-                    ))}
-                  </Select>
-                </FormField>
-              )}
+              Activar emergencia
+            </Button>
+          </div>
+          {activar.isError && (
+            <Alert variant="danger">{mensajeErrorActivacion(activar.error)}</Alert>
+          )}
 
-              <FormField label="Nota (opcional)">
-                <Textarea
-                  value={nota}
-                  onChange={(event) => setNota(event.target.value)}
-                  rows={3}
-                  maxLength={NOTA_EMERGENCIA_MAX_CHARS}
-                  placeholder="Describe la situación (opcional)"
-                  aria-label="Nota de emergencia"
+          {consulta.isPending ? (
+            <SkeletonText lines={2} />
+          ) : casos.length === 0 ? (
+            <EmptyState size="sm" title="Sin emergencias en este viaje." />
+          ) : (
+            <Section title="Casos">
+              <Stack gap={3}>
+                {/* Identificado SOLO por fecha/hora + estado: nada interno. */}
+                <DescriptionList
+                  columns={1}
+                  orientation="horizontal"
+                  items={casos.map((caso) => ({
+                    label: formatDateTime(caso.activada_en),
+                    value: (
+                      <Badge variant={caso.estado === 'resuelta' ? 'secure' : 'warning'} pill>
+                        {etiquetaEstado(caso.estado)}
+                      </Badge>
+                    ),
+                  }))}
                 />
-              </FormField>
 
-              {avisoNota !== null && (
-                <p role="alert" className="text-error text-sm">
-                  {avisoNota}
-                </p>
-              )}
-              {agregarNota.isError && (
-                <p role="alert" className="text-error text-sm">
-                  No pudimos guardar la nota. Intenta de nuevo.
-                </p>
-              )}
-
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-on-surface-variant text-xs">
-                  {cuerpoRecortado.length}/{NOTA_EMERGENCIA_MAX_CHARS}
-                </span>
-                <Button
-                  type="submit"
-                  variant="secondary"
-                  loading={agregarNota.isPending}
-                  disabled={!notaEnviable}
+                <Form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    enviarNota();
+                  }}
                 >
-                  Agregar nota
-                </Button>
-              </div>
-            </form>
-          </section>
-        )}
+                  {/* Selector SOLO cuando coexisten varios casos. Identifica por fecha/hora. */}
+                  {casos.length > 1 && (
+                    <FormField label="Caso de emergencia">
+                      <Select
+                        value={casoDestino?.id ?? ''}
+                        onChange={(valor) => setCasoSeleccionado(String(valor))}
+                        options={casos.map((caso) => ({
+                          value: caso.id,
+                          label: formatDateTime(caso.activada_en),
+                        }))}
+                      />
+                    </FormField>
+                  )}
+
+                  <FormField label="Nota de emergencia" showOptional error={avisoNota ?? undefined}>
+                    <Textarea
+                      value={nota}
+                      onChange={(event) => setNota(event.target.value)}
+                      rows={3}
+                      maxLength={NOTA_EMERGENCIA_MAX_CHARS}
+                      showCount
+                      placeholder="Describe la situación (opcional)"
+                    />
+                  </FormField>
+
+                  {agregarNota.isError && (
+                    <Alert variant="danger">No pudimos guardar la nota. Intenta de nuevo.</Alert>
+                  )}
+
+                  <FormActions>
+                    <Button
+                      type="submit"
+                      variant="secondary"
+                      loading={agregarNota.isPending}
+                      disabled={!notaEnviable}
+                    >
+                      Agregar nota
+                    </Button>
+                  </FormActions>
+                </Form>
+              </Stack>
+            </Section>
+          )}
+        </Stack>
       </CardBody>
 
       <Modal
@@ -198,17 +258,17 @@ export function EmergenciaPanel({ viajeId }: { readonly viajeId: string }) {
         onClose={() => setConfirmando(false)}
         title="Activar emergencia"
         footer={
-          <div className="flex justify-end gap-3">
+          <Inline gap={3} justify="end">
             <Button variant="ghost" onClick={() => setConfirmando(false)}>
               Cancelar
             </Button>
             <Button variant="danger" onClick={confirmarActivacion} loading={activar.isPending}>
               Activar ahora
             </Button>
-          </div>
+          </Inline>
         }
       >
-        <p className="text-on-surface text-sm">
+        <p>
           Se activará una emergencia para este viaje y el equipo de AI27 será notificado de
           inmediato. ¿Quieres continuar?
         </p>

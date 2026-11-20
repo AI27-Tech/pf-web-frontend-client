@@ -1,21 +1,14 @@
 /*
  * HistorialViajesTable: la tabla del Historial de Viajes.
  *
- * Presentacional: recibe las filas por props y no llama a la API. Usa el componente
- * `FilterTable` de `@ai27-tech/ui` —la pieza del design system pensada para "tabla con
- * barra de filtros"— que compone en un solo bloque la toolbar (busqueda + selects de
- * filtro + accion) y la `Table`. Antes esto se armaba a mano con `Form`/`FormField`
- * mas una tabla aparte, y el layout no seguia el sistema.
+ * Presentacional: recibe las filas por props y no llama a la API. Usa `FilterTable` de
+ * `@ai27-tech/ui`, que compone la barra de filtros (`FilterBar` con su `Select`) y la
+ * `Table` en un solo bloque, y `Pagination` debajo. No se les cambia el aspecto desde aquí.
  *
  * FILTRO POR ESTADO: cableado (E9-T3 / AI27-22). El select de estado navega con un
  * search param de la ruta; el `loader` lo lee con `loaderDeps` y bff devuelve la
  * pagina ya filtrada. El filtrado es del SERVIDOR: la lista completa no vive en el
  * navegador. `estado` es el UNICO filtro que el contrato `listarViajes` soporta hoy.
- *
- * Lo que el contrato NO soporta se queda deshabilitado y honesto: el rango de fechas
- * (opciones deshabilitadas) y la busqueda de texto (no se renderiza). No se cablean.
- * El "Exportar CSV" (fuera de alcance V1, DEC-023) vive deshabilitado en el
- * encabezado (HistorialHeader), no en esta toolbar.
  *
  * TODO(contracts): la PAGINACION sigue siendo estado de UI que recorta en cliente
  * sobre la pagina que bff devolvio. El contrato expone `cursor`, pero mover la
@@ -23,62 +16,43 @@
  * filtro por estado. La lista completa no debe acumularse en el navegador.
  */
 
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Card, CardBody, FilterTable, Pagination, type Column } from '@ai27-tech/ui';
+import { Truck } from 'lucide-react';
+import {
+  EmptyState,
+  FilterTable,
+  Pagination,
+  Stack,
+  type Column,
+  type FilterDefinition,
+  type SelectOption,
+} from '@ai27-tech/ui';
 import {
   EstadoViaje,
   type EstadoViaje as EstadoViajeTipo,
   type ViajeResumen,
 } from '@/lib/contracts';
-import { EmptyState } from '@/components/ui/Feedback';
 import { EstadoViajeChip } from '@/features/viajes/EstadoViajeChip';
-
-/** Registros por pagina del historial. */
-const PAGE_SIZE = 3;
+import { conservarFiltro } from '@/features/viajes/filtroEstado';
 
 /**
- * Padding de las celdas, mas holgado que el default del design system, expresado con
- * los tokens de espaciado de la libreria para seguir su escala (mismo criterio que la
- * tabla del panel).
+ * Registros por página del historial.
  */
-const cellPadding = {
-  '--ui-table-cell-x': 'var(--ui-space-3, 0.75rem)',
-  '--ui-table-cell-y': 'var(--ui-space-2, 0.5rem)',
-} as CSSProperties;
+export const HISTORIAL_PAGE_SIZE = 10;
+const OPCIONES_ESTADO: SelectOption[] = [
+  { value: EstadoViaje.Solicitado, label: 'Solicitado' },
+  { value: EstadoViaje.EnTransito, label: 'En tránsito' },
+  { value: EstadoViaje.Cerrado, label: 'Cerrado' },
+  { value: EstadoViaje.Cancelado, label: 'Cancelado' },
+];
 
-/*
- * Los filtros de la toolbar, declarativos. Placeholder = nombre accesible del select.
- *
- * `estado` es el UNICO que el contrato soporta y el unico cableado: al cambiarlo se
- * navega con el nuevo search param y bff devuelve la pagina ya filtrada. Las opciones
- * distinguen "en curso" (SOLICITADO, EN_TRANSITO) de "cerrado" (CERRADO), mas CANCELADO.
- *
- * `range` (rango de fechas) NO lo soporta el contrato: se deja visible pero inerte,
- * con todas sus opciones deshabilitadas y un placeholder que lo explica. No navega.
- */
-const FILTRO_ESTADO_KEY = 'estado';
-
-const filtros = [
+const FILTROS: FilterDefinition[] = [
   {
-    key: 'range',
-    placeholder: 'Rango de fechas (no disponible)',
-    options: [
-      { value: '7d', label: 'Ultimos 7 dias', disabled: true },
-      { value: '30d', label: 'Ultimos 30 dias', disabled: true },
-      { value: '90d', label: 'Ultimos 90 dias', disabled: true },
-    ],
-  },
-  {
-    key: FILTRO_ESTADO_KEY,
-    placeholder: 'Estado',
-    options: [
-      { value: '', label: 'Todos los estados' },
-      { value: EstadoViaje.Solicitado, label: 'Solicitado' },
-      { value: EstadoViaje.EnTransito, label: 'En tránsito' },
-      { value: EstadoViaje.Cerrado, label: 'Cerrado' },
-      { value: EstadoViaje.Cancelado, label: 'Cancelado' },
-    ],
+    key: 'estado',
+    label: 'Estado',
+    placeholder: 'Todos los estados',
+    options: OPCIONES_ESTADO,
   },
 ];
 
@@ -87,134 +61,127 @@ const filtros = [
  * columnas Folio/Fecha, Ruta (destino/sitios), Vehículo/Conductor y Reporte de
  * Seguridad se retiraron: el contrato no las define. Volverán cuando el contrato las
  * publique. Ver docs/decisiones/2026-recorte-al-contrato-bff.md.
+ *
+ * Es función del filtro activo: el enlace al detalle lleva el `estado` del historial para
+ * que volver al historial regrese al mismo listado filtrado.
  */
-const columns: readonly Column<ViajeResumen>[] = [
-  {
-    key: 'id',
-    header: 'ID',
-    cell: (viaje) => (
-      <Link
-        to="/viajes/$viajeId"
-        params={{ viajeId: viaje.id }}
-        className="text-primary font-semibold hover:underline"
-      >
-        {viaje.id}
-      </Link>
-    ),
-  },
-  {
-    key: 'origen',
-    header: 'Origen',
-    cell: (viaje) => <span className="text-on-surface">{viaje.origen}</span>,
-  },
-  {
-    key: 'estado',
-    header: 'Estado',
-    cell: (viaje) => <EstadoViajeChip estado={viaje.estado} />,
-  },
-];
+function crearColumnas(estado: EstadoViajeTipo | undefined): Column<ViajeResumen>[] {
+  return [
+    {
+      key: 'id',
+      header: 'ID',
+      cell: (viaje) => (
+        <Link
+          to="/viajes/$viajeId"
+          params={{ viajeId: viaje.id }}
+          search={conservarFiltro(estado)}
+          onClick={(evento) => evento.stopPropagation()}
+          className="text-primary font-semibold hover:underline"
+        >
+          {viaje.id}
+        </Link>
+      ),
+    },
+    { key: 'origen', header: 'Origen', accessor: 'origen' },
+    {
+      key: 'estado',
+      header: 'Estado',
+      cell: (viaje) => <EstadoViajeChip estado={viaje.estado} />,
+    },
+  ];
+}
 
 export function HistorialViajesTable({
   viajes,
   estado,
+  cargando = false,
 }: {
   readonly viajes: readonly ViajeResumen[];
   /** Estado seleccionado hoy (viene del search param de la ruta). Vacio = todos. */
   readonly estado?: EstadoViajeTipo | undefined;
+  readonly cargando?: boolean;
 }) {
   const [page, setPage] = useState(1);
   const navigate = useNavigate();
 
-  // El valor del select de estado lo manda el search param, no un useState local:
-  // la URL es la fuente de verdad del filtro (patron de `login.tsx`). El rango de
-  // fechas queda inerte (opciones deshabilitadas), asi que su valor no importa.
-  const filterValues: Record<string, string> = { estado: estado ?? '' };
-
   /*
    * Cambiar el select de estado navega con el nuevo search param. `''` = todos, asi
    * que se limpia el search param. El loader re-corre por `loaderDeps` y bff devuelve
-   * la pagina ya filtrada: el filtrado es del SERVIDOR, no del navegador. El `range`
-   * no esta cableado (sus opciones estan deshabilitadas); si llegara, se ignora.
+   * la pagina ya filtrada: el filtrado es del SERVIDOR, no del navegador.
    */
-  function onFilterChange(key: string, value: string) {
-    if (key !== FILTRO_ESTADO_KEY) return;
+  function onEstadoChange(_clave: string, valor: string) {
     void navigate({
       to: '/viajes',
-      search: value === '' ? {} : { estado: value as EstadoViajeTipo },
+      search: valor === '' ? {} : { estado: valor as EstadoViajeTipo },
     });
     // Al cambiar el filtro, volver a la primera pagina del nuevo resultado.
     setPage(1);
   }
 
+  function limpiarFiltros() {
+    void navigate({ to: '/viajes', search: {} });
+    setPage(1);
+  }
+
   // Sin viajes Y sin filtro activo: la cuenta no tiene viajes. No hay nada que
-  // filtrar, asi que se muestra el vacio sin la toolbar.
-  if (viajes.length === 0 && estado === undefined) {
+  // filtrar, asi que se muestra el vacio sin la barra de filtros.
+  if (!cargando && viajes.length === 0 && estado === undefined) {
     return (
-      <EmptyState title="No hay viajes en el historial">
-        Cuando se registren viajes apareceran aqui.
-      </EmptyState>
+      <EmptyState
+        icon={<Truck />}
+        title="No hay viajes en el historial"
+        description="Cuando se registren viajes aparecerán aquí."
+      />
     );
   }
 
   // La pagina se acota al rango valido: si la lista encoge, no se queda una pagina
   // fuera de rango pintando un cuerpo vacio.
-  const totalPages = Math.max(1, Math.ceil(viajes.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(viajes.length / HISTORIAL_PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const visibleRows = viajes.slice(start, start + PAGE_SIZE);
+  const start = (currentPage - 1) * HISTORIAL_PAGE_SIZE;
+  const visibleRows = viajes.slice(start, start + HISTORIAL_PAGE_SIZE);
 
   return (
-    <Card
-      variant="outlined"
-      padding="lg"
-      className="flex h-full min-h-0 flex-col overflow-hidden"
-      style={cellPadding}
-    >
-      {/* `CardBody` aplica el padding de la prop (`--card-pad`) y crece para llenar la
-          altura; se restablece el `padding-top` que la libreria reduce al asumir un
-          `CardHeader`. Con `padding="none"` el cuerpo quedaba pegado al borde. */}
-      <CardBody className="flex h-full min-h-0 flex-col gap-4 pt-[var(--card-pad)]">
-        <div className="min-h-0 flex-1 overflow-auto">
-          {/* La toolbar se muestra siempre, aun con un filtro sin resultados: de otro
-              modo el usuario quedaria atrapado en un filtro vacio sin volver a "todos". */}
-          <FilterTable
-            // Toolbar del design system: solo el filtro por estado. No hay boton de
-            // accion: el cambio de estado navega al instante (no hay un "Filtrar" que
-            // pulsar). "Exportar CSV" ya vive, deshabilitado, en el encabezado
-            // (HistorialHeader): no se duplica aqui. La busqueda de texto NO se cablea
-            // —`listarViajes` no la soporta—, asi que se omite `onSearchChange` y el
-            // `FilterTable` no pinta un cuadro de busqueda inerte.
-            filters={filtros}
-            filterValues={filterValues}
-            onFilterChange={onFilterChange}
-            // El conteo lo muestra la `Pagination` de abajo ("X–Y of Z"); evitar duplicarlo.
-            hideCount
-            aria-label="Historial de viajes de tu cuenta, con su origen y estado"
-            columns={[...columns]}
-            data={[...visibleRows]}
-            rowKey={(viaje) => viaje.id}
-            // Filtro activo sin coincidencias: el `emptyState` de la propia tabla lo
-            // explica, sin un segundo bloque de vacio y sin perder la toolbar.
-            emptyState={
-              <EmptyState title="Sin resultados">
-                Ningun viaje coincide con el estado seleccionado.
-              </EmptyState>
-            }
-            className="min-w-[32rem]"
+    <Stack gap={4}>
+      <FilterTable
+        aria-label="Historial de viajes de tu cuenta, con su origen y estado"
+        columns={crearColumnas(estado)}
+        data={[...visibleRows]}
+        rowKey={(viaje) => viaje.id}
+        loading={cargando}
+        loadingRows={HISTORIAL_PAGE_SIZE}
+        onRowClick={(viaje) =>
+          void navigate({
+            to: '/viajes/$viajeId',
+            params: { viajeId: viaje.id },
+            search: conservarFiltro(estado),
+          })
+        }
+        filters={FILTROS}
+        filterValues={{ estado: estado ?? '' }}
+        onFilterChange={onEstadoChange}
+        onClear={limpiarFiltros}
+        // El conteo lo da `Pagination`; `FilterTable` no repite uno propio.
+        hideCount
+        // Filtro activo sin coincidencias: el `emptyState` de la propia tabla lo
+        // explica, sin un segundo bloque de vacio y sin perder la barra de filtros.
+        emptyState={
+          <EmptyState
+            size="sm"
+            title="Sin resultados"
+            description="Ningún viaje coincide con el estado seleccionado."
           />
-        </div>
-
-        {/* Sin filas no hay paginas que recorrer: la `Pagination` se oculta. */}
-        {viajes.length > 0 && (
-          <Pagination
-            className="mt-auto"
-            page={currentPage}
-            pageSize={PAGE_SIZE}
-            total={viajes.length}
-            onPageChange={setPage}
-          />
-        )}
-      </CardBody>
-    </Card>
+        }
+      />
+      {!cargando && viajes.length > 0 && (
+        <Pagination
+          page={currentPage}
+          pageSize={HISTORIAL_PAGE_SIZE}
+          total={viajes.length}
+          onPageChange={setPage}
+        />
+      )}
+    </Stack>
   );
 }

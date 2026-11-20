@@ -3,6 +3,8 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
+import { EmptyState, PageHeader, Stack } from '@ai27-tech/ui';
+import { Settings } from 'lucide-react';
 
 export const Route = createFileRoute('/_private/configuracion/')({
   component: ConfiguracionPage,
@@ -10,9 +12,9 @@ export const Route = createFileRoute('/_private/configuracion/')({
 
 function ConfiguracionPage() {
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-semibold">Configuración</h1>
-      <p className="text-on-surface-variant text-sm">Esta seccion esta en construccion.</p>
-    </div>
+    <Stack gap={4}>
+      <PageHeader title="Configuración" />
+      <EmptyState icon={<Settings />} title="Esta sección está en construcción." />
+    </Stack>
   );
 }

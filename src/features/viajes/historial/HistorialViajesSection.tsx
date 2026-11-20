@@ -2,30 +2,32 @@
  * HistorialViajesSection: la `*Section` del Historial de Viajes.
  *
  * Presentacional: recibe los viajes por props y NO llama a la API. El fetch lo hace el
- * `loader` de la ruta, que es la frontera. Aqui solo hay composicion: encabezado y la
- * tabla, que ya trae su propia barra de filtros (el `FilterTable` del design system).
+ * `loader` de la ruta, que es la frontera. Aqui solo hay composicion: encabezado y el
+ * listado (filtros, tabla y paginacion).
  *
  */
 
+import { PageHeader, Stack } from '@ai27-tech/ui';
 import type { EstadoViaje, ViajeResumen } from '@/lib/contracts';
-import { HistorialHeader } from './HistorialHeader';
 import { HistorialViajesTable } from './HistorialViajesTable';
 
 export function HistorialViajesSection({
   viajes,
   estado,
+  cargando = false,
 }: {
   readonly viajes: readonly ViajeResumen[];
   /** Estado seleccionado hoy, leido del search param de la ruta. */
   readonly estado?: EstadoViaje | undefined;
+  readonly cargando?: boolean;
 }) {
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-6">
-      <HistorialHeader />
-      {/* La tabla absorbe el alto sobrante: crece hasta el borde inferior del area. */}
-      <div className="min-h-0 flex-1">
-        <HistorialViajesTable viajes={viajes} estado={estado} />
-      </div>
-    </div>
+    <Stack gap={6}>
+      <PageHeader
+        title="Historial de Viajes"
+        description="Consulta los registros detallados de todas las operaciones logísticas y reportes de seguridad asociados."
+      />
+      <HistorialViajesTable viajes={viajes} estado={estado} cargando={cargando} />
+    </Stack>
   );
 }

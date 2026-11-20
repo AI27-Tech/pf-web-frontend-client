@@ -14,7 +14,7 @@
  * que llame a la función de API correspondiente, y volver a enlazarla desde el detalle.
  */
 
-import { EmptyState } from '@/components/ui/Feedback';
+import { EmptyState } from '@ai27-tech/ui';
 import { formatDateTime } from '@/lib/utils';
 
 /** Entrada de bitácora visible al cliente. Tipo LOCAL provisional (fuera del contrato). */

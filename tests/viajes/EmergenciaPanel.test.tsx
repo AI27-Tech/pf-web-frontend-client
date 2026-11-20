@@ -16,6 +16,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { ApiError } from '@/lib/api/errors';
+import { ESTADOS_VIAJE, EstadoViaje } from '@/lib/contracts';
 import type { EmergenciaCliente, EmergenciasCliente } from '@/lib/contracts';
 
 const listEmergencias = vi.fn();
@@ -28,6 +30,11 @@ vi.mock('@/lib/api/emergencias', () => ({
 }));
 
 const { EmergenciaPanel } = await import('@/features/viajes/EmergenciaPanel');
+
+async function selectorDeCaso(): Promise<HTMLElement> {
+  const boton = await screen.findByRole('button', { name: 'Caso de emergencia' });
+  return boton.parentElement as HTMLElement;
+}
 const { renderConQuery } = await import('../support/query');
 
 function vista(
@@ -58,36 +65,37 @@ afterEach(() => vi.restoreAllMocks());
 
 describe('EmergenciaPanel — estados de la lista (E9-T9)', () => {
   it('sin emergencias: muestra el vacío y ninguna lista de casos', async () => {
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
 
     expect(await screen.findByText('Sin emergencias en este viaje.')).toBeInTheDocument();
-    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Casos' })).not.toBeInTheDocument();
     // El botón de activar está disponible aunque no haya casos.
     expect(screen.getByRole('button', { name: 'Activar emergencia' })).toBeEnabled();
   });
 
   it('emergencia activa: refleja el indicador agregado', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO]));
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
 
     expect(await screen.findByText('Hay una emergencia activa en este viaje.')).toBeInTheDocument();
-    expect(screen.getByRole('listitem')).toHaveTextContent('En atención');
+    expect(screen.getByRole('region', { name: 'Casos' })).toHaveTextContent('En atención');
   });
 
   it('un solo caso: NO muestra el selector de caso', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO]));
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
 
-    await screen.findByRole('listitem');
-    expect(screen.queryByLabelText('Caso de emergencia')).not.toBeInTheDocument();
+    await screen.findByRole('region', { name: 'Casos' });
+    expect(screen.queryByRole('button', { name: 'Caso de emergencia' })).not.toBeInTheDocument();
   });
 
   it('varios casos: ofrece un selector identificado SOLO por fecha/hora', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO, CASO_RESUELTO]));
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
 
-    const selector = await screen.findByLabelText('Caso de emergencia');
-    const opciones = within(selector as HTMLElement).getAllByRole('option');
+    const selector = await selectorDeCaso();
+    await userEvent.click(within(selector).getAllByRole('button')[0] as HTMLElement);
+    const opciones = within(selector).getAllByRole('button').slice(1);
     expect(opciones).toHaveLength(2);
     // Las opciones solo llevan fecha/hora: ni id, ni estado, ni nada interno.
     for (const opcion of opciones) {
@@ -103,7 +111,7 @@ describe('EmergenciaPanel — activación idempotente (E9-T9)', () => {
       Promise.resolve({ id: 'emg-x', estado: 'abierta', activada_en: 'x', ...entrada }),
     );
     const user = userEvent.setup();
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
     await screen.findByText('Sin emergencias en este viaje.');
 
     // Pulsación 1: abrir el diálogo y confirmar.
@@ -129,19 +137,109 @@ describe('EmergenciaPanel — activación idempotente (E9-T9)', () => {
   });
 });
 
+describe('EmergenciaPanel — solo se activa durante el recorrido', () => {
+  const RECORRIDO: readonly string[] = [
+    EstadoViaje.EnTransito,
+    EstadoViaje.EnDestino,
+    EstadoViaje.EnDescarga,
+  ];
+  const FUERA_DEL_RECORRIDO = ESTADOS_VIAJE.filter((estado) => !RECORRIDO.includes(estado));
+
+  it.each(FUERA_DEL_RECORRIDO)(
+    '%s: el botón se ve, deshabilitado, y se explica por qué',
+    async (estado) => {
+      renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={estado} />);
+      expect(await screen.findByText('Sin emergencias en este viaje.')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Activar emergencia' })).toBeDisabled();
+      expect(
+        screen.getByText(
+          'La emergencia solo se puede activar durante el recorrido: en tránsito, en destino o en descarga.',
+        ),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it.each(RECORRIDO)('%s: el botón está habilitado', async (estado) => {
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={estado} />);
+    expect(await screen.findByRole('button', { name: 'Activar emergencia' })).toBeEnabled();
+  });
+
+  it('fuera del recorrido conserva los casos y las notas de un caso existente', async () => {
+    listEmergencias.mockResolvedValue(vista([CASO_ACTIVO]));
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={EstadoViaje.EnEmbarque} />);
+    await screen.findByRole('region', { name: 'Casos' });
+    expect(screen.getByLabelText(/Nota de emergencia/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Activar emergencia' })).toBeDisabled();
+  });
+
+  it('un 409 del bff al activar muestra el aviso de que ya no admite emergencias', async () => {
+    activarEmergencia.mockRejectedValue(
+      new ApiError('conflicto', 'POST /viajes/viaje-1/emergencias respondió 409', 409, null),
+    );
+    const user = userEvent.setup();
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje={EstadoViaje.EnTransito} />);
+    await user.click(await screen.findByRole('button', { name: 'Activar emergencia' }));
+    await user.click(screen.getByRole('button', { name: 'Activar ahora' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('El viaje ya no admite emergencias');
+  });
+});
+
+describe('EmergenciaPanel — otra emergencia solo cuando la anterior está resuelta', () => {
+  const BOTON = { name: 'Activar emergencia' };
+  const AVISO = 'Podrás activar otra cuando la emergencia actual esté resuelta.';
+
+  it.each(['abierta', 'en_atencion'] as const)(
+    'con un caso %s el botón queda deshabilitado y se explica',
+    async (estado) => {
+      listEmergencias.mockResolvedValue(vista([{ ...CASO_ACTIVO, estado }]));
+      renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
+      await screen.findByRole('region', { name: 'Casos' });
+      expect(screen.getByRole('button', BOTON)).toBeDisabled();
+      expect(screen.getByText(AVISO)).toBeInTheDocument();
+    },
+  );
+
+  it('con todos los casos resueltos vuelve a habilitar activar', async () => {
+    listEmergencias.mockResolvedValue(vista([CASO_RESUELTO]));
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
+    await screen.findByRole('region', { name: 'Casos' });
+    expect(screen.getByRole('button', BOTON)).toBeEnabled();
+    expect(screen.queryByText(AVISO)).not.toBeInTheDocument();
+  });
+
+  it('con un caso resuelto y otro en atención sigue deshabilitado', async () => {
+    listEmergencias.mockResolvedValue(vista([CASO_ACTIVO, CASO_RESUELTO]));
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
+    await screen.findByRole('region', { name: 'Casos' });
+    expect(screen.getByRole('button', BOTON)).toBeDisabled();
+  });
+
+  it('al resolverse el caso activo, el botón se habilita al refrescar la lista', async () => {
+    listEmergencias.mockResolvedValueOnce(vista([CASO_ACTIVO]));
+    const { client } = renderConQuery(
+      <EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />,
+    );
+    await screen.findByRole('region', { name: 'Casos' });
+    expect(screen.getByRole('button', BOTON)).toBeDisabled();
+    listEmergencias.mockResolvedValue(vista([{ ...CASO_ACTIVO, estado: 'resuelta' }]));
+    await client.invalidateQueries({ queryKey: ['emergencias', 'viaje-1'] });
+    await waitFor(() => expect(screen.getByRole('button', BOTON)).toBeEnabled());
+  });
+});
+
 describe('EmergenciaPanel — notas (E9-T9)', () => {
   it('una nota vacía o de solo espacios NO se envía', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO]));
     const user = userEvent.setup();
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
-    await screen.findByRole('listitem');
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
+    await screen.findByRole('region', { name: 'Casos' });
 
     const agregar = screen.getByRole('button', { name: 'Agregar nota' });
     // Vacío: el botón está deshabilitado y no se envía nada.
     expect(agregar).toBeDisabled();
 
     // Solo espacios: sigue sin enviarse (el recorte lo deja vacío).
-    await user.type(screen.getByLabelText('Nota de emergencia'), '    ');
+    await user.type(screen.getByLabelText(/Nota de emergencia/), '    ');
     expect(agregar).toBeDisabled();
     expect(agregarNotaEmergencia).not.toHaveBeenCalled();
   });
@@ -149,10 +247,10 @@ describe('EmergenciaPanel — notas (E9-T9)', () => {
   it('una nota con texto se envía recortada al caso destino', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO]));
     const user = userEvent.setup();
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
-    await screen.findByRole('listitem');
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
+    await screen.findByRole('region', { name: 'Casos' });
 
-    await user.type(screen.getByLabelText('Nota de emergencia'), '  unidad detenida  ');
+    await user.type(screen.getByLabelText(/Nota de emergencia/), '  unidad detenida  ');
     await user.click(screen.getByRole('button', { name: 'Agregar nota' }));
 
     await waitFor(() => expect(agregarNotaEmergencia).toHaveBeenCalledTimes(1));
@@ -164,10 +262,10 @@ describe('EmergenciaPanel — notas (E9-T9)', () => {
   it('una nota de 1000 caracteres (el límite) se envía; el textarea no acepta más', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO]));
     const user = userEvent.setup();
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
-    await screen.findByRole('listitem');
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
+    await screen.findByRole('region', { name: 'Casos' });
 
-    const textarea = screen.getByLabelText('Nota de emergencia') as HTMLTextAreaElement;
+    const textarea = screen.getByLabelText(/Nota de emergencia/) as HTMLTextAreaElement;
     // El atributo maxLength impide capturar más de 1000: tope de captura y de envío.
     expect(textarea).toHaveAttribute('maxlength', '1000');
 
@@ -185,12 +283,13 @@ describe('EmergenciaPanel — notas (E9-T9)', () => {
   it('con varios casos, la nota va al caso SELECCIONADO', async () => {
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO, CASO_RESUELTO]));
     const user = userEvent.setup();
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
 
-    const selector = await screen.findByLabelText('Caso de emergencia');
-    await user.selectOptions(selector, 'emg-2');
+    const selector = await selectorDeCaso();
+    await user.click(within(selector).getAllByRole('button')[0] as HTMLElement);
+    await user.click(within(selector).getAllByRole('button')[2] as HTMLElement);
 
-    await user.type(screen.getByLabelText('Nota de emergencia'), 'nota al segundo caso');
+    await user.type(screen.getByLabelText(/Nota de emergencia/), 'nota al segundo caso');
     await user.click(screen.getByRole('button', { name: 'Agregar nota' }));
 
     await waitFor(() => expect(agregarNotaEmergencia).toHaveBeenCalledTimes(1));
@@ -205,9 +304,9 @@ describe('EmergenciaPanel — proyección por audiencia (E9-T9, ADR 21 §6)', ()
     // Aunque el servidor devolviera de más, la vista cliente SOLO conoce {id, estado,
     // activada_en}. Afirmamos que el DOM no contiene vocabulario interno.
     listEmergencias.mockResolvedValue(vista([CASO_ACTIVO, CASO_RESUELTO]));
-    renderConQuery(<EmergenciaPanel viajeId="viaje-1" />);
+    renderConQuery(<EmergenciaPanel viajeId="viaje-1" estadoViaje="EN_TRANSITO" />);
 
-    await screen.findAllByRole('listitem');
+    await screen.findByRole('region', { name: 'Casos' });
     const texto = document.body.textContent ?? '';
 
     for (const interno of [
